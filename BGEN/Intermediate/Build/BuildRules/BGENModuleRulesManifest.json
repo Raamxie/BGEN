@@ -1,0 +1,8 @@
+{
+	"SourceFiles": [
+		"C:\\School\\BGEN\\BGEN\\Source\\BGEN\\BGEN.Build.cs",
+		"C:\\School\\BGEN\\BGEN\\Source\\BGEN.Target.cs",
+		"C:\\School\\BGEN\\BGEN\\Source\\BGENEditor.Target.cs"
+	],
+	"EngineVersion": "5.5.4"
+}
