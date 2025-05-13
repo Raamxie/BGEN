@@ -17,7 +17,7 @@ void EmptyLinkFunctionForGeneratedCodeBGEN_init() {}
 				nullptr,
 				0,
 				PKG_CompiledIn | 0x00000000,
-				0xBE94D435,
+				0x77716863,
 				0xB3A44A94,
 				METADATA_PARAMS(0, nullptr)
 			};
@@ -25,5 +25,5 @@ void EmptyLinkFunctionForGeneratedCodeBGEN_init() {}
 		}
 		return Z_Registration_Info_UPackage__Script_BGEN.OuterSingleton;
 	}
-	static FRegisterCompiledInInfo Z_CompiledInDeferPackage_UPackage__Script_BGEN(Z_Construct_UPackage__Script_BGEN, TEXT("/Script/BGEN"), Z_Registration_Info_UPackage__Script_BGEN, CONSTRUCT_RELOAD_VERSION_INFO(FPackageReloadVersionInfo, 0xBE94D435, 0xB3A44A94));
+	static FRegisterCompiledInInfo Z_CompiledInDeferPackage_UPackage__Script_BGEN(Z_Construct_UPackage__Script_BGEN, TEXT("/Script/BGEN"), Z_Registration_Info_UPackage__Script_BGEN, CONSTRUCT_RELOAD_VERSION_INFO(FPackageReloadVersionInfo, 0x77716863, 0xB3A44A94));
 PRAGMA_ENABLE_DEPRECATION_WARNINGS

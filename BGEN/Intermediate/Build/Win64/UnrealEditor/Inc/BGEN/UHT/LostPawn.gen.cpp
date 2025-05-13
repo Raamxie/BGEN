@@ -10,6 +10,7 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 void EmptyLinkFunctionForGeneratedCodeLostPawn() {}
 
 // Begin Cross Module References
+BGEN_API UClass* Z_Construct_UClass_AEvolutionManager_NoRegister();
 BGEN_API UClass* Z_Construct_UClass_ALostPawn();
 BGEN_API UClass* Z_Construct_UClass_ALostPawn_NoRegister();
 ENGINE_API UClass* Z_Construct_UClass_APawn();
@@ -35,6 +36,9 @@ struct Z_Construct_UClass_ALostPawn_Statics
 		{ "IncludePath", "Actors/LostPawn.h" },
 		{ "ModuleRelativePath", "Actors/LostPawn.h" },
 	};
+	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_EvolutionManager_MetaData[] = {
+		{ "ModuleRelativePath", "Actors/LostPawn.h" },
+	};
 	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_SceneRoot_MetaData[] = {
 		{ "Category", "Components" },
 #if !UE_BUILD_SHIPPING
@@ -58,6 +62,7 @@ struct Z_Construct_UClass_ALostPawn_Statics
 #endif
 	};
 #endif // WITH_METADATA
+	static const UECodeGen_Private::FObjectPropertyParams NewProp_EvolutionManager;
 	static const UECodeGen_Private::FObjectPropertyParams NewProp_SceneRoot;
 	static const UECodeGen_Private::FObjectPropertyParams NewProp_MeshComp;
 	static const UECodeGen_Private::FPropertyParamsBase* const PropPointers[];
@@ -67,9 +72,11 @@ struct Z_Construct_UClass_ALostPawn_Statics
 	};
 	static const UECodeGen_Private::FClassParams ClassParams;
 };
+const UECodeGen_Private::FObjectPropertyParams Z_Construct_UClass_ALostPawn_Statics::NewProp_EvolutionManager = { "EvolutionManager", nullptr, (EPropertyFlags)0x0040000000000000, UECodeGen_Private::EPropertyGenFlags::Object, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(ALostPawn, EvolutionManager), Z_Construct_UClass_AEvolutionManager_NoRegister, METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_EvolutionManager_MetaData), NewProp_EvolutionManager_MetaData) };
 const UECodeGen_Private::FObjectPropertyParams Z_Construct_UClass_ALostPawn_Statics::NewProp_SceneRoot = { "SceneRoot", nullptr, (EPropertyFlags)0x00200800000a001d, UECodeGen_Private::EPropertyGenFlags::Object, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(ALostPawn, SceneRoot), Z_Construct_UClass_USceneComponent_NoRegister, METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_SceneRoot_MetaData), NewProp_SceneRoot_MetaData) };
 const UECodeGen_Private::FObjectPropertyParams Z_Construct_UClass_ALostPawn_Statics::NewProp_MeshComp = { "MeshComp", nullptr, (EPropertyFlags)0x00200800000a001d, UECodeGen_Private::EPropertyGenFlags::Object, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(ALostPawn, MeshComp), Z_Construct_UClass_UStaticMeshComponent_NoRegister, METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_MeshComp_MetaData), NewProp_MeshComp_MetaData) };
 const UECodeGen_Private::FPropertyParamsBase* const Z_Construct_UClass_ALostPawn_Statics::PropPointers[] = {
+	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_ALostPawn_Statics::NewProp_EvolutionManager,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_ALostPawn_Statics::NewProp_SceneRoot,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_ALostPawn_Statics::NewProp_MeshComp,
 };
@@ -114,10 +121,10 @@ ALostPawn::~ALostPawn() {}
 struct Z_CompiledInDeferFile_FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_Statics
 {
 	static constexpr FClassRegisterCompiledInInfo ClassInfo[] = {
-		{ Z_Construct_UClass_ALostPawn, ALostPawn::StaticClass, TEXT("ALostPawn"), &Z_Registration_Info_UClass_ALostPawn, CONSTRUCT_RELOAD_VERSION_INFO(FClassReloadVersionInfo, sizeof(ALostPawn), 1408091393U) },
+		{ Z_Construct_UClass_ALostPawn, ALostPawn::StaticClass, TEXT("ALostPawn"), &Z_Registration_Info_UClass_ALostPawn, CONSTRUCT_RELOAD_VERSION_INFO(FClassReloadVersionInfo, sizeof(ALostPawn), 3503295850U) },
 	};
 };
-static FRegisterCompiledInInfo Z_CompiledInDeferFile_FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_1669903362(TEXT("/Script/BGEN"),
+static FRegisterCompiledInInfo Z_CompiledInDeferFile_FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_1679565957(TEXT("/Script/BGEN"),
 	Z_CompiledInDeferFile_FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_Statics::ClassInfo, UE_ARRAY_COUNT(Z_CompiledInDeferFile_FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_Statics::ClassInfo),
 	nullptr, 0,
 	nullptr, 0);

@@ -11,29 +11,42 @@ class BGEN_API AEvolutionManager : public AActor
 {
 	GENERATED_BODY()
 	TMap<int, int> FinishedActors;
-	void CalculateFitness() const;
+	void CalculateFitness();
+	void SpawnActors();
+	void DestroyActors();
+	void NextStep();
 	UPROPERTY()
 	TArray<AActor*> SpawnedActors;
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-	void SpawnActors();
+
 
 public:
 	AEvolutionManager();
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-	UPROPERTY(EditAnywhere)
+	// Category: Simulation
+	UPROPERTY(EditAnywhere, Category = "Simulation")
 	int32 SpawnCount = 100;
-	UPROPERTY(EditAnywhere)
-	int32 DistanceFromCenter = 500;
-	UPROPERTY(EditAnywhere)
-	int32 AcceptanceRange = 20;
-	UPROPERTY(EditAnywhere)
-	UStaticMesh* PawnMesh;
-	UPROPERTY(EditAnywhere)
+
+	UPROPERTY(EditAnywhere, Category = "Simulation")
 	float SimulationSpeedMultiplier = 4.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Simulation")
+	float TickSpeed = 0.01f;
+
+	// Category: Placement
+	UPROPERTY(EditAnywhere, Category = "Placement")
+	int32 DistanceFromCenter = 500;
+
+	UPROPERTY(EditAnywhere, Category = "Placement")
+	int32 AcceptanceRange = 20;
+
+	// Category: Visual
+	UPROPERTY(EditAnywhere, Category = "Visual")
+	UStaticMesh* PawnMesh;
 	int GetAcceptanceRange() const;
 	void FinishedTask(int ID, int StepsTaken);
 };

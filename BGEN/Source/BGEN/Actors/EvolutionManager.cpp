@@ -3,6 +3,7 @@
 
 #include "EvolutionManager.h"
 
+#include "AIController.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "LostPawn.h"
 #include "Kismet/GameplayStatics.h"
@@ -21,6 +22,7 @@ AEvolutionManager::AEvolutionManager()
 void AEvolutionManager::BeginPlay()
 {
 	Super::BeginPlay();
+	PrimaryActorTick.TickInterval = TickSpeed;
 	SpawnActors();
 	
 }
@@ -51,8 +53,9 @@ void AEvolutionManager::SpawnActors()
 		SpawnedPawn->SetID(ID);
 		SpawnedPawn->SetMesh(PawnMesh);
 		SpawnedPawn->SetEvolutionManager(this);
+		SpawnedActors.Add(SpawnedPawn);
 	}
-	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 4.0f);
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), SimulationSpeedMultiplier);
 }
 
 void AEvolutionManager::FinishedTask(const int ID, const int StepsTaken)
@@ -66,7 +69,7 @@ void AEvolutionManager::FinishedTask(const int ID, const int StepsTaken)
 	}
 }
 
-void AEvolutionManager::CalculateFitness() const
+void AEvolutionManager::CalculateFitness()
 {
 	int StepsTotal = 0;
 	TArray<int> StepValues;
@@ -81,8 +84,37 @@ void AEvolutionManager::CalculateFitness() const
 	const float Fitness = StepsTotal / SpawnCount;
 
 	UE_LOG(LogTemp, Display, TEXT("Fitness: %f"), Fitness);
-	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.0f);
-	
+	NextStep();
+}
+
+void AEvolutionManager::NextStep()
+{
+	DestroyActors();
+	SpawnCount *= 2;
+	SpawnActors();
+}
+
+void AEvolutionManager::DestroyActors()
+{
+	for (AActor* Actor : SpawnedActors)
+	{
+		if (APawn* Pawn = Cast<APawn>(Actor))
+		{
+			// Get the AI controller
+			if (AAIController* AIController = Cast<AAIController>(Pawn->GetController()))
+			{
+				// Detach and destroy controller
+				Pawn->DetachFromControllerPendingDestroy();
+				AIController->Destroy();
+			}
+		}
+
+		Actor->Destroy();
+	}
+
+	// Clear lists
+	SpawnedActors.Empty();
+	FinishedActors.Empty();
 }
 
 

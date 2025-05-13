@@ -13,6 +13,7 @@ void EmptyLinkFunctionForGeneratedCodeEvolutionManager() {}
 BGEN_API UClass* Z_Construct_UClass_AEvolutionManager();
 BGEN_API UClass* Z_Construct_UClass_AEvolutionManager_NoRegister();
 ENGINE_API UClass* Z_Construct_UClass_AActor();
+ENGINE_API UClass* Z_Construct_UClass_AActor_NoRegister();
 ENGINE_API UClass* Z_Construct_UClass_UStaticMesh_NoRegister();
 UPackage* Z_Construct_UPackage__Script_BGEN();
 // End Cross Module References
@@ -33,24 +34,57 @@ struct Z_Construct_UClass_AEvolutionManager_Statics
 		{ "IncludePath", "Actors/EvolutionManager.h" },
 		{ "ModuleRelativePath", "Actors/EvolutionManager.h" },
 	};
+	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_SpawnedActors_MetaData[] = {
+		{ "ModuleRelativePath", "Actors/EvolutionManager.h" },
+	};
 	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_SpawnCount_MetaData[] = {
-		{ "Category", "EvolutionManager" },
+		{ "Category", "Simulation" },
+#if !UE_BUILD_SHIPPING
+		{ "Comment", "// Category: Simulation\n" },
+#endif
+		{ "ModuleRelativePath", "Actors/EvolutionManager.h" },
+#if !UE_BUILD_SHIPPING
+		{ "ToolTip", "Category: Simulation" },
+#endif
+	};
+	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_SimulationSpeedMultiplier_MetaData[] = {
+		{ "Category", "Simulation" },
+		{ "ModuleRelativePath", "Actors/EvolutionManager.h" },
+	};
+	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_TickSpeed_MetaData[] = {
+		{ "Category", "Simulation" },
 		{ "ModuleRelativePath", "Actors/EvolutionManager.h" },
 	};
 	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_DistanceFromCenter_MetaData[] = {
-		{ "Category", "EvolutionManager" },
+		{ "Category", "Placement" },
+#if !UE_BUILD_SHIPPING
+		{ "Comment", "// Category: Placement\n" },
+#endif
 		{ "ModuleRelativePath", "Actors/EvolutionManager.h" },
+#if !UE_BUILD_SHIPPING
+		{ "ToolTip", "Category: Placement" },
+#endif
 	};
 	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_AcceptanceRange_MetaData[] = {
-		{ "Category", "EvolutionManager" },
+		{ "Category", "Placement" },
 		{ "ModuleRelativePath", "Actors/EvolutionManager.h" },
 	};
 	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_PawnMesh_MetaData[] = {
-		{ "Category", "EvolutionManager" },
+		{ "Category", "Visual" },
+#if !UE_BUILD_SHIPPING
+		{ "Comment", "// Category: Visual\n" },
+#endif
 		{ "ModuleRelativePath", "Actors/EvolutionManager.h" },
+#if !UE_BUILD_SHIPPING
+		{ "ToolTip", "Category: Visual" },
+#endif
 	};
 #endif // WITH_METADATA
+	static const UECodeGen_Private::FObjectPropertyParams NewProp_SpawnedActors_Inner;
+	static const UECodeGen_Private::FArrayPropertyParams NewProp_SpawnedActors;
 	static const UECodeGen_Private::FIntPropertyParams NewProp_SpawnCount;
+	static const UECodeGen_Private::FFloatPropertyParams NewProp_SimulationSpeedMultiplier;
+	static const UECodeGen_Private::FFloatPropertyParams NewProp_TickSpeed;
 	static const UECodeGen_Private::FIntPropertyParams NewProp_DistanceFromCenter;
 	static const UECodeGen_Private::FIntPropertyParams NewProp_AcceptanceRange;
 	static const UECodeGen_Private::FObjectPropertyParams NewProp_PawnMesh;
@@ -61,12 +95,20 @@ struct Z_Construct_UClass_AEvolutionManager_Statics
 	};
 	static const UECodeGen_Private::FClassParams ClassParams;
 };
+const UECodeGen_Private::FObjectPropertyParams Z_Construct_UClass_AEvolutionManager_Statics::NewProp_SpawnedActors_Inner = { "SpawnedActors", nullptr, (EPropertyFlags)0x0000000000000000, UECodeGen_Private::EPropertyGenFlags::Object, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, 0, Z_Construct_UClass_AActor_NoRegister, METADATA_PARAMS(0, nullptr) };
+const UECodeGen_Private::FArrayPropertyParams Z_Construct_UClass_AEvolutionManager_Statics::NewProp_SpawnedActors = { "SpawnedActors", nullptr, (EPropertyFlags)0x0040000000000000, UECodeGen_Private::EPropertyGenFlags::Array, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(AEvolutionManager, SpawnedActors), EArrayPropertyFlags::None, METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_SpawnedActors_MetaData), NewProp_SpawnedActors_MetaData) };
 const UECodeGen_Private::FIntPropertyParams Z_Construct_UClass_AEvolutionManager_Statics::NewProp_SpawnCount = { "SpawnCount", nullptr, (EPropertyFlags)0x0010000000000001, UECodeGen_Private::EPropertyGenFlags::Int, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(AEvolutionManager, SpawnCount), METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_SpawnCount_MetaData), NewProp_SpawnCount_MetaData) };
+const UECodeGen_Private::FFloatPropertyParams Z_Construct_UClass_AEvolutionManager_Statics::NewProp_SimulationSpeedMultiplier = { "SimulationSpeedMultiplier", nullptr, (EPropertyFlags)0x0010000000000001, UECodeGen_Private::EPropertyGenFlags::Float, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(AEvolutionManager, SimulationSpeedMultiplier), METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_SimulationSpeedMultiplier_MetaData), NewProp_SimulationSpeedMultiplier_MetaData) };
+const UECodeGen_Private::FFloatPropertyParams Z_Construct_UClass_AEvolutionManager_Statics::NewProp_TickSpeed = { "TickSpeed", nullptr, (EPropertyFlags)0x0010000000000001, UECodeGen_Private::EPropertyGenFlags::Float, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(AEvolutionManager, TickSpeed), METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_TickSpeed_MetaData), NewProp_TickSpeed_MetaData) };
 const UECodeGen_Private::FIntPropertyParams Z_Construct_UClass_AEvolutionManager_Statics::NewProp_DistanceFromCenter = { "DistanceFromCenter", nullptr, (EPropertyFlags)0x0010000000000001, UECodeGen_Private::EPropertyGenFlags::Int, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(AEvolutionManager, DistanceFromCenter), METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_DistanceFromCenter_MetaData), NewProp_DistanceFromCenter_MetaData) };
 const UECodeGen_Private::FIntPropertyParams Z_Construct_UClass_AEvolutionManager_Statics::NewProp_AcceptanceRange = { "AcceptanceRange", nullptr, (EPropertyFlags)0x0010000000000001, UECodeGen_Private::EPropertyGenFlags::Int, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(AEvolutionManager, AcceptanceRange), METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_AcceptanceRange_MetaData), NewProp_AcceptanceRange_MetaData) };
 const UECodeGen_Private::FObjectPropertyParams Z_Construct_UClass_AEvolutionManager_Statics::NewProp_PawnMesh = { "PawnMesh", nullptr, (EPropertyFlags)0x0010000000000001, UECodeGen_Private::EPropertyGenFlags::Object, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(AEvolutionManager, PawnMesh), Z_Construct_UClass_UStaticMesh_NoRegister, METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_PawnMesh_MetaData), NewProp_PawnMesh_MetaData) };
 const UECodeGen_Private::FPropertyParamsBase* const Z_Construct_UClass_AEvolutionManager_Statics::PropPointers[] = {
+	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_AEvolutionManager_Statics::NewProp_SpawnedActors_Inner,
+	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_AEvolutionManager_Statics::NewProp_SpawnedActors,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_AEvolutionManager_Statics::NewProp_SpawnCount,
+	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_AEvolutionManager_Statics::NewProp_SimulationSpeedMultiplier,
+	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_AEvolutionManager_Statics::NewProp_TickSpeed,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_AEvolutionManager_Statics::NewProp_DistanceFromCenter,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_AEvolutionManager_Statics::NewProp_AcceptanceRange,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_AEvolutionManager_Statics::NewProp_PawnMesh,
@@ -112,10 +154,10 @@ AEvolutionManager::~AEvolutionManager() {}
 struct Z_CompiledInDeferFile_FID_School_BGEN_BGEN_Source_BGEN_Actors_EvolutionManager_h_Statics
 {
 	static constexpr FClassRegisterCompiledInInfo ClassInfo[] = {
-		{ Z_Construct_UClass_AEvolutionManager, AEvolutionManager::StaticClass, TEXT("AEvolutionManager"), &Z_Registration_Info_UClass_AEvolutionManager, CONSTRUCT_RELOAD_VERSION_INFO(FClassReloadVersionInfo, sizeof(AEvolutionManager), 3665060739U) },
+		{ Z_Construct_UClass_AEvolutionManager, AEvolutionManager::StaticClass, TEXT("AEvolutionManager"), &Z_Registration_Info_UClass_AEvolutionManager, CONSTRUCT_RELOAD_VERSION_INFO(FClassReloadVersionInfo, sizeof(AEvolutionManager), 228607279U) },
 	};
 };
-static FRegisterCompiledInInfo Z_CompiledInDeferFile_FID_School_BGEN_BGEN_Source_BGEN_Actors_EvolutionManager_h_2886963810(TEXT("/Script/BGEN"),
+static FRegisterCompiledInInfo Z_CompiledInDeferFile_FID_School_BGEN_BGEN_Source_BGEN_Actors_EvolutionManager_h_1621159915(TEXT("/Script/BGEN"),
 	Z_CompiledInDeferFile_FID_School_BGEN_BGEN_Source_BGEN_Actors_EvolutionManager_h_Statics::ClassInfo, UE_ARRAY_COUNT(Z_CompiledInDeferFile_FID_School_BGEN_BGEN_Source_BGEN_Actors_EvolutionManager_h_Statics::ClassInfo),
 	nullptr, 0,
 	nullptr, 0);
