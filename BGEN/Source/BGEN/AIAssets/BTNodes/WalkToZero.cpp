@@ -5,6 +5,8 @@
 
 #include "Kismet/KismetMathLibrary.h"
 #include "../LostPawnAIController.h"
+#include "BGEN/Actors/EvolutionManager.h"
+#include "BGEN/Actors/LostPawn.h"
 
 
 UWalkToZero::UWalkToZero()
@@ -14,29 +16,45 @@ UWalkToZero::UWalkToZero()
 
 EBTNodeResult::Type UWalkToZero::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-	AAIController* controller = OwnerComp.GetAIOwner();
-	if (!controller)
+	AAIController* Controller = OwnerComp.GetAIOwner();
+	if (!Controller)
 		return EBTNodeResult::Failed;
 
-	APawn* pawn = controller->GetPawn();
-	if (!pawn)
+	APawn* Pawn = Controller->GetPawn();
+	if (!Pawn)
 		return EBTNodeResult::Failed;
+	
+	const FVector CurrentLocation = Pawn->GetActorLocation();
+	const FVector Origin = FVector::ZeroVector;
 
-	FVector currentLocation = pawn->GetActorLocation();
-	FVector origin = FVector::ZeroVector;
+	const float CurrentDist = FVector::Dist(CurrentLocation, Origin);
 
-	float currentDist = FVector::Dist(currentLocation, origin);
-
-	// Generate random unit direction in X/Y plane
-	FVector randomDir = UKismetMathLibrary::RandomUnitVector();
-	randomDir.Z = 0.f;
-	FVector newLocation = currentLocation + randomDir * 300.f; // adjust step size as needed
-
-	float newDist = FVector::Dist(newLocation, origin);
-
-	if (newDist < currentDist)
+	if (ALostPawn* LostPawn = Cast<ALostPawn>(Pawn))
 	{
-		pawn->SetActorLocation(newLocation, true);
+		LostPawn->AddStep();
+		AEvolutionManager* Manager = LostPawn->GetEvolutionManager();
+		if (CurrentDist < Manager->GetAcceptanceRange())
+		{
+			Manager->FinishedTask(LostPawn->GetID(), LostPawn->GetStepsTaken());
+			
+			OwnerComp.StopTree();
+		}
+		
+	}
+	
+	FVector2D Rand2D = FMath::RandPointInCircle(1.0f);
+
+	// Convert to 3D and normalize (to ensure it’s exactly unit-length)
+	FVector RandomDir2D = FVector(Rand2D, 0.0f).GetSafeNormal();
+	const float StepSize = UKismetMathLibrary::RandomFloatInRange(0.5f, 300.f);
+	
+	const FVector NewLocation = CurrentLocation + RandomDir2D * StepSize; // adjust step size as needed
+
+	const float NewDist = FVector::Dist(NewLocation, Origin);
+
+	if (NewDist < CurrentDist)
+	{
+		Pawn->SetActorLocation(NewLocation, true);
 		return EBTNodeResult::Succeeded;
 	}
 

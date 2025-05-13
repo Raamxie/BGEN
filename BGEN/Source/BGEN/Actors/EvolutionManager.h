@@ -10,17 +10,18 @@ UCLASS()
 class BGEN_API AEvolutionManager : public AActor
 {
 	GENERATED_BODY()
-	
-public:	
-	// Sets default values for this actor's properties
-	AEvolutionManager();
+	TMap<int, int> FinishedActors;
+	void CalculateFitness() const;
+	UPROPERTY()
+	TArray<AActor*> SpawnedActors;
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 	void SpawnActors();
 
-public:	
+public:
+	AEvolutionManager();
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 	UPROPERTY(EditAnywhere)
@@ -31,5 +32,8 @@ public:
 	int32 AcceptanceRange = 20;
 	UPROPERTY(EditAnywhere)
 	UStaticMesh* PawnMesh;
-
+	UPROPERTY(EditAnywhere)
+	float SimulationSpeedMultiplier = 4.0f;
+	int GetAcceptanceRange() const;
+	void FinishedTask(int ID, int StepsTaken);
 };

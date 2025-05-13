@@ -40,7 +40,7 @@ void ALostPawn::BeginPlay()
 }
 
 // Called every frame
-void ALostPawn::Tick(float DeltaTime)
+void ALostPawn::Tick(const float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
@@ -53,10 +53,10 @@ void ALostPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 
 }
 
-void ALostPawn::GenerateBehaviourTree()
+void ALostPawn::GenerateBehaviourTree() const
 {
-	AAIController* controller = Cast<AAIController>(GetController());
-	if (!controller)
+	AAIController* AaiController = Cast<AAIController>(GetController());
+	if (!AaiController)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("No AI controller available for %d"), ID);
 		return;
@@ -72,37 +72,37 @@ void ALostPawn::GenerateBehaviourTree()
 	// }
 
 	// Create behavior tree asset dynamically
-	UBehaviorTree* btAsset = NewObject<UBehaviorTree>(GetTransientPackage(), NAME_None, RF_Transient);
+	UBehaviorTree* BTAsset = NewObject<UBehaviorTree>(GetTransientPackage(), NAME_None, RF_Transient);
 
 	// Build root selector
-	auto rootSelector = NewObject<UBTComposite_Selector>(btAsset);
-	btAsset->RootNode = rootSelector;
+	auto RootSelector = NewObject<UBTComposite_Selector>(BTAsset);
+	BTAsset->RootNode = RootSelector;
 	
 
-	auto sequence = NewObject<UBTComposite_Sequence>(btAsset);
+	auto Sequence = NewObject<UBTComposite_Sequence>(BTAsset);
 	{
-		FBTCompositeChild seqChild;
-		seqChild.ChildComposite = sequence;
-		rootSelector->Children.Add(seqChild);
+		FBTCompositeChild SeqChild;
+		SeqChild.ChildComposite = Sequence;
+		RootSelector->Children.Add(SeqChild);
 	}
 	
 
 
-	UBTTask_Wait* waitTask = NewObject<UBTTask_Wait>(btAsset);
-	waitTask->WaitTime = 2.0f;           // pause for 2 seconds
+	UBTTask_Wait* WaitTask = NewObject<UBTTask_Wait>(BTAsset);
+	WaitTask->WaitTime = 2.0f;           // pause for 2 seconds
 
-	FBTCompositeChild waitChild;
-	waitChild.ChildTask = waitTask;
-	sequence->Children.Add(waitChild);
+	FBTCompositeChild WaitChild;
+	WaitChild.ChildTask = WaitTask;
+	Sequence->Children.Add(WaitChild);
 
 	// MoveTo task node
-	UWalkToZero* walkTask = NewObject<UWalkToZero>(btAsset);
-	FBTCompositeChild walkChild;
-	walkChild.ChildTask = walkTask;
-	sequence->Children.Add(walkChild);
+	UWalkToZero* WalkTask = NewObject<UWalkToZero>(BTAsset);
+	FBTCompositeChild WalkChild;
+	WalkChild.ChildTask = WalkTask;
+	Sequence->Children.Add(WalkChild);
 	
 
-	controller->RunBehaviorTree(btAsset);
+	AaiController->RunBehaviorTree(BTAsset);
 }
 
 void ALostPawn::SetID(const int NewID)
@@ -111,10 +111,36 @@ void ALostPawn::SetID(const int NewID)
 	UE_LOG(LogTemp, Display, TEXT("Lost Pawn %d has spawned"), ID);
 }
 
-void ALostPawn::SetMesh(UStaticMesh* Mesh)
+void ALostPawn::SetMesh(UStaticMesh* Mesh) const
 {
 	MeshComp->SetStaticMesh(Mesh);
 }
+
+void ALostPawn::AddStep()
+{
+	StepsTaken++;
+}
+
+void ALostPawn::SetEvolutionManager(AEvolutionManager* NewEvolutionManager)
+{
+	EvolutionManager = NewEvolutionManager;
+}
+
+AEvolutionManager* ALostPawn::GetEvolutionManager() const
+{
+	return EvolutionManager;
+}
+
+int ALostPawn::GetID() const
+{
+	return ID;
+}
+
+int ALostPawn::GetStepsTaken() const
+{
+	return StepsTaken;
+}
+
 
 
 

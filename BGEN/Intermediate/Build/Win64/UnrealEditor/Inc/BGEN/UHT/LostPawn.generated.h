@@ -14,7 +14,7 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 #endif
 #define BGEN_LostPawn_generated_h
 
-#define FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_12_INCLASS_NO_PURE_DECLS \
+#define FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_13_INCLASS_NO_PURE_DECLS \
 private: \
 	static void StaticRegisterNativesALostPawn(); \
 	friend struct Z_Construct_UClass_ALostPawn_Statics; \
@@ -23,7 +23,7 @@ public: \
 	DECLARE_SERIALIZER(ALostPawn)
 
 
-#define FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_12_ENHANCED_CONSTRUCTORS \
+#define FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_13_ENHANCED_CONSTRUCTORS \
 private: \
 	/** Private move- and copy-constructors, should never be used */ \
 	ALostPawn(ALostPawn&&); \
@@ -35,12 +35,12 @@ public: \
 	NO_API virtual ~ALostPawn();
 
 
-#define FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_9_PROLOG
-#define FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_12_GENERATED_BODY \
+#define FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_10_PROLOG
+#define FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_13_GENERATED_BODY \
 PRAGMA_DISABLE_DEPRECATION_WARNINGS \
 public: \
-	FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_12_INCLASS_NO_PURE_DECLS \
-	FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_12_ENHANCED_CONSTRUCTORS \
+	FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_13_INCLASS_NO_PURE_DECLS \
+	FID_School_BGEN_BGEN_Source_BGEN_Actors_LostPawn_h_13_ENHANCED_CONSTRUCTORS \
 private: \
 PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
