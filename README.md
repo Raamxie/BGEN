@@ -14,7 +14,7 @@ Manually designing diverse and engaging enemy behaviors is time-consuming and of
 
 The main goal of this project is to **design and implement an algorithm for automatic generation of enemy behavior** in survival games. The algorithm is intended to be used as a support tool during the game design phase. It should:
 
-* Generate **diverse and non-repetitive** behaviors.
+* Generate **diverse** behaviors.
 * Provide behaviors in a form that is **explainable** and **manually editable** by game designers.
 * Allow for **experimental evaluation** of the behavior quality and algorithm characteristics.
 
