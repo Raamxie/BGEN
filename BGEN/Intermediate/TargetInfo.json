@@ -1,0 +1,14 @@
+{
+	"Targets": [
+		{
+			"Name": "BGEN",
+			"Path": "..\\Source\\BGEN.Target.cs",
+			"Type": "Game"
+		},
+		{
+			"Name": "BGENEditor",
+			"Path": "..\\Source\\BGENEditor.Target.cs",
+			"Type": "Editor"
+		}
+	]
+}

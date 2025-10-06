@@ -1,0 +1,29 @@
+{
+	"version": 1,
+	"changelists": [
+		{
+			"guid": "00000000000000000000000000000000",
+			"description": "Default Uncontrolled Changelist",
+			"files": [
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Scenes/Main.umap",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Actors/Player/BP_PlayerController.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Actors/Player/InputMapping/InputMappingContext.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Gamemodes/UserInput.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Actors/Player/PlayerMaterial.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Actors/Player/A_Player.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Actors/Grid/Grid.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Components/GridMovement.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Actors/Player/InputMapping/IA_Movement.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Actors/Player/APlayer.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Actors/Mine/AMine.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Components/Grid.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Actors/Player/Player.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Actors/Player/InputMapping/DefaultMovemet.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Actors/Player/Playerr.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Actors/Player/Maggot.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Actors/Player.uasset",
+				"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Actors/Player/PlayerController.uasset"
+			]
+		}
+	]
+}
