@@ -245,3 +245,4 @@ Plugins/**/Binaries/*
 Plugins/**/Intermediate/*
 
 # End of https://www.toptal.com/developers/gitignore/api/rider,unrealengine
+BGEN/Intermediate/ProjectFiles/.Rider/Win64/Development/Editor/UnrealEditor.json
