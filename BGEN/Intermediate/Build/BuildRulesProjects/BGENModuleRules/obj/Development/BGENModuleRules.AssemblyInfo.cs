@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BGENModuleRules")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Development")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6ac0653da8258601485bac8cb4727bae7f0c5cd6")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e7da0f4980b057747e7774dc15fce4f7b8714492")]
 [assembly: System.Reflection.AssemblyProductAttribute("BGENModuleRules")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BGENModuleRules")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

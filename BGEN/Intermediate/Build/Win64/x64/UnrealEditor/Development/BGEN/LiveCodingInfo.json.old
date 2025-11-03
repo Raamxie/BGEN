@@ -1,0 +1,9 @@
+{
+	"RemapUnityFiles": 
+	{
+		"Module.BGEN.gen.cpp.obj": [
+			"BGEN.init.gen.cpp.obj",
+			"GeneratedPawn.gen.cpp.obj"
+		]
+	}
+}

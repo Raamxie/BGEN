@@ -11,6 +11,7 @@
     <None Include="..\..\Source\BGENEditor.Target.cs">
       <Filter>Source</Filter>
     </None>
+    <None Include="..\..\.vsconfig" />
     <Filter Include="Config">
       <UniqueIdentifier>{FA535FFB-25E1-3D20-B416-52F9BE21E06E}</UniqueIdentifier>
     </Filter>
@@ -37,6 +38,30 @@
     </ClCompile>
     <ClInclude Include="..\..\Source\BGEN\BGEN.h">
       <Filter>Source\BGEN</Filter>
+    </ClInclude>
+    <Filter Include="Source\GeneticGeneration">
+      <UniqueIdentifier>{FCF662D6-1683-388F-A3EF-E74286CF4850}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Source\GeneticGeneration\GeneticGeneration.Build.cs">
+      <Filter>Source\GeneticGeneration</Filter>
+    </None>
+    <Filter Include="Source\GeneticGeneration\Private">
+      <UniqueIdentifier>{9C13ACFE-3BC2-3526-ACA1-5ABEFC4DB4F3}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\GeneticGeneration\Private\GeneticGenerationModule.cpp">
+      <Filter>Source\GeneticGeneration\Private</Filter>
+    </ClCompile>
+    <Filter Include="Source\GeneticGeneration\Public">
+      <UniqueIdentifier>{2101CB3D-FF6F-3CC0-BCF1-DD8E3597F94F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\GeneticGeneration\Public\Commandlets">
+      <UniqueIdentifier>{E9085FDC-7183-3D8D-B0DD-F34528C92F36}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\GeneticGeneration\Public\Commandlets\GeneticGenerationCommandlet.cpp">
+      <Filter>Source\GeneticGeneration\Public\Commandlets</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\GeneticGeneration\Public\Commandlets\GeneticGenerationCommandlet.h">
+      <Filter>Source\GeneticGeneration\Public\Commandlets</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -7,6 +7,14 @@
 		{
 			"Name": "BGEN",
 			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine"
+			]
+		},
+		{
+			"Name": "GeneticGeneration",
+			"Type": "Runtime",
 			"LoadingPhase": "Default"
 		}
 	],

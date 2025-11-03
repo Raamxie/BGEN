@@ -1,0 +1,17 @@
+{
+    "Version": "1.2",
+    "Data": {
+        "Source": "c:\\users\\jana\\documents\\github\\bgen\\bgen\\source\\geneticgeneration\\public\\commandlets\\geneticgenerationcommandlet.cpp",
+        "ProvidedModule": "",
+        "PCH": "c:\\users\\jana\\documents\\github\\bgen\\bgen\\intermediate\\build\\win64\\x64\\bgeneditor\\development\\unrealed\\sharedpch.unrealed.project.valapi.valexpapi.cpp20.h.pch",
+        "Includes": [
+            "c:\\users\\jana\\documents\\github\\bgen\\bgen\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\geneticgeneration\\definitions.geneticgeneration.h",
+            "c:\\users\\jana\\documents\\github\\bgen\\bgen\\source\\geneticgeneration\\public\\commandlets\\geneticgenerationcommandlet.h",
+            "c:\\program files\\epic games\\ue_5.6\\engine\\source\\runtime\\engine\\classes\\commandlets\\commandlet.h",
+            "c:\\program files\\epic games\\ue_5.6\\engine\\intermediate\\build\\win64\\unrealeditor\\inc\\engine\\uht\\commandlet.generated.h",
+            "c:\\users\\jana\\documents\\github\\bgen\\bgen\\intermediate\\build\\win64\\unrealeditor\\inc\\geneticgeneration\\uht\\geneticgenerationcommandlet.generated.h"
+        ],
+        "ImportedModules": [],
+        "ImportedHeaderUnits": []
+    }
+}

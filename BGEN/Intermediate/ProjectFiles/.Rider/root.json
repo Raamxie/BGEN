@@ -2,7 +2,17 @@
 	"ConfigurationsAndPlatforms": [
 		{
 			"Configuration": "DebugGame",
-			"Platform": "Win64",
+			"Platform": "Android",
+			"Target": "Editor"
+		},
+		{
+			"Configuration": "DebugGame",
+			"Platform": "Android",
+			"Target": "Editor"
+		},
+		{
+			"Configuration": "DebugGame",
+			"Platform": "Android",
 			"Target": "Editor"
 		},
 		{
@@ -18,6 +28,21 @@
 		{
 			"Configuration": "DebugGame",
 			"Platform": "Win64",
+			"Target": "Editor"
+		},
+		{
+			"Configuration": "DebugGame",
+			"Platform": "Android",
+			"Target": "Game"
+		},
+		{
+			"Configuration": "DebugGame",
+			"Platform": "Android",
+			"Target": "Game"
+		},
+		{
+			"Configuration": "DebugGame",
+			"Platform": "Android",
 			"Target": "Game"
 		},
 		{
@@ -31,8 +56,23 @@
 			"Target": "Game"
 		},
 		{
-			"Configuration": "Development",
+			"Configuration": "DebugGame",
 			"Platform": "Win64",
+			"Target": "Game"
+		},
+		{
+			"Configuration": "Development",
+			"Platform": "Android",
+			"Target": "Editor"
+		},
+		{
+			"Configuration": "Development",
+			"Platform": "Android",
+			"Target": "Editor"
+		},
+		{
+			"Configuration": "Development",
+			"Platform": "Android",
 			"Target": "Editor"
 		},
 		{
@@ -44,6 +84,31 @@
 			"Configuration": "Development",
 			"Platform": "Win64",
 			"Target": "Editor"
+		},
+		{
+			"Configuration": "Development",
+			"Platform": "Win64",
+			"Target": "Editor"
+		},
+		{
+			"Configuration": "Development",
+			"Platform": "Android",
+			"Target": "Game"
+		},
+		{
+			"Configuration": "Development",
+			"Platform": "Android",
+			"Target": "Game"
+		},
+		{
+			"Configuration": "Development",
+			"Platform": "Android",
+			"Target": "Game"
+		},
+		{
+			"Configuration": "Development",
+			"Platform": "Win64",
+			"Target": "Game"
 		},
 		{
 			"Configuration": "Development",
@@ -56,8 +121,18 @@
 			"Target": "Game"
 		},
 		{
-			"Configuration": "Development",
-			"Platform": "Win64",
+			"Configuration": "Shipping",
+			"Platform": "Android",
+			"Target": "Game"
+		},
+		{
+			"Configuration": "Shipping",
+			"Platform": "Android",
+			"Target": "Game"
+		},
+		{
+			"Configuration": "Shipping",
+			"Platform": "Android",
 			"Target": "Game"
 		},
 		{

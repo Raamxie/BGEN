@@ -18,5 +18,6 @@
   <Compile Include="..\..\..\..\Source\BGEN.Target.cs"><Link>Source\BGEN.Target.cs</Link></Compile>
   <Compile Include="..\..\..\..\Source\BGENEditor.Target.cs"><Link>Source\BGENEditor.Target.cs</Link></Compile>
   <Compile Include="..\..\..\..\Source\BGEN\BGEN.Build.cs"><Link>Source\BGEN\BGEN.Build.cs</Link></Compile>
+  <Compile Include="..\..\..\..\Source\GeneticGeneration\GeneticGeneration.Build.cs"><Link>Source\GeneticGeneration\GeneticGeneration.Build.cs</Link></Compile>
   </ItemGroup>
 </Project>

@@ -1,0 +1,15 @@
+{
+    "Version": "1.2",
+    "Data": {
+        "Source": "c:\\users\\jana\\documents\\github\\bgen\\bgen\\source\\geneticgeneration\\private\\geneticgenerationmain.cpp",
+        "ProvidedModule": "",
+        "PCH": "c:\\users\\jana\\documents\\github\\bgen\\bgen\\intermediate\\build\\win64\\x64\\bgeneditor\\development\\unrealed\\sharedpch.unrealed.project.valapi.valexpapi.cpp20.h.pch",
+        "Includes": [
+            "c:\\users\\jana\\documents\\github\\bgen\\bgen\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\geneticgeneration\\definitions.geneticgeneration.h",
+            "c:\\users\\jana\\documents\\github\\bgen\\bgen\\intermediate\\build\\win64\\x64\\bgeneditor\\development\\unrealed\\sharedpch.unrealed.project.valapi.valexpapi.cpp20.h",
+            "c:\\users\\jana\\documents\\github\\bgen\\bgen\\source\\geneticgeneration\\private\\geneticgenerationmodule.cpp"
+        ],
+        "ImportedModules": [],
+        "ImportedHeaderUnits": []
+    }
+}

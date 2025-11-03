@@ -1,0 +1,100 @@
+﻿[2025.11.02-22.24.58:118][  0]Log file open, 11/02/25 23:24:58
+[2025.11.02-22.24.58:118][  0]LogGeneticGeneration: GeneticGenerationModule started.
+[2025.11.02-22.24.58:118][  0]LogGeneticGeneration: Custom log file initialized at ../../../../../../Users/Jana/Documents/GitHub/BGEN/BGEN/Saved/Logs/GeneticGeneration.log
+[2025.11.02-22.24.58:118][  0]LogGeneticGeneration: GeneticGenerationModule started.
+[2025.11.02-22.24.58:232][  0]LogAndroidPermission: UAndroidPermissionCallbackProxy::GetInstance
+[2025.11.02-22.24.58:237][  0]LogAudioCaptureCore: Display: No Audio Capture implementations found. Audio input will be silent.
+[2025.11.02-22.24.58:237][  0]LogAudioCaptureCore: Display: No Audio Capture implementations found. Audio input will be silent.
+[2025.11.02-22.24.58:260][  0]LogConfig: Applying CVar settings from Section [/Script/NNEDenoiser.NNEDenoiserSettings] File [Engine]
+[2025.11.02-22.24.58:282][  0]SourceControl: Revision control is disabled
+[2025.11.02-22.24.58:336][  0]LogUObjectArray: 38533 objects as part of root set at end of initial load.
+[2025.11.02-22.24.58:337][  0]LogUObjectArray: CloseDisregardForGC: 0/0 objects in disregard for GC pool
+[2025.11.02-22.24.58:426][  0]LogEngine: Initializing Engine...
+[2025.11.02-22.24.58:465][  0]LogNetVersion: Set ProjectVersion to 1.0.0.0. Version Checksum will be recalculated on next use.
+[2025.11.02-22.24.58:466][  0]LogInit: Texture streaming: Disabled
+[2025.11.02-22.24.58:486][  0]LogCsvProfiler: Display: Metadata set : largeworldcoordinates="1"
+[2025.11.02-22.24.58:487][  0]LogChaosDD: Creating Chaos Debug Draw Scene for world Untitled
+[2025.11.02-22.24.58:490][  0]LogNiagara: UAV Float16 is not supported, compressed GPU emitters will be disabled.
+[2025.11.02-22.24.58:491][  0]LogGeneticGeneration: OnWorldInitialized called for world: Untitled
+[2025.11.02-22.24.58:491][  0]LogGeneticGeneration: Skipping non-main world: Untitled
+[2025.11.02-22.24.58:492][  0]LogEngine: GameWindow did not exist.  Was created
+[2025.11.02-22.24.58:494][  0]LogSlate: Updating window title bar state: overlay mode, drag disabled, window buttons hidden, title bar hidden
+[2025.11.02-22.24.58:494][  0]LogInit: Display: Game Engine Initialized.
+[2025.11.02-22.24.58:495][  0]LogNNEDenoiser: Ray Tracing is not enabled, therefore NNEDenoiser is not registered!
+[2025.11.02-22.24.58:496][  0]LogNiagaraEditor: GEditor isn't valid! Particle reset commands will not work for Niagara components!
+[2025.11.02-22.24.58:499][  0]LogPython: Python enabled via CVar 'Engine.Python.IsEnabledByDefault'
+[2025.11.02-22.24.58:499][  0]LogPython: Using Python 3.11.8
+[2025.11.02-22.24.58:520][  0]LogPython: Display: No pip-enabled plugins with python dependencies found, skipping
+[2025.11.02-22.24.58:840][  0]LogInit: Display: Starting Game.
+[2025.11.02-22.24.58:840][  0]LogGlobalStatus: UEngine::Browse Started Browse: "/Game/Scenes/Benchmark?Name=Player"
+[2025.11.02-22.24.58:840][  0]LogNet: Browse: /Game/Scenes/Benchmark?Name=Player
+[2025.11.02-22.24.58:840][  0]LogLoad: LoadMap: /Game/Scenes/Benchmark?Name=Player
+[2025.11.02-22.24.58:840][  0]LogWorld: BeginTearingDown for /Temp/Untitled_0
+[2025.11.02-22.24.58:840][  0]LogWorld: UWorld::CleanupWorld for Untitled, bSessionEnded=true, bCleanupResources=true
+[2025.11.02-22.24.58:840][  0]LogSlate: InvalidateAllWidgets triggered.  All widgets were invalidated
+[2025.11.02-22.24.58:860][  0]LogUObjectHash: Compacting FUObjectHashTables data took   0.65ms
+[2025.11.02-22.24.58:915][  0]LogChaosDD: Creating Chaos Debug Draw Scene for world Benchmark
+[2025.11.02-22.24.58:919][  0]LogGeneticGeneration: OnWorldInitialized called for world: Benchmark
+[2025.11.02-22.24.58:919][  0]LogGeneticGeneration: World Benchmark initialized, running simulation now.
+[2025.11.02-22.24.58:919][  0]LogGeneticGeneration: Benchmark Started!
+
+
+
+[2025.11.02-22.24.58:965][  0]LogLoad: Game class is 'UserInput_C'
+[2025.11.02-22.24.58:965][  0]LogWorld: Bringing World /Game/Scenes/Benchmark.Benchmark up for play (max tick rate 0) at 2025.11.02-23.24.58
+[2025.11.02-22.24.58:966][  0]LogWorld: Bringing up level for play took: 0.000687
+[2025.11.02-22.24.58:966][  0]LogGameMode: FindPlayerStart: PATHS NOT DEFINED or NO PLAYERSTART with positive rating
+[2025.11.02-22.24.58:967][  0]LogWindows: WindowsPlatformFeatures enabled
+[2025.11.02-22.24.58:967][  0]LogEnhancedInput: Enhanced Input local player subsystem has initalized the user settings!
+[2025.11.02-22.24.58:969][  0]LogBlueprintUserMessages: [APlayer_C_0] Player Controls Loaded
+[2025.11.02-22.24.58:969][  0]t.MaxFPS = "0"
+[2025.11.02-22.24.58:969][  0]LogBlueprintUserMessages: [GridMovement] Succesfully found Grid
+[2025.11.02-22.24.58:969][  0]LogLoad: Took 0.130074 seconds to LoadMap(/Game/Scenes/Benchmark)
+[2025.11.02-22.24.58:969][  0]LogGlobalStatus: UEngine::LoadMap Load map complete /Game/Scenes/Benchmark
+[2025.11.02-22.24.59:004][  0]LogAssetRegistry: Display: Triggering cache save on discovery complete
+[2025.11.02-22.24.59:056][  0]LogAssetRegistry: Display: Asset registry cache read as 66.9 MiB from ../../../../../../Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/CachedAssetRegistry_0.bin.
+[2025.11.02-22.24.59:056][  0]LogAssetRegistry: Display: AssetDataGatherer spent 0.040s loading caches ../../../../../../Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/CachedAssetRegistry_*.bin.
+[2025.11.02-22.24.59:115][  0]LogAssetRegistry: AssetRegistryGather time 0.0927s: AssetDataDiscovery 0.0000s, AssetDataGather 0.0510s, StoreResults 0.0417s. Wall time 3.6640s.
+	NumCachedDirectories 1450. NumUncachedDirectories 21. NumCachedFiles 7394. NumUncachedFiles 2.
+	BackgroundTickInterruptions 0.
+[2025.11.02-22.24.59:202][  0]LogInit: Display: Engine is initialized. Leaving FEngineLoop::Init()
+[2025.11.02-22.24.59:202][  0]LogLoad: (Engine Initialization) Total time: 7.82 seconds
+[2025.11.02-22.24.59:264][  0]LogSlate: InvalidateAllWidgets triggered.  All widgets were invalidated
+[2025.11.02-22.24.59:264][  0]LogPython: Display: Running start-up script C:/Program Files/Epic Games/UE_5.6/Engine/Plugins/Animation/ControlRig/Content/Python/init_unreal.py... started...
+[2025.11.02-22.24.59:295][  0]LogPython: registering <class 'ControlRigWorkflows.workflow_deformation_rig_preset.provider'>
+
+[2025.11.02-22.24.59:310][  0]LogPython: Display: Running start-up script C:/Program Files/Epic Games/UE_5.6/Engine/Plugins/Animation/ControlRig/Content/Python/init_unreal.py... took 45.742 ms
+[2025.11.02-22.24.59:352][101]LogBlueprintUserMessages: [BenchmarkActor_C_3] 622.416344
+[2025.11.02-22.25.10:339][684]LogTemp: Float array dumped to file: ../../../../../../Users/Jana/Documents/GitHub/BGEN/BGEN/Saved/Profiling/FPS_Headless.csv
+[2025.11.02-22.25.10:341][684]Closing by request
+[2025.11.02-22.25.10:341][684]LogWindows: FPlatformMisc::RequestExit(0, UGameEngine::HandleExitCommand)
+[2025.11.02-22.25.10:341][684]LogWindows: FPlatformMisc::RequestExitWithStatus(0, 0, UGameEngine::HandleExitCommand)
+[2025.11.02-22.25.10:341][685]LogCore: Engine exit requested (reason: Win RequestExit)
+[2025.11.02-22.25.10:341][685]LogCore: Engine exit requested (reason: EngineExit() was called; note: exit was already requested)
+[2025.11.02-22.25.10:341][685]LogStaticMesh: Abandoning remaining async distance field tasks for shutdown
+[2025.11.02-22.25.10:341][685]LogStaticMesh: Abandoning remaining async card representation tasks for shutdown
+[2025.11.02-22.25.10:341][685]LogInit: Display: PreExit Game.
+[2025.11.02-22.25.10:342][685]LogWorld: BeginTearingDown for /Game/Scenes/Benchmark
+[2025.11.02-22.25.10:342][685]LogWorld: UWorld::CleanupWorld for Benchmark, bSessionEnded=true, bCleanupResources=true
+[2025.11.02-22.25.10:342][685]LogSlate: InvalidateAllWidgets triggered.  All widgets were invalidated
+[2025.11.02-22.25.10:342][685]LogRuntimeTelemetry: Recording EnginePreExit events
+[2025.11.02-22.25.10:342][685]LogStudioTelemetry: Ended StudioTelemetry Session
+[2025.11.02-22.25.10:456][685]LogSlate: Window 'BGEN (64-bit Development PCD3D_SM6) ' being destroyed
+[2025.11.02-22.25.10:458][685]LogSlate: Slate User Destroyed.  User Index 0, Is Virtual User: 0
+[2025.11.02-22.25.10:458][685]LogExit: Preparing to exit.
+[2025.11.02-22.25.10:472][685]LogUObjectHash: Compacting FUObjectHashTables data took   0.52ms
+[2025.11.02-22.25.10:536][685]LogSlate: Updating window title bar state: overlay mode, drag disabled, window buttons hidden, title bar hidden
+[2025.11.02-22.25.10:538][685]LogDemo: Cleaned up 0 splitscreen connections, owner deletion: enabled
+[2025.11.02-22.25.10:543][685]LogExit: Game engine shut down
+[2025.11.02-22.25.10:602][685]LogExit: Object subsystem successfully closed.
+[2025.11.02-22.25.10:610][685]LogShaderCompilers: Display: Shaders left to compile 0
+[2025.11.02-22.25.10:633][685]LogGeneticGeneration: GeneticGenerationModule shutting down.
+[2025.11.02-22.25.10:646][685]LogChaosDD: Chaos Debug Draw Shutdown
+[2025.11.02-22.25.10:700][685]LogEOSShared: FEOSSDKManager::Shutdown EOS_Shutdown Result=[EOS_Success]
+[2025.11.02-22.25.10:703][685]LogNFORDenoise: NFORDenoise function shutting down
+[2025.11.02-22.25.10:703][685]LogXGEController: Cleaning working directory: C:/Users/Jana/AppData/Local/Temp/UnrealXGEWorkingDir/
+[2025.11.02-22.25.10:704][685]LogIris: FNetObjectFactoryRegistry::UnregisterFactory is unregistering factory: None name: NetActorFactory id: 0
+[2025.11.02-22.25.10:704][685]LogIris: FNetObjectFactoryRegistry::UnregisterFactory is unregistering factory: None name: NetSubObjectFactory id: 1
+[2025.11.02-22.25.10:704][685]LogPakFile: Destroying PakPlatformFile
+[2025.11.02-22.25.10:715][685]LogExit: Exiting.
+[2025.11.02-22.25.10:751][685]Log file closed, 11/02/25 23:25:10
