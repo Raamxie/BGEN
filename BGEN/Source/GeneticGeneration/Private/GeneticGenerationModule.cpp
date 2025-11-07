@@ -99,7 +99,7 @@ void FGeneticGenerationModule::RunSimulation(UWorld* world)
     
     if (spawnedPawn)
     {
-        spawnedPawn->SetID(69);
+        spawnedPawn->SetID(71);
         UE_LOG(LogGeneticGeneration, Log, TEXT("Spawned pawn %s with ID %d"),
             *spawnedPawn->GetName(), spawnedPawn->GetID());
     }

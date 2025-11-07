@@ -30,42 +30,38 @@ void AGeneratedPawn::SetID(int IDin)
 
 void AGeneratedPawn::GenerateBehaviorTree()
 {
-    const FString PackageName = TEXT("/Game/Generated/GBT_") + FString::FromInt(ID);
+    const FString PackageName = FString::Printf(TEXT("/Game/Generated/GBT_%d"), ID);
     const FString PackageFilename = FPackageName::LongPackageNameToFilename(PackageName, FPackageName::GetAssetPackageExtension());
+    const FName AssetName = *FString::Printf(TEXT("GBT_%d"), ID);
 
-    // 1. Create the package
+    // 1. Create a new package
     UPackage* Package = CreatePackage(*PackageName);
+    Package->SetFlags(RF_Public | RF_Standalone);
     Package->FullyLoad();
 
-    // 2. Create the BehaviorTree asset
-    BehaviourTree = NewObject<UBehaviorTree>(Package, UBehaviorTree::StaticClass(), FName("GBT_69"), RF_Public | RF_Standalone);
+    // 2. Create the BehaviorTree *in that package directly*
+    BehaviourTree = NewObject<UBehaviorTree>(Package, AssetName, RF_Public | RF_Standalone);
+    BehaviourTree->MarkPackageDirty();
+
+    // 3. Add it to the Asset Registry (only once)
     FAssetRegistryModule::AssetCreated(BehaviourTree);
 
-
-    // 3. Notify the AssetRegistry that the asset exists
-    FAssetRegistryModule::AssetCreated(BehaviourTree);
-
-    // 4. Now create nodes inside the BT
+    // 4. Create the root node and children
     UBTComposite_Selector* RootNode = NewObject<UBTComposite_Selector>(BehaviourTree, FName("RootSelector"));
     BehaviourTree->RootNode = RootNode;
 
-
-    UBTTask_MoveTo* MoveTask = NewObject<UBTTask_MoveTo>(
-        BehaviourTree,
-        FName("MoveTask")
-    );
-
+    UBTTask_MoveTo* MoveTask = NewObject<UBTTask_MoveTo>(BehaviourTree, FName("MoveTask"));
     FBTCompositeChild Child;
     Child.ChildTask = MoveTask;
     RootNode->Children.Add(Child);
 
-    // 5. Now save the package
+    // 5. Save the package (save the package, not just the object)
     FSavePackageArgs SaveArgs;
     SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
     SaveArgs.Error = GWarn;
     SaveArgs.SaveFlags = SAVE_None;
 
-    if (UPackage::SavePackage(Package, BehaviourTree, *PackageFilename, SaveArgs))
+    if (UPackage::SavePackage(Package, nullptr, *PackageFilename, SaveArgs))
     {
         UE_LOG(LogTemp, Log, TEXT("Behavior Tree saved successfully: %s"), *PackageFilename);
     }
@@ -74,18 +70,21 @@ void AGeneratedPawn::GenerateBehaviorTree()
         UE_LOG(LogTemp, Error, TEXT("Failed to save Behavior Tree: %s"), *PackageFilename);
     }
 
-    // 6. Optional: Verify loading
+    // 6. Reload to verify
     UBehaviorTree* LoadedBT = LoadObject<UBehaviorTree>(nullptr, *PackageName);
-    if (!LoadedBT)
+    if (LoadedBT)
     {
-        UE_LOG(LogTemp, Error, TEXT("Verification failed: could not load BehaviorTree: %s"), *PackageName);
+    	UE_LOG(LogTemp, Log, TEXT("Verification successful: %s"), *PackageName);
+
     }
     else
     {
-        UE_LOG(LogTemp, Log, TEXT("Verification successful: BehaviorTree loaded"));
-    }
+    	UE_LOG(LogTemp, Error, TEXT("Verification failed: %s"), *PackageName);
 
+    }
 }
+
+
 
 
 

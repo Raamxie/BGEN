@@ -1,0 +1,15 @@
+/NOLOGO
+/errorReport:prompt
+/MACHINE:x64
+/SUBSYSTEM:WINDOWS
+/DEF
+/NAME:"UnrealEditor-GeneticGeneration-0004.dll"
+/IGNORE:4221
+/NODEFAULTLIB
+"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/BGENEditor/Development/UnrealEd/SharedPCH.UnrealEd.Project.ValApi.ValExpApi.Cpp20.h.obj"
+"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/GeneticGeneration/Module.GeneticGeneration.gen.cpp.obj"
+"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/GeneticGeneration/GeneratedPawn.cpp.obj"
+"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/GeneticGeneration/GeneticGenerationModule.cpp.obj"
+"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/GeneticGeneration/PerModuleInline.gen.cpp.obj"
+"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/GeneticGeneration/Default.rc2.res"
+/OUT:"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/GeneticGeneration/UnrealEditor-GeneticGeneration-0004.lib"
