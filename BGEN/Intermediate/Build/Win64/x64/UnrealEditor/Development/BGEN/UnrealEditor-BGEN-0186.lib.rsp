@@ -1,0 +1,15 @@
+/NOLOGO
+/errorReport:prompt
+/MACHINE:x64
+/SUBSYSTEM:WINDOWS
+/DEF
+/NAME:"UnrealEditor-BGEN-0186.dll"
+/IGNORE:4221
+/NODEFAULTLIB
+"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/BGENEditor/Development/UnrealEd/SharedPCH.UnrealEd.Project.ValApi.ValExpApi.Cpp20.h.obj"
+"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/Module.BGEN.gen.cpp.obj"
+"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/BGEN.cpp.obj"
+"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/DumpArrayToFile.cpp.obj"
+"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/PerModuleInline.gen.cpp.obj"
+"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/Default.rc2.res"
+/OUT:"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/UnrealEditor-BGEN-0186.lib"

@@ -2,7 +2,7 @@
 	"BuildId": "43139311",
 	"Modules": 
 	{
-		"BGEN": "UnrealEditor-BGEN.dll",
-		"GeneticGeneration": "UnrealEditor-GeneticGeneration.dll"
+		"BGEN": "UnrealEditor-BGEN-8381.dll",
+		"GeneticGeneration": "UnrealEditor-GeneticGeneration-0004.dll"
 	}
 }
