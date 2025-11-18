@@ -1,12 +1,12 @@
-"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/UnrealEditor/Inc/BGEN/UHT/BGEN.init.gen.cpp"
-@"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/BGEN.Shared.rsp"
-/FI"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/BGENEditor/Development/UnrealEd/SharedPCH.UnrealEd.Project.ValApi.ValExpApi.Cpp20.h"
-/FI"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/Definitions.BGEN.h"
-/Yu"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/BGENEditor/Development/UnrealEd/SharedPCH.UnrealEd.Project.ValApi.ValExpApi.Cpp20.h"
-/Fp"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/BGENEditor/Development/UnrealEd/SharedPCH.UnrealEd.Project.ValApi.ValExpApi.Cpp20.h.pch"
-/Fo"C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/BGEN.init.gen.cpp.obj"
-/experimental:log "C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/BGEN.init.gen.cpp.sarif"
-/sourceDependencies "C:/Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/BGEN.init.gen.cpp.dep.json"
+"C:/Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Intermediate/Build/Win64/UnrealEditor/Inc/BGEN/UHT/BGEN.init.gen.cpp"
+@"C:/Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/BGEN.Shared.rsp"
+/FI"C:/Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Intermediate/Build/Win64/x64/BGENEditor/Development/UnrealEd/SharedPCH.UnrealEd.Project.ValApi.ValExpApi.Cpp20.h"
+/FI"C:/Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/Definitions.BGEN.h"
+/Yu"C:/Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Intermediate/Build/Win64/x64/BGENEditor/Development/UnrealEd/SharedPCH.UnrealEd.Project.ValApi.ValExpApi.Cpp20.h"
+/Fp"C:/Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Intermediate/Build/Win64/x64/BGENEditor/Development/UnrealEd/SharedPCH.UnrealEd.Project.ValApi.ValExpApi.Cpp20.h.pch"
+/Fo"C:/Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/BGEN.init.gen.cpp.obj"
+/experimental:log "C:/Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/BGEN.init.gen.cpp.sarif"
+/sourceDependencies "C:/Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Intermediate/Build/Win64/x64/UnrealEditor/Development/BGEN/BGEN.init.gen.cpp.dep.json"
 /Zc:inline
 /nologo
 /Oi

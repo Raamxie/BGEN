@@ -1,142 +1,104 @@
-﻿[2025.11.03-15.53.57:855][  0]Log file open, 11/03/25 16:53:57
-[2025.11.03-15.53.57:855][  0]LogGeneticGeneration: GeneticGenerationModule started.
-[2025.11.03-15.53.57:855][  0]LogGeneticGeneration: Custom log file initialized at ../../../../../../Users/Jana/Documents/GitHub/BGEN/BGEN/Saved/Logs/GeneticGeneration.log
-[2025.11.03-15.53.57:855][  0]LogGeneticGeneration: GeneticGenerationModule started.
-[2025.11.03-15.53.57:896][  0]SourceControl: Revision control is disabled
-[2025.11.03-15.53.58:203][  0]LogConfig: Applying CVar settings from Section [/Script/NNEDenoiser.NNEDenoiserSettings] File [Engine]
-[2025.11.03-15.53.58:259][  0]LogAndroidPermission: UAndroidPermissionCallbackProxy::GetInstance
-[2025.11.03-15.53.58:274][  0]LogAudioCaptureCore: Display: No Audio Capture implementations found. Audio input will be silent.
-[2025.11.03-15.53.58:275][  0]LogAudioCaptureCore: Display: No Audio Capture implementations found. Audio input will be silent.
-[2025.11.03-15.53.58:424][  0]LogUObjectArray: 38544 objects as part of root set at end of initial load.
-[2025.11.03-15.53.58:426][  0]LogUObjectArray: CloseDisregardForGC: 0/0 objects in disregard for GC pool
-[2025.11.03-15.53.58:672][  0]LogEngine: Initializing Engine...
-[2025.11.03-15.53.58:775][  0]LogNetVersion: Set ProjectVersion to 1.0.0.0. Version Checksum will be recalculated on next use.
-[2025.11.03-15.53.58:777][  0]LogInit: Texture streaming: Disabled
-[2025.11.03-15.53.58:834][  0]LogCsvProfiler: Display: Metadata set : largeworldcoordinates="1"
-[2025.11.03-15.53.58:835][  0]LogChaosDD: Creating Chaos Debug Draw Scene for world Untitled
-[2025.11.03-15.53.58:839][  0]LogNiagara: UAV Float16 is not supported, compressed GPU emitters will be disabled.
-[2025.11.03-15.53.58:842][  0]LogGeneticGeneration: OnWorldInitialized called for world: Untitled
-[2025.11.03-15.53.58:843][  0]LogGeneticGeneration: Skipping non-main world: Untitled
-[2025.11.03-15.53.58:844][  0]LogEngine: GameWindow did not exist.  Was created
-[2025.11.03-15.53.58:846][  0]LogSlate: Updating window title bar state: overlay mode, drag disabled, window buttons hidden, title bar hidden
-[2025.11.03-15.53.58:848][  0]LogInit: Display: Game Engine Initialized.
-[2025.11.03-15.53.58:853][  0]LogNNEDenoiser: Ray Tracing is not enabled, therefore NNEDenoiser is not registered!
-[2025.11.03-15.53.58:858][  0]LogPython: Python enabled via CVar 'Engine.Python.IsEnabledByDefault'
-[2025.11.03-15.53.58:858][  0]LogPython: Using Python 3.11.8
-[2025.11.03-15.53.58:916][  0]LogPython: Display: No pip-enabled plugins with python dependencies found, skipping
-[2025.11.03-15.53.59:668][  0]LogNiagaraEditor: GEditor isn't valid! Particle reset commands will not work for Niagara components!
-[2025.11.03-15.53.59:715][  0]LogInit: Display: Starting Game.
-[2025.11.03-15.53.59:717][  0]LogGlobalStatus: UEngine::Browse Started Browse: "/Game/Scenes/Main?Name=Player"
-[2025.11.03-15.53.59:717][  0]LogNet: Browse: /Game/Scenes/Main?Name=Player
-[2025.11.03-15.53.59:717][  0]LogLoad: LoadMap: /Game/Scenes/Main?Name=Player
-[2025.11.03-15.53.59:717][  0]LogWorld: BeginTearingDown for /Temp/Untitled_0
-[2025.11.03-15.53.59:717][  0]LogWorld: UWorld::CleanupWorld for Untitled, bSessionEnded=true, bCleanupResources=true
-[2025.11.03-15.53.59:717][  0]LogSlate: InvalidateAllWidgets triggered.  All widgets were invalidated
-[2025.11.03-15.53.59:758][  0]LogUObjectHash: Compacting FUObjectHashTables data took   2.23ms
-[2025.11.03-15.53.59:762][  0]LogTurnkeySupport: Turnkey Device: Win64@JanaPC: (Name=JanaPC, Type=Computer, Status=Valid, MinAllowed=10.0.19041.0, MaxAllowed=, Current=10.0.26100.0, Flags="Device_InstallSoftwareValid")
-[2025.11.03-15.53.59:896][  0]LogDeviceProfileManager: Going up to parent DeviceProfile []
-[2025.11.03-15.53.59:916][  0]LogDeviceProfileManager: Going up to parent DeviceProfile []
-[2025.11.03-15.53.59:927][  0]LogDeviceProfileManager: Going up to parent DeviceProfile []
-[2025.11.03-15.53.59:940][  0]LogDeviceProfileManager: Going up to parent DeviceProfile [AppleTV]
-[2025.11.03-15.53.59:940][  0]LogDeviceProfileManager: Going up to parent DeviceProfile [IOS]
-[2025.11.03-15.53.59:940][  0]LogDeviceProfileManager: Going up to parent DeviceProfile []
-[2025.11.03-15.53.59:954][  0]LogDeviceProfileManager: Display: Deviceprofile None not found.
-[2025.11.03-15.53.59:988][  0]LogChaosDD: Creating Chaos Debug Draw Scene for world Main
-[2025.11.03-15.53.59:997][  0]LogGeneticGeneration: OnWorldInitialized called for world: Main
-[2025.11.03-15.53.59:997][  0]LogGeneticGeneration: World Main initialized, running simulation now.
-[2025.11.03-15.53.59:997][  0]LogGeneticGeneration: World found: Main
-[2025.11.03-15.54.00:005][  0]LogOutputDevice: Warning: 
-
-Script Stack (0 frames) :
-
-[2025.11.03-15.54.00:172][  0]LogStats: FPlatformStackWalk::StackWalkAndDump -  0.167 s
-[2025.11.03-15.54.00:174][  0]LogOutputDevice: Error: === Handled ensure: ===
-[2025.11.03-15.54.00:174][  0]LogOutputDevice: Error: 
-[2025.11.03-15.54.00:175][  0]LogOutputDevice: Error: Ensure condition failed: !ObjectPath.Contains(L".", ESearchCase::CaseSensitive)  [File:D:\build\++UE5\Sync\Engine\Source\Runtime\CoreUObject\Private\UObject\SavePackage\SavePackageUtilities.cpp] [Line: 1872] 
-[2025.11.03-15.54.00:175][  0]LogOutputDevice: Error: Cannot make FAssetData for sub object ../../../../../../Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Generated/GBT_71.uasset in package /Game/Generated/GBT_71!
-[2025.11.03-15.54.00:175][  0]LogOutputDevice: Error: Stack: 
-[2025.11.03-15.54.00:176][  0]LogOutputDevice: Error: [Callstack] 0x00007fff80e40167 UnrealEditor-CoreUObject.dll!UnknownFunction []
-[2025.11.03-15.54.00:176][  0]LogOutputDevice: Error: [Callstack] 0x00007fff80c24635 UnrealEditor-CoreUObject.dll!UnknownFunction []
-[2025.11.03-15.54.00:176][  0]LogOutputDevice: Error: [Callstack] 0x00007fff80bc411e UnrealEditor-CoreUObject.dll!UnknownFunction []
-[2025.11.03-15.54.00:177][  0]LogOutputDevice: Error: [Callstack] 0x00007fff80bab215 UnrealEditor-CoreUObject.dll!UnknownFunction []
-[2025.11.03-15.54.00:177][  0]LogOutputDevice: Error: [Callstack] 0x00007fff80b93d04 UnrealEditor-CoreUObject.dll!UnknownFunction []
-[2025.11.03-15.54.00:177][  0]LogOutputDevice: Error: [Callstack] 0x00007fff80baa5a3 UnrealEditor-CoreUObject.dll!UnknownFunction []
-[2025.11.03-15.54.00:177][  0]LogOutputDevice: Error: [Callstack] 0x00007fff80baa7e1 UnrealEditor-CoreUObject.dll!UnknownFunction []
-[2025.11.03-15.54.00:178][  0]LogOutputDevice: Error: [Callstack] 0x00007fff80babc16 UnrealEditor-CoreUObject.dll!UnknownFunction []
-[2025.11.03-15.54.00:178][  0]LogOutputDevice: Error: [Callstack] 0x0000026d73693dc6 UnrealEditor-GeneticGeneration-0004.dll!AGeneratedPawn::GenerateBehaviorTree() [C:\Users\Jana\Documents\GitHub\BGEN\BGEN\Source\GeneticGeneration\Private\GeneratedPawn.cpp:64]
-[2025.11.03-15.54.00:178][  0]LogOutputDevice: Error: [Callstack] 0x0000026d73696c48 UnrealEditor-GeneticGeneration-0004.dll!FGeneticGenerationModule::RunSimulation() [C:\Users\Jana\Documents\GitHub\BGEN\BGEN\Source\GeneticGeneration\Private\GeneticGenerationModule.cpp:103]
-[2025.11.03-15.54.00:179][  0]LogOutputDevice: Error: [Callstack] 0x0000026d73696671 UnrealEditor-GeneticGeneration-0004.dll!FGeneticGenerationModule::OnWorldInitialized() [C:\Users\Jana\Documents\GitHub\BGEN\BGEN\Source\GeneticGeneration\Private\GeneticGenerationModule.cpp:77]
-[2025.11.03-15.54.00:179][  0]LogOutputDevice: Error: [Callstack] 0x0000026d73695ee1 UnrealEditor-GeneticGeneration-0004.dll!TBaseRawMethodDelegateInstance<0,FGeneticGenerationModule,void __cdecl(UWorld *,FWorldInitializationValues),FDefaultDelegateUserPolicy>::ExecuteIfSafe() [C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Delegates\DelegateInstancesImpl.h:548]
-[2025.11.03-15.54.00:179][  0]LogOutputDevice: Error: [Callstack] 0x00007fff7e004b46 UnrealEditor-Engine.dll!UnknownFunction []
-[2025.11.03-15.54.00:180][  0]LogOutputDevice: Error: [Callstack] 0x00007fff7e07abd1 UnrealEditor-Engine.dll!UnknownFunction []
-[2025.11.03-15.54.00:181][  0]LogOutputDevice: Error: [Callstack] 0x00007fff7e49c3c6 UnrealEditor-Engine.dll!UnknownFunction []
-[2025.11.03-15.54.00:181][  0]LogOutputDevice: Error: [Callstack] 0x00007fff7e448d6b UnrealEditor-Engine.dll!UnknownFunction []
-[2025.11.03-15.54.00:181][  0]LogOutputDevice: Error: [Callstack] 0x00007fff7ca7b508 UnrealEditor-Engine.dll!UnknownFunction []
-[2025.11.03-15.54.00:181][  0]LogOutputDevice: Error: [Callstack] 0x00007fff7ca7b01b UnrealEditor-Engine.dll!UnknownFunction []
-[2025.11.03-15.54.00:182][  0]LogOutputDevice: Error: [Callstack] 0x00007ff799983c3d UnrealEditor.exe!UnknownFunction []
-[2025.11.03-15.54.00:182][  0]LogOutputDevice: Error: [Callstack] 0x00007ff7999ae4cb UnrealEditor.exe!UnknownFunction []
-[2025.11.03-15.54.00:182][  0]LogOutputDevice: Error: [Callstack] 0x00007ff7999ae6ba UnrealEditor.exe!UnknownFunction []
-[2025.11.03-15.54.00:183][  0]LogOutputDevice: Error: [Callstack] 0x00007ff7999b209e UnrealEditor.exe!UnknownFunction []
-[2025.11.03-15.54.00:183][  0]LogOutputDevice: Error: [Callstack] 0x00007ff7999c4e44 UnrealEditor.exe!UnknownFunction []
-[2025.11.03-15.54.00:183][  0]LogOutputDevice: Error: [Callstack] 0x00007ff7999c80fa UnrealEditor.exe!UnknownFunction []
-[2025.11.03-15.54.00:183][  0]LogOutputDevice: Error: [Callstack] 0x00007ffffb6ae8d7 KERNEL32.DLL!UnknownFunction []
-[2025.11.03-15.54.00:184][  0]LogOutputDevice: Error: [Callstack] 0x00007ffffc94c53c ntdll.dll!UnknownFunction []
-[2025.11.03-15.54.00:184][  0]LogOutputDevice: Error: 
-[2025.11.03-15.54.00:202][  0]LogStats:                SubmitErrorReport -  0.000 s
-[2025.11.03-15.54.02:153][  0]LogStats:                    SendNewReport -  1.951 s
-[2025.11.03-15.54.02:155][  0]LogStats:             FDebug::EnsureFailed -  2.148 s
-[2025.11.03-15.54.02:156][  0]LogSavePackage: Moving output files for package: /Game/Generated/GBT_71
-[2025.11.03-15.54.02:158][  0]LogSavePackage: Moving '../../../../../../Users/Jana/Documents/GitHub/BGEN/BGEN/Saved/GBT_710231EFBD43F06DCD8C987AAEE1719ED6.tmp' to '../../../../../../Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Generated/GBT_71.uasset'
-[2025.11.03-15.54.02:162][  0]LogTemp: Behavior Tree saved successfully: ../../../../../../Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Generated/GBT_71.uasset
-[2025.11.03-15.54.02:162][  0]LogTemp: Verification successful: /Game/Generated/GBT_71
-[2025.11.03-15.54.02:162][  0]LogGeneticGeneration: Spawned pawn GeneratedPawn_0 with ID 71
-[2025.11.03-15.54.02:183][  0]LogGeneticGeneration: Display: Simulated 5.00s in 0.02s (17746.65 FPS, 295.78x faster than real time)
-[2025.11.03-15.54.02:184][  0]LogGeneticGeneration: Simulation complete.
-[2025.11.03-15.54.02:184][  0]LogWindows: FPlatformMisc::RequestExit(0, <NoCallSiteInfo>)
-[2025.11.03-15.54.02:184][  0]LogWindows: FPlatformMisc::RequestExitWithStatus(0, 0, <NoCallSiteInfo>)
-[2025.11.03-15.54.02:184][  0]LogCore: Engine exit requested (reason: Win RequestExit)
-[2025.11.03-15.54.02:187][  0]LogLoad: Game class is 'UserInput_C'
-[2025.11.03-15.54.02:219][  0]LogWorld: Bringing World /Game/Scenes/Main/Main.Main up for play (max tick rate 0) at 2025.11.03-16.54.02
-[2025.11.03-15.54.02:222][  0]LogWorld: Bringing up level for play took: 0.032563
-[2025.11.03-15.54.02:223][  0]LogWindows: WindowsPlatformFeatures enabled
-[2025.11.03-15.54.02:224][  0]LogEnhancedInput: Enhanced Input local player subsystem has initalized the user settings!
-[2025.11.03-15.54.02:229][  0]LogBlueprintUserMessages: [PlayerUnleashed_C_0] Player Controls Loaded
-[2025.11.03-15.54.02:232][  0]Set new viewmode: Unlit
-[2025.11.03-15.54.02:232][  0]LogLoad: Took 2.515981 seconds to LoadMap(/Game/Scenes/Main)
-[2025.11.03-15.54.02:232][  0]LogGlobalStatus: UEngine::LoadMap Load map complete /Game/Scenes/Main
-[2025.11.03-15.54.02:265][  0]LogAssetRegistry: Display: Triggering cache save on discovery complete
-[2025.11.03-15.54.02:436][  0]LogAssetRegistry: Display: Asset registry cache read as 67.0 MiB from ../../../../../../Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/CachedAssetRegistry_0.bin.
-[2025.11.03-15.54.02:438][  0]LogAssetRegistry: Display: AssetDataGatherer spent 0.134s loading caches ../../../../../../Users/Jana/Documents/GitHub/BGEN/BGEN/Intermediate/CachedAssetRegistry_*.bin.
-[2025.11.03-15.54.02:439][  0]LogAssetRegistry: Warning: Package is loadable but its AssetRegistry data is corrupt: /Game/Generated/GBT_71. Reason: Cannot make FAssetData for sub object ../../../../../../Users/Jana/Documents/GitHub/BGEN/BGEN/Content/Generated/GBT_71.uasset.
-[2025.11.03-15.54.02:622][  0]LogAssetRegistry: AssetRegistryGather time 0.2999s: AssetDataDiscovery 0.0000s, AssetDataGather 0.1698s, StoreResults 0.1301s. Wall time 10.1650s.
-	NumCachedDirectories 1455. NumUncachedDirectories 19. NumCachedFiles 7401. NumUncachedFiles 1.
+﻿[2025.11.18-11.30.15:302][  0]Log file open, 11/18/25 12:30:15
+[2025.11.18-11.30.15:302][  0]LogGeneticGeneration: GeneticGenerationModule started.
+[2025.11.18-11.30.15:302][  0]LogGeneticGeneration: Custom log file initialized at ../../../../../../Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Saved/Logs/GeneticGeneration.log
+[2025.11.18-11.30.15:302][  0]LogGeneticGeneration: GeneticGenerationModule started.
+[2025.11.18-11.30.15:325][  0]SourceControl: Revision control is disabled
+[2025.11.18-11.30.15:423][  0]LogConfig: Applying CVar settings from Section [/Script/NNEDenoiser.NNEDenoiserSettings] File [Engine]
+[2025.11.18-11.30.15:425][  0]LogAndroidPermission: UAndroidPermissionCallbackProxy::GetInstance
+[2025.11.18-11.30.15:430][  0]LogAudioCaptureCore: Display: No Audio Capture implementations found. Audio input will be silent.
+[2025.11.18-11.30.15:430][  0]LogAudioCaptureCore: Display: No Audio Capture implementations found. Audio input will be silent.
+[2025.11.18-11.30.15:471][  0]LogUObjectArray: 38559 objects as part of root set at end of initial load.
+[2025.11.18-11.30.15:472][  0]LogUObjectArray: CloseDisregardForGC: 0/0 objects in disregard for GC pool
+[2025.11.18-11.30.15:563][  0]LogEngine: Initializing Engine...
+[2025.11.18-11.30.15:594][  0]LogNetVersion: Set ProjectVersion to 1.0.0.0. Version Checksum will be recalculated on next use.
+[2025.11.18-11.30.15:595][  0]LogInit: Texture streaming: Disabled
+[2025.11.18-11.30.15:613][  0]LogCsvProfiler: Display: Metadata set : largeworldcoordinates="1"
+[2025.11.18-11.30.15:613][  0]LogChaosDD: Creating Chaos Debug Draw Scene for world Untitled
+[2025.11.18-11.30.15:614][  0]LogNiagara: UAV Float16 is not supported, compressed GPU emitters will be disabled.
+[2025.11.18-11.30.15:615][  0]LogGeneticGeneration: OnWorldInitialized called for world: Untitled
+[2025.11.18-11.30.15:615][  0]LogGeneticGeneration: Skipping non-main world: Untitled
+[2025.11.18-11.30.15:616][  0]LogEngine: GameWindow did not exist.  Was created
+[2025.11.18-11.30.15:617][  0]LogSlate: Updating window title bar state: overlay mode, drag disabled, window buttons hidden, title bar hidden
+[2025.11.18-11.30.15:617][  0]LogInit: Display: Game Engine Initialized.
+[2025.11.18-11.30.15:619][  0]LogNNEDenoiser: Ray Tracing is not enabled, therefore NNEDenoiser is not registered!
+[2025.11.18-11.30.15:619][  0]LogNiagaraEditor: GEditor isn't valid! Particle reset commands will not work for Niagara components!
+[2025.11.18-11.30.15:621][  0]LogPython: Python enabled via CVar 'Engine.Python.IsEnabledByDefault'
+[2025.11.18-11.30.15:621][  0]LogPython: Using Python 3.11.8
+[2025.11.18-11.30.15:639][  0]LogPython: Display: No pip-enabled plugins with python dependencies found, skipping
+[2025.11.18-11.30.15:853][  0]LogInit: Display: Starting Game.
+[2025.11.18-11.30.15:853][  0]LogGlobalStatus: UEngine::Browse Started Browse: "/Game/Scenes/Main/Main?Name=Player"
+[2025.11.18-11.30.15:855][  0]LogNet: Browse: /Game/Scenes/Main/Main?Name=Player
+[2025.11.18-11.30.15:856][  0]LogLoad: LoadMap: /Game/Scenes/Main/Main?Name=Player
+[2025.11.18-11.30.15:856][  0]LogWorld: BeginTearingDown for /Temp/Untitled_0
+[2025.11.18-11.30.15:856][  0]LogWorld: UWorld::CleanupWorld for Untitled, bSessionEnded=true, bCleanupResources=true
+[2025.11.18-11.30.15:856][  0]LogSlate: InvalidateAllWidgets triggered.  All widgets were invalidated
+[2025.11.18-11.30.15:866][  0]LogUObjectHash: Compacting FUObjectHashTables data took   0.36ms
+[2025.11.18-11.30.15:866][  0]LogTurnkeySupport: Turnkey Device: Win64@RaamxiePC: (Name=RaamxiePC, Type=Computer, Status=Valid, MinAllowed=10.0.19041.0, MaxAllowed=, Current=10.0.26200.0, Flags="Device_InstallSoftwareValid")
+[2025.11.18-11.30.15:911][  0]LogDeviceProfileManager: Going up to parent DeviceProfile []
+[2025.11.18-11.30.15:917][  0]LogDeviceProfileManager: Going up to parent DeviceProfile []
+[2025.11.18-11.30.15:921][  0]LogDeviceProfileManager: Going up to parent DeviceProfile []
+[2025.11.18-11.30.15:926][  0]LogDeviceProfileManager: Going up to parent DeviceProfile [AppleTV]
+[2025.11.18-11.30.15:926][  0]LogDeviceProfileManager: Going up to parent DeviceProfile [IOS]
+[2025.11.18-11.30.15:926][  0]LogDeviceProfileManager: Going up to parent DeviceProfile []
+[2025.11.18-11.30.15:930][  0]LogDeviceProfileManager: Display: Deviceprofile None not found.
+[2025.11.18-11.30.15:942][  0]LogChaosDD: Creating Chaos Debug Draw Scene for world Main
+[2025.11.18-11.30.15:945][  0]LogGeneticGeneration: OnWorldInitialized called for world: Main
+[2025.11.18-11.30.15:945][  0]LogGeneticGeneration: World Main initialized, running simulation now.
+[2025.11.18-11.30.15:945][  0]LogGeneticGeneration: Simulation starting in world: Main
+[2025.11.18-11.30.15:978][  0]LogProperty: Warning: Illegal TEXT reference to a private object in external package (BTTask_CheckAreaForPlayer_C /Game/Actors/EnemyUnleashed/BT_EnemyUnleashed.BT_EnemyUnleashed:BTTask_CheckAreaForPlayer_C_0) from referencer (BTComposite_Sequence /Game/Generated/BT_Gen1.BT_Gen1:BTComposite_Sequence_0).  Import failed...
+[2025.11.18-11.30.15:978][  0]LogProperty: Warning: Illegal TEXT reference to a private object in external package (BTTask_MoveToPlayer_C /Game/Actors/EnemyUnleashed/BT_EnemyUnleashed.BT_EnemyUnleashed:BTTask_MoveTo_C_0) from referencer (BTComposite_Sequence /Game/Generated/BT_Gen1.BT_Gen1:BTComposite_Sequence_0).  Import failed...
+[2025.11.18-11.30.15:978][  0]LogProperty: Warning: Illegal TEXT reference to a private object in external package (BTTask_Attack_C /Game/Actors/EnemyUnleashed/BT_EnemyUnleashed.BT_EnemyUnleashed:BTTask_Attack_C_0) from referencer (BTComposite_Sequence /Game/Generated/BT_Gen1.BT_Gen1:BTComposite_Sequence_0).  Import failed...
+[2025.11.18-11.30.15:978][  0]LogSavePackage: Moving output files for package: /Game/Generated/BT_Gen1
+[2025.11.18-11.30.15:978][  0]LogSavePackage: Moving '../../../../../../Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Saved/BT_Gen1B89404F34A97D6867B679BB8FCBC8920.tmp' to '../../../../../../Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Content/Generated/BT_Gen1.uasset'
+[2025.11.18-11.30.15:980][  0]LogLoad: Game class is 'UserInput_C'
+[2025.11.18-11.30.15:991][  0]LogWorld: Bringing World /Game/Scenes/Main/Main.Main up for play (max tick rate 0) at 2025.11.18-12.30.15
+[2025.11.18-11.30.15:991][  0]LogWorld: Bringing up level for play took: 0.008336
+[2025.11.18-11.30.15:993][  0]LogBlueprintUserMessages: [PlayerUnleashed_C_0] Player Controls Loaded
+[2025.11.18-11.30.15:993][  0]LogLoad: Took 0.140423 seconds to LoadMap(/Game/Scenes/Main/Main)
+[2025.11.18-11.30.15:993][  0]LogGlobalStatus: UEngine::LoadMap Load map complete /Game/Scenes/Main/Main
+[2025.11.18-11.30.16:017][  0]LogAssetRegistry: Display: Triggering cache save on discovery complete
+[2025.11.18-11.30.16:064][  0]LogAssetRegistry: Display: Asset registry cache read as 67.0 MiB from ../../../../../../Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Intermediate/CachedAssetRegistry_0.bin.
+[2025.11.18-11.30.16:065][  0]LogAssetRegistry: Display: AssetDataGatherer spent 0.037s loading caches ../../../../../../Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Intermediate/CachedAssetRegistry_*.bin.
+[2025.11.18-11.30.16:104][  0]LogAssetRegistry: AssetRegistryGather time 0.0724s: AssetDataDiscovery 0.0000s, AssetDataGather 0.0452s, StoreResults 0.0272s. Wall time 2.5860s.
+	NumCachedDirectories 1456. NumUncachedDirectories 19. NumCachedFiles 7407. NumUncachedFiles 1.
 	BackgroundTickInterruptions 0.
-[2025.11.03-15.54.02:872][  0]LogInit: Display: Engine is initialized. Leaving FEngineLoop::Init()
-[2025.11.03-15.54.02:874][  0]LogLoad: (Engine Initialization) Total time: 19.93 seconds
-[2025.11.03-15.54.02:874][  0]LogCore: Engine exit requested (reason: EngineExit() was called; note: exit was already requested)
-[2025.11.03-15.54.02:874][  0]LogStaticMesh: Abandoning remaining async distance field tasks for shutdown
-[2025.11.03-15.54.02:874][  0]LogStaticMesh: Abandoning remaining async card representation tasks for shutdown
-[2025.11.03-15.54.02:875][  0]LogInit: Display: PreExit Game.
-[2025.11.03-15.54.02:875][  0]LogWorld: BeginTearingDown for /Game/Scenes/Main/Main
-[2025.11.03-15.54.02:880][  0]LogWorld: UWorld::CleanupWorld for Main, bSessionEnded=true, bCleanupResources=true
-[2025.11.03-15.54.02:883][  0]LogSlate: InvalidateAllWidgets triggered.  All widgets were invalidated
-[2025.11.03-15.54.02:889][  0]LogRuntimeTelemetry: Recording EnginePreExit events
-[2025.11.03-15.54.02:889][  0]LogStudioTelemetry: Ended StudioTelemetry Session
-[2025.11.03-15.54.03:166][  0]LogSlate: Window 'BGEN (64-bit Development PCD3D_SM6) ' being destroyed
-[2025.11.03-15.54.03:171][  0]LogSlate: Slate User Destroyed.  User Index 0, Is Virtual User: 0
-[2025.11.03-15.54.03:171][  0]LogExit: Preparing to exit.
-[2025.11.03-15.54.03:216][  0]LogUObjectHash: Compacting FUObjectHashTables data took   1.62ms
-[2025.11.03-15.54.03:405][  0]LogSlate: Updating window title bar state: overlay mode, drag disabled, window buttons hidden, title bar hidden
-[2025.11.03-15.54.03:418][  0]LogDemo: Cleaned up 0 splitscreen connections, owner deletion: enabled
-[2025.11.03-15.54.03:452][  0]LogExit: Game engine shut down
-[2025.11.03-15.54.03:827][  0]LogExit: Object subsystem successfully closed.
-[2025.11.03-15.54.03:928][  0]LogShaderCompilers: Display: Shaders left to compile 0
-[2025.11.03-15.54.04:016][  0]LogGeneticGeneration: GeneticGenerationModule shutting down.
-[2025.11.03-15.54.04:177][  0]LogChaosDD: Chaos Debug Draw Shutdown
-[2025.11.03-15.54.04:192][  0]LogNFORDenoise: NFORDenoise function shutting down
-[2025.11.03-15.54.04:247][  0]LogEOSShared: FEOSSDKManager::Shutdown EOS_Shutdown Result=[EOS_Success]
-[2025.11.03-15.54.04:258][  0]LogIris: FNetObjectFactoryRegistry::UnregisterFactory is unregistering factory: None name: NetActorFactory id: 0
-[2025.11.03-15.54.04:258][  0]LogIris: FNetObjectFactoryRegistry::UnregisterFactory is unregistering factory: None name: NetSubObjectFactory id: 1
-[2025.11.03-15.54.04:259][  0]LogPakFile: Destroying PakPlatformFile
-[2025.11.03-15.54.04:294][  0]LogExit: Exiting.
-[2025.11.03-15.54.04:348][  0]Log file closed, 11/03/25 16:54:04
+[2025.11.18-11.30.16:170][  0]LogInit: Display: Engine is initialized. Leaving FEngineLoop::Init()
+[2025.11.18-11.30.16:171][  0]LogLoad: (Engine Initialization) Total time: 5.20 seconds
+[2025.11.18-11.30.16:230][  0]LogSlate: InvalidateAllWidgets triggered.  All widgets were invalidated
+[2025.11.18-11.30.16:231][  0]LogPython: Display: Running start-up script C:/Program Files/Epic Games/UE_5.6/Engine/Plugins/Animation/ControlRig/Content/Python/init_unreal.py... started...
+[2025.11.18-11.30.16:261][  0]LogPython: registering <class 'ControlRigWorkflows.workflow_deformation_rig_preset.provider'>
+
+[2025.11.18-11.30.16:280][  0]LogPython: Display: Running start-up script C:/Program Files/Epic Games/UE_5.6/Engine/Plugins/Animation/ControlRig/Content/Python/init_unreal.py... took 48.788 ms
+[2025.11.18-11.30.16:280][  0]LogLiveCoding: Display: LiveCodingConsole Arguments: BGENEditor Win64 Development
+[2025.11.18-11.30.22:330][579]LogCore: Engine exit requested (reason: ConsoleCtrl RequestExit)
+[2025.11.18-11.30.22:330][580]LogCore: Warning: *** INTERRUPTED *** : SHUTTING DOWN
+[2025.11.18-11.30.22:330][580]LogCore: Warning: *** INTERRUPTED *** : CTRL-C TO FORCE QUIT
+[2025.11.18-11.30.22:330][580]LogCore: Engine exit requested (reason: EngineExit() was called; note: exit was already requested)
+[2025.11.18-11.30.22:332][580]LogStaticMesh: Abandoning remaining async distance field tasks for shutdown
+[2025.11.18-11.30.22:332][580]LogStaticMesh: Abandoning remaining async card representation tasks for shutdown
+[2025.11.18-11.30.22:339][580]LogInit: Display: PreExit Game.
+[2025.11.18-11.30.22:339][580]LogWorld: BeginTearingDown for /Game/Scenes/Main/Main
+[2025.11.18-11.30.22:339][580]LogCrowdFollowing: Warning: Unable to find RecastNavMesh instance while trying to create UCrowdManager instance
+[2025.11.18-11.30.22:339][580]LogWorld: UWorld::CleanupWorld for Main, bSessionEnded=true, bCleanupResources=true
+[2025.11.18-11.30.22:339][580]LogSlate: InvalidateAllWidgets triggered.  All widgets were invalidated
+[2025.11.18-11.30.22:339][580]LogRuntimeTelemetry: Recording EnginePreExit events
+[2025.11.18-11.30.22:339][580]LogStudioTelemetry: Ended StudioTelemetry Session
+[2025.11.18-11.30.22:591][580]LogSlate: Window 'BGEN (64-bit Development PCD3D_SM6) ' being destroyed
+[2025.11.18-11.30.22:593][580]LogSlate: Slate User Destroyed.  User Index 0, Is Virtual User: 0
+[2025.11.18-11.30.22:593][580]LogExit: Preparing to exit.
+[2025.11.18-11.30.22:608][580]LogUObjectHash: Compacting FUObjectHashTables data took   0.88ms
+[2025.11.18-11.30.22:698][580]LogSlate: Updating window title bar state: overlay mode, drag disabled, window buttons hidden, title bar hidden
+[2025.11.18-11.30.22:700][580]LogDemo: Cleaned up 0 splitscreen connections, owner deletion: enabled
+[2025.11.18-11.30.22:705][580]LogExit: Game engine shut down
+[2025.11.18-11.30.22:749][580]LogExit: Object subsystem successfully closed.
+[2025.11.18-11.30.22:840][580]LogShaderCompilers: Display: Shaders left to compile 0
+[2025.11.18-11.30.22:871][580]LogGeneticGeneration: GeneticGenerationModule shutting down.
+[2025.11.18-11.30.22:888][580]LogChaosDD: Chaos Debug Draw Shutdown
+[2025.11.18-11.30.22:890][580]LogNFORDenoise: NFORDenoise function shutting down
+[2025.11.18-11.30.22:930][580]LogEOSShared: FEOSSDKManager::Shutdown EOS_Shutdown Result=[EOS_Success]
+[2025.11.18-11.30.22:930][580]LogXGEController: Cleaning working directory: C:/Users/Raamxie/AppData/Local/Temp/UnrealXGEWorkingDir/
+[2025.11.18-11.30.22:930][580]LogIris: FNetObjectFactoryRegistry::UnregisterFactory is unregistering factory: None name: NetActorFactory id: 0
+[2025.11.18-11.30.22:930][580]LogIris: FNetObjectFactoryRegistry::UnregisterFactory is unregistering factory: None name: NetSubObjectFactory id: 1
+[2025.11.18-11.30.22:931][580]LogPakFile: Destroying PakPlatformFile
+[2025.11.18-11.30.22:955][580]LogExit: Exiting.
+[2025.11.18-11.30.22:992][580]Log file closed, 11/18/25 12:30:22

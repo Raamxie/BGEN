@@ -15,7 +15,12 @@
 		{
 			"Name": "GeneticGeneration",
 			"Type": "Runtime",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"AIModule",
+				"Engine",
+              "EditorScriptingUtilities"
+			]
 		}
 	],
 	"Plugins": [

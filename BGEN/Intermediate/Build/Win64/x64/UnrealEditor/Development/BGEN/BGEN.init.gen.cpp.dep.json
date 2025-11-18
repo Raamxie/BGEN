@@ -1,11 +1,11 @@
 {
     "Version": "1.2",
     "Data": {
-        "Source": "c:\\users\\jana\\documents\\github\\bgen\\bgen\\intermediate\\build\\win64\\unrealeditor\\inc\\bgen\\uht\\bgen.init.gen.cpp",
+        "Source": "c:\\users\\raamxie\\documents\\unreal projects\\bgen\\bgen\\intermediate\\build\\win64\\unrealeditor\\inc\\bgen\\uht\\bgen.init.gen.cpp",
         "ProvidedModule": "",
-        "PCH": "c:\\users\\jana\\documents\\github\\bgen\\bgen\\intermediate\\build\\win64\\x64\\bgeneditor\\development\\unrealed\\sharedpch.unrealed.project.valapi.valexpapi.cpp20.h.pch",
+        "PCH": "c:\\users\\raamxie\\documents\\unreal projects\\bgen\\bgen\\intermediate\\build\\win64\\x64\\bgeneditor\\development\\unrealed\\sharedpch.unrealed.project.valapi.valexpapi.cpp20.h.pch",
         "Includes": [
-            "c:\\users\\jana\\documents\\github\\bgen\\bgen\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\bgen\\definitions.bgen.h"
+            "c:\\users\\raamxie\\documents\\unreal projects\\bgen\\bgen\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\bgen\\definitions.bgen.h"
         ],
         "ImportedModules": [],
         "ImportedHeaderUnits": []

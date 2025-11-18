@@ -1,9 +1,5 @@
 {
 	"RemapUnityFiles": 
 	{
-		"Module.GeneticGeneration.gen.cpp.obj": [
-			"GeneratedPawn.gen.cpp.obj",
-			"GeneticGeneration.init.gen.cpp.obj"
-		]
 	}
 }

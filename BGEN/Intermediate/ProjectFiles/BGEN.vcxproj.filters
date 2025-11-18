@@ -12,16 +12,12 @@
       <Filter>Source</Filter>
     </None>
     <None Include="..\..\.vsconfig" />
+    <None Include="..\..\BGEN.lnk" />
+    <None Include="..\..\BGEN.uproject.DotSettings.user" />
     <Filter Include="Config">
       <UniqueIdentifier>{FA535FFB-25E1-3D20-B416-52F9BE21E06E}</UniqueIdentifier>
     </Filter>
-    <None Include="..\..\Config\DefaultEditor.ini">
-      <Filter>Config</Filter>
-    </None>
     <None Include="..\..\Config\DefaultEngine.ini">
-      <Filter>Config</Filter>
-    </None>
-    <None Include="..\..\Config\DefaultGame.ini">
       <Filter>Config</Filter>
     </None>
     <None Include="..\..\Config\DefaultInput.ini">
@@ -39,6 +35,18 @@
     <ClInclude Include="..\..\Source\BGEN\BGEN.h">
       <Filter>Source\BGEN</Filter>
     </ClInclude>
+    <Filter Include="Source\BGEN\Private">
+      <UniqueIdentifier>{2FC9CCF2-9453-389F-AD24-1AAC00999478}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\BGEN\Private\DumpArrayToFile.cpp">
+      <Filter>Source\BGEN\Private</Filter>
+    </ClCompile>
+    <Filter Include="Source\BGEN\Public">
+      <UniqueIdentifier>{B8075B47-1F0C-3727-89AB-F0B974AF3568}</UniqueIdentifier>
+    </Filter>
+    <ClInclude Include="..\..\Source\BGEN\Public\DumpArrayToFile.h">
+      <Filter>Source\BGEN\Public</Filter>
+    </ClInclude>
     <Filter Include="Source\GeneticGeneration">
       <UniqueIdentifier>{FCF662D6-1683-388F-A3EF-E74286CF4850}</UniqueIdentifier>
     </Filter>
@@ -48,20 +56,38 @@
     <Filter Include="Source\GeneticGeneration\Private">
       <UniqueIdentifier>{9C13ACFE-3BC2-3526-ACA1-5ABEFC4DB4F3}</UniqueIdentifier>
     </Filter>
+    <ClCompile Include="..\..\Source\GeneticGeneration\Private\CustomAIController.cpp">
+      <Filter>Source\GeneticGeneration\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\GeneticGeneration\Private\CustomBehaviourTree.cpp">
+      <Filter>Source\GeneticGeneration\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\GeneticGeneration\Private\GeneratedCharacter.cpp">
+      <Filter>Source\GeneticGeneration\Private</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Source\GeneticGeneration\Private\GeneticGenerationModule.cpp">
+      <Filter>Source\GeneticGeneration\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\GeneticGeneration\Private\PoolingManager.cpp">
       <Filter>Source\GeneticGeneration\Private</Filter>
     </ClCompile>
     <Filter Include="Source\GeneticGeneration\Public">
       <UniqueIdentifier>{2101CB3D-FF6F-3CC0-BCF1-DD8E3597F94F}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source\GeneticGeneration\Public\Commandlets">
-      <UniqueIdentifier>{E9085FDC-7183-3D8D-B0DD-F34528C92F36}</UniqueIdentifier>
-    </Filter>
-    <ClCompile Include="..\..\Source\GeneticGeneration\Public\Commandlets\GeneticGenerationCommandlet.cpp">
-      <Filter>Source\GeneticGeneration\Public\Commandlets</Filter>
-    </ClCompile>
-    <ClInclude Include="..\..\Source\GeneticGeneration\Public\Commandlets\GeneticGenerationCommandlet.h">
-      <Filter>Source\GeneticGeneration\Public\Commandlets</Filter>
+    <ClInclude Include="..\..\Source\GeneticGeneration\Public\CustomAIController.h">
+      <Filter>Source\GeneticGeneration\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\GeneticGeneration\Public\CustomBehaviourTree.h">
+      <Filter>Source\GeneticGeneration\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\GeneticGeneration\Public\GeneratedCharacter.h">
+      <Filter>Source\GeneticGeneration\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\GeneticGeneration\Public\GeneticGenerationModule.h">
+      <Filter>Source\GeneticGeneration\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\GeneticGeneration\Public\PoolingManager.h">
+      <Filter>Source\GeneticGeneration\Public</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
