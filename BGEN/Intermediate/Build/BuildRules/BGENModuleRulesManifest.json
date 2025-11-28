@@ -1,6 +1,7 @@
 {
 	"SourceFiles": [
 		"C:\\Users\\Raamxie\\Documents\\Unreal Projects\\BGEN\\BGEN\\Source\\BGEN\\BGEN.Build.cs",
+		"C:\\Users\\Raamxie\\Documents\\Unreal Projects\\BGEN\\BGEN\\Source\\BehaviourTreeGraph\\BehaviourTreeGraph.Build.cs",
 		"C:\\Users\\Raamxie\\Documents\\Unreal Projects\\BGEN\\BGEN\\Source\\GeneticGeneration\\GeneticGeneration.Build.cs",
 		"C:\\Users\\Raamxie\\Documents\\Unreal Projects\\BGEN\\BGEN\\Source\\BGEN.Target.cs",
 		"C:\\Users\\Raamxie\\Documents\\Unreal Projects\\BGEN\\BGEN\\Source\\BGENEditor.Target.cs"

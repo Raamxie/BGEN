@@ -19,27 +19,6 @@ void ACustomAIController::OnPossess(APawn* InPawn)
 {
     Super::OnPossess(InPawn);
 
-    // Create the runtime wrapper with this controller as outer to keep it alive while possessed.
-    RuntimeBehaviourWrapper = NewObject<UCustomBehaviourTree>(this);
-
-    if (RuntimeBehaviourWrapper)
-    {
-        UBehaviorTree* Generated = RuntimeBehaviourWrapper->GenerateSimpleRuntimeTree();
-        if (Generated)
-        {
-            // Start the runtime tree on this controller (this will initialize the controller's blackboard component and run the tree)
-            RuntimeBehaviourWrapper->StartTree(this);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("Runtime behaviour wrapper generated no BehaviorTree"));
-        }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("Failed to create UCustomBehaviourTree instance"));
-    }
-
     // If user assigned a static tree earlier, optionally run it:
     if (AssignedTree)
     {

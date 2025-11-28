@@ -294,11 +294,12 @@
 /I "../Intermediate/Build/Win64/UnrealEditor/Inc/BehaviorTreeEditor/UHT"
 /I "Editor/BehaviorTreeEditor/Classes"
 /I "Editor/BehaviorTreeEditor/Public"
+/I "C:/Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Source"
+/I "C:/Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Source/BehaviourTreeGraph/Public"
 /I "../Intermediate/Build/Win64/UnrealEditor/Inc/AIModule/UHT"
 /I "Runtime/AIModule/Classes"
 /I "Runtime/AIModule/Public"
 /I "C:/Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Intermediate/Build/Win64/UnrealEditor/Inc/GeneticGeneration/UHT"
-/I "C:/Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Source"
 /I "C:/Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Source/GeneticGeneration/Public"
 /I "C:/Users/Raamxie/Documents/Unreal Projects/BGEN/BGEN/Intermediate/Build/Win64/x64/BGENEditor/Development/UnrealEd"
 /external:W0

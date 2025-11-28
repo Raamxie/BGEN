@@ -2,17 +2,11 @@
 
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
+#include "BehaviorTree/BehaviorTree.h"
 #include "CustomBehaviourTree.generated.h"
 
-class UBehaviorTree;
-class UBlackboardData;
-class UBlackboardComponent;
-class AAIController;
-class UBehaviorTreeComponent;
-class UBTTaskNode;
-
 /**
- * Lightweight helper to generate and run runtime Behavior Trees + Blackboard
+ * Runtime helper to load, mutate and save a Behavior Tree.
  */
 UCLASS()
 class GENETICGENERATION_API UCustomBehaviourTree : public UObject
@@ -20,43 +14,26 @@ class GENETICGENERATION_API UCustomBehaviourTree : public UObject
 	GENERATED_BODY()
 
 public:
-	UCustomBehaviourTree();
+	/// Load an existing BehaviorTree (e.g. "/Game/AI/BT_Original")
+	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
+	bool LoadBehaviorTree(const FString& AssetPath);
 
-	/** Load a BehaviorTree asset from path (keeps asset pointer) */
-	UBehaviorTree* LoadBehaviorTree(const FString& AssetPath);
+	/// Apply a fixed mutation:
+	/// 1. Remove first child of root
+	/// 2. Insert Sequence as first composite child
+	/// 3. Add BTTask_Attack (or fallback) under that sequence.
+	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
+	bool MutateTree_AddSequenceWithAttack();
 
-	/** Generate the simple runtime tree described by the user
-	 *  Structure: Selector -> Sequence -> [CheckArea, MoveTo, Attack]
-	 */
-	UBehaviorTree* GenerateSimpleRuntimeTree();
+	/// Save current tree into a new package: DestinationPackagePath is like "/Game/Generated/MyEvolvedBT"
+	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
+	bool SaveAsNewAsset(const FString& DestinationPackagePath, bool bOverwriteExisting = false);
 
-	/** Start the runtime tree on the provided controller (initializes blackboard etc) */
-	void StartTree(AAIController* Controller);
+	/// Get the in-memory UBehaviorTree instance
+	UBehaviorTree* GetBTAsset() const { return BehaviorTreeAsset; }
 
-	/** Stop the currently running tree (if any) */
-	void StopTree();
-	void Test_ModifyTreeAndSave(const FString& SourceBTPath, const FString& SavePackagePath);
+private:
+	UBehaviorTree* BehaviorTreeAsset = nullptr;
 
-	/** Create runtime blackboard and add required keys */
-	void CreateRuntimeBlackboard();
-
-	/** Add a blackboard key (helper) */
-	void AddBlackboardKey(FName KeyName, UClass* KeyTypeClass);
-
-	/** Duplicate/load a task and instance it under the BehaviorTree */
-	UBTTaskNode* LoadAndInstanceTask(const FString& Path, UObject* Outer);
-
-	void Test_ModifyTreeAndSave_WithEditorGraph(const FString& SourceBTPath, const FString& SavePackagePath);
-
-protected:
-	/** Runtime objects owned by this helper */
-	UPROPERTY()
-	UBehaviorTree* BehaviorTree;
-
-	UPROPERTY()
-	UBlackboardData* BlackboardData;
-
-	/** If the BT is running, store the active BT component pointer for stop/cleanup */
-	UPROPERTY()
-	UBehaviorTreeComponent* ActiveComponent;
+	UBTCompositeNode* GetRootComposite();
 };

@@ -1,0 +1,13 @@
+{
+	"nodeClass": "/Script/AIModule.BTComposite_Sequence",
+	"nodeName": "Sequence",
+	"properties":
+	{
+		"Children": "((ChildTask=\"/Game/BehaviourTrees/Tasks/BTTask_CheckAreaForPlayer.BTTask_CheckAreaForPlayer_C'/Game/Actors/EnemyUnleashed/BT_EnemyUnleashed.BT_EnemyUnleashed:BTTask_CheckAreaForPlayer_C_0'\"),(ChildTask=\"/Game/BehaviourTrees/Tasks/BTTask_MoveToPlayer.BTTask_MoveToPlayer_C'/Game/Actors/EnemyUnleashed/BT_EnemyUnleashed.BT_EnemyUnleashed:BTTask_MoveTo_C_0'\"),(ChildTask=\"/Game/BehaviourTrees/Tasks/BTTask_Attack.BTTask_Attack_C'/Game/Actors/EnemyUnleashed/BT_EnemyUnleashed.BT_EnemyUnleashed:BTTask_Attack_C_0'\"))",
+		"Services": "",
+		"bApplyDecoratorScope": "False",
+		"NodeName": "Sequence",
+		"TreeAsset": "/Script/AIModule.BehaviorTree'/Game/Actors/EnemyUnleashed/BT_EnemyUnleashed.BT_EnemyUnleashed'",
+		"ParentNode": "None"
+	}
+}

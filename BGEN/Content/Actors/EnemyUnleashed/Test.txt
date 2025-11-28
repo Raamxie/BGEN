@@ -1,0 +1,828 @@
+header:
+ EPackageFileTag: 2653586369
+ LegacyFileVersion: -9
+ LegacyUE3Version: 864
+ FileVersionUE4: 522
+ FileVersionUE5: 1017
+ FileVersionLicenseeUE4: 0
+ SavedPackageHash: 427e7fcf61fe36400d993443932bfa5dadb3de56
+ TotalHeaderSize: 4811
+ CustomVersions:
+   0:
+     key: 601D1886AC644F84AA16D3DE0DEAC7D6
+     version: 207
+   1:
+     key: 697DD581E64F41ABAA4A51ECBEB7B628
+     version: 121
+   2:
+     key: 9C54D522A8264FBE9421074661B482D0
+     version: 44
+   3:
+     key: B0D832E41F894F0DACCF7EB736FD4AA2
+     version: 10
+   4:
+     key: CFFC743F43B04480939114DF171D2073
+     version: 37
+   5:
+     key: D89B5E4224BD4D468412ACA8DF641779
+     version: 56
+   6:
+     key: E4B068EDF49442E9A231DA0B2E46BB41
+     version: 40
+ FolderName: /Game/Actors/EnemyUnleashed/Test
+ PackageFlags: 0
+ NameCount: 77
+ NameOffset: 502
+ SoftObjectPathsCount: 1
+ SoftObjectPathsOffset: 2412
+ LocalizationId: B56476D4D4830274DF75D24075F662C2
+ GatherableTextDataCount: 0
+ GatherableTextDataOffset: 2445
+ ExportCount: 12
+ ExportOffset: 3178
+ ImportCount: 17
+ ImportOffset: 2498
+ MetadataOffset: 0
+ DependsOffset: 4522
+ SoftPackageReferencesCount: 0
+ SoftPackageReferencesOffset: 4522
+ SearchableNamesOffset: 2445
+ ThumbnailTableOffset: 4522
+ Guid: 01000000421200004A1200005A120000
+ PersistentGuid: 41048B75AD01F6498420D42F11B4D9DF
+ Generations:
+   0:
+     exportCount: 12
+     nameCount: 77
+ SavedByEngineVersion: 5.6.1-44394996+++UE5+Release-5.6
+ CompatibleWithEngineVersion: 5.6.0-43139311+++UE5+Release-5.6
+ CompressionFlags: 0
+ PackageSource: 449567732
+ AdditionalPackagesToCook:
+ AssetRegistryDataOffset: 4732
+ BulkDataStartOffset: 9345
+ WorldTileInfoDataOffset: 0
+ ChunkIDs:
+ PreloadDependencyCount: -1
+ PreloadDependencyOffset: 4811
+ NamesReferencedFromExportDataCount: 54
+ PayloadTocOffset: 9349
+ DataResourceOffset: 0
+
+names:
+ 0:
+   Name: /Game/Actors/EnemyUnleashed/Test
+   NonCasePreservingHash: 32666
+   CasePreservingHash: 18220
+ 1:
+   Name: /Script/AIGraph
+   NonCasePreservingHash: 54446
+   CasePreservingHash: 58170
+ 2:
+   Name: /Script/AIModule
+   NonCasePreservingHash: 56023
+   CasePreservingHash: 4724
+ 3:
+   Name: /Script/CoreUObject
+   NonCasePreservingHash: 18936
+   CasePreservingHash: 15917
+ 4:
+   Name: /Script/Engine
+   NonCasePreservingHash: 16518
+   CasePreservingHash: 18821
+ 5:
+   Name: /Script/SlateCore
+   NonCasePreservingHash: 24884
+   CasePreservingHash: 31610
+ 6:
+   Name: ArrayProperty
+   NonCasePreservingHash: 45129
+   CasePreservingHash: 27107
+ 7:
+   Name: AssetName
+   NonCasePreservingHash: 35692
+   CasePreservingHash: 3134
+ 8:
+   Name: bIsUsingModCounter
+   NonCasePreservingHash: 49808
+   CasePreservingHash: 40291
+ 9:
+   Name: BlackboardAsset
+   NonCasePreservingHash: 14465
+   CasePreservingHash: 10484
+ 10:
+   Name: BoolProperty
+   NonCasePreservingHash: 1040
+   CasePreservingHash: 35504
+ 11:
+   Name: BTCompositeChild
+   NonCasePreservingHash: 10888
+   CasePreservingHash: 27890
+ 12:
+   Name: BTDecoratorLogic
+   NonCasePreservingHash: 1779
+   CasePreservingHash: 10627
+ 13:
+   Name: BTGraph
+   NonCasePreservingHash: 23789
+   CasePreservingHash: 12192
+ 14:
+   Name: ChildComposite
+   NonCasePreservingHash: 13500
+   CasePreservingHash: 37285
+ 15:
+   Name: Children
+   NonCasePreservingHash: 13218
+   CasePreservingHash: 35482
+ 16:
+   Name: ChildTask
+   NonCasePreservingHash: 60765
+   CasePreservingHash: 4209
+ 17:
+   Name: ClassData
+   NonCasePreservingHash: 41651
+   CasePreservingHash: 19474
+ 18:
+   Name: ClassName
+   NonCasePreservingHash: 63107
+   CasePreservingHash: 19305
+ 19:
+   Name: DecoratorOps
+   NonCasePreservingHash: 53075
+   CasePreservingHash: 50227
+ 20:
+   Name: Decorators
+   NonCasePreservingHash: 7173
+   CasePreservingHash: 52817
+ 21:
+   Name: DeprecateSlateVector2D
+   NonCasePreservingHash: 63077
+   CasePreservingHash: 19331
+ 22:
+   Name: EditedDocumentInfo
+   NonCasePreservingHash: 24507
+   CasePreservingHash: 64272
+ 23:
+   Name: EditedObjectPath
+   NonCasePreservingHash: 16846
+   CasePreservingHash: 32927
+ 24:
+   Name: FloatProperty
+   NonCasePreservingHash: 43003
+   CasePreservingHash: 64990
+ 25:
+   Name: GeneratedClassPackage
+   NonCasePreservingHash: 42265
+   CasePreservingHash: 27863
+ 26:
+   Name: GraphGuid
+   NonCasePreservingHash: 33442
+   CasePreservingHash: 30411
+ 27:
+   Name: GraphNodeClassData
+   NonCasePreservingHash: 13398
+   CasePreservingHash: 43244
+ 28:
+   Name: GraphVersion
+   NonCasePreservingHash: 64546
+   CasePreservingHash: 9243
+ 29:
+   Name: Guid
+   NonCasePreservingHash: 20547
+   CasePreservingHash: 26874
+ 30:
+   Name: In
+   NonCasePreservingHash: 28578
+   CasePreservingHash: 34463
+ 31:
+   Name: IntProperty
+   NonCasePreservingHash: 54181
+   CasePreservingHash: 18998
+ 32:
+   Name: LastEditedDocuments
+   NonCasePreservingHash: 7692
+   CasePreservingHash: 53250
+ 33:
+   Name: ModCounter
+   NonCasePreservingHash: 23908
+   CasePreservingHash: 1173
+ 34:
+   Name: MultipleNodes
+   NonCasePreservingHash: 31902
+   CasePreservingHash: 5137
+ 35:
+   Name: NodeGuid
+   NonCasePreservingHash: 44241
+   CasePreservingHash: 43780
+ 36:
+   Name: NodeInstance
+   NonCasePreservingHash: 33442
+   CasePreservingHash: 38300
+ 37:
+   Name: NodePosX
+   NonCasePreservingHash: 23493
+   CasePreservingHash: 648
+ 38:
+   Name: NodePosY
+   NonCasePreservingHash: 18034
+   CasePreservingHash: 26093
+ 39:
+   Name: Nodes
+   NonCasePreservingHash: 65209
+   CasePreservingHash: 27803
+ 40:
+   Name: None
+   NonCasePreservingHash: 1012
+   CasePreservingHash: 3525
+ 41:
+   Name: ObjectProperty
+   NonCasePreservingHash: 56129
+   CasePreservingHash: 60083
+ 42:
+   Name: Out
+   NonCasePreservingHash: 1511
+   CasePreservingHash: 18129
+ 43:
+   Name: PackageLocalizationNamespace
+   NonCasePreservingHash: 29714
+   CasePreservingHash: 34937
+ 44:
+   Name: ParentNode
+   NonCasePreservingHash: 20164
+   CasePreservingHash: 50864
+ 45:
+   Name: RootNode
+   NonCasePreservingHash: 20178
+   CasePreservingHash: 38801
+ 46:
+   Name: SavedViewOffset
+   NonCasePreservingHash: 51324
+   CasePreservingHash: 17644
+ 47:
+   Name: SavedZoomAmount
+   NonCasePreservingHash: 5727
+   CasePreservingHash: 51597
+ 48:
+   Name: SingleComposite
+   NonCasePreservingHash: 14056
+   CasePreservingHash: 57814
+ 49:
+   Name: SoftObjectPath
+   NonCasePreservingHash: 41343
+   CasePreservingHash: 41435
+ 50:
+   Name: StrProperty
+   NonCasePreservingHash: 49467
+   CasePreservingHash: 9330
+ 51:
+   Name: StructProperty
+   NonCasePreservingHash: 48
+   CasePreservingHash: 64668
+ 52:
+   Name: Test
+   NonCasePreservingHash: 43306
+   CasePreservingHash: 29974
+ 53:
+   Name: TreeAsset
+   NonCasePreservingHash: 18032
+   CasePreservingHash: 19699
+ 54:
+   Name: /Game/Actors/EnemyUnleashed/BB_EnemyUnleashed
+   NonCasePreservingHash: 22807
+   CasePreservingHash: 22428
+ 55:
+   Name: /Game/BehaviourTrees/Tasks/BTTask_Attack
+   NonCasePreservingHash: 27281
+   CasePreservingHash: 54391
+ 56:
+   Name: /Game/BehaviourTrees/Tasks/BTTask_CheckAreaForPlayer
+   NonCasePreservingHash: 64115
+   CasePreservingHash: 37109
+ 57:
+   Name: /Game/BehaviourTrees/Tasks/BTTask_MoveToPlayer
+   NonCasePreservingHash: 17599
+   CasePreservingHash: 37885
+ 58:
+   Name: /Script/BehaviorTreeEditor
+   NonCasePreservingHash: 491
+   CasePreservingHash: 51586
+ 59:
+   Name: BB_EnemyUnleashed
+   NonCasePreservingHash: 20311
+   CasePreservingHash: 43638
+ 60:
+   Name: Behavior Tree
+   NonCasePreservingHash: 44446
+   CasePreservingHash: 36143
+ 61:
+   Name: BehaviorTree
+   NonCasePreservingHash: 56855
+   CasePreservingHash: 32448
+ 62:
+   Name: BehaviorTreeGraph
+   NonCasePreservingHash: 62298
+   CasePreservingHash: 42170
+ 63:
+   Name: BehaviorTreeGraphNode_Composite
+   NonCasePreservingHash: 18314
+   CasePreservingHash: 18028
+ 64:
+   Name: BehaviorTreeGraphNode_Root
+   NonCasePreservingHash: 19224
+   CasePreservingHash: 2527
+ 65:
+   Name: BehaviorTreeGraphNode_Task
+   NonCasePreservingHash: 50458
+   CasePreservingHash: 53384
+ 66:
+   Name: BlackboardData
+   NonCasePreservingHash: 63690
+   CasePreservingHash: 3017
+ 67:
+   Name: BlueprintGeneratedClass
+   NonCasePreservingHash: 39721
+   CasePreservingHash: 11632
+ 68:
+   Name: BTComposite_Selector
+   NonCasePreservingHash: 60115
+   CasePreservingHash: 30533
+ 69:
+   Name: BTComposite_Sequence
+   NonCasePreservingHash: 21782
+   CasePreservingHash: 29323
+ 70:
+   Name: BTTask_Attack_C
+   NonCasePreservingHash: 23500
+   CasePreservingHash: 25684
+ 71:
+   Name: BTTask_CheckAreaForPlayer_C
+   NonCasePreservingHash: 16232
+   CasePreservingHash: 52256
+ 72:
+   Name: BTTask_MoveTo_C
+   NonCasePreservingHash: 62108
+   CasePreservingHash: 54666
+ 73:
+   Name: BTTask_MoveToPlayer_C
+   NonCasePreservingHash: 36186
+   CasePreservingHash: 15238
+ 74:
+   Name: Class
+   NonCasePreservingHash: 30580
+   CasePreservingHash: 37240
+ 75:
+   Name: InjectedSelector
+   NonCasePreservingHash: 26555
+   CasePreservingHash: 31211
+ 76:
+   Name: Package
+   NonCasePreservingHash: 18291
+   CasePreservingHash: 5512
+
+gatherableTextData:
+
+
+imports:
+ Imports:
+   0:
+     classPackage: /Script/AIModule
+     className: BlackboardData
+     outerIndex: -12
+     objectName: BB_EnemyUnleashed
+     packageName: None
+     bImportOptional: 0
+   1:
+     classPackage: /Script/Engine
+     className: BlueprintGeneratedClass
+     outerIndex: -13
+     objectName: BTTask_Attack_C
+     packageName: None
+     bImportOptional: 0
+   2:
+     classPackage: /Script/Engine
+     className: BlueprintGeneratedClass
+     outerIndex: -14
+     objectName: BTTask_CheckAreaForPlayer_C
+     packageName: None
+     bImportOptional: 0
+   3:
+     classPackage: /Script/Engine
+     className: BlueprintGeneratedClass
+     outerIndex: -15
+     objectName: BTTask_MoveToPlayer_C
+     packageName: None
+     bImportOptional: 0
+   4:
+     classPackage: /Script/CoreUObject
+     className: Class
+     outerIndex: -16
+     objectName: BehaviorTree
+     packageName: None
+     bImportOptional: 0
+   5:
+     classPackage: /Script/CoreUObject
+     className: Class
+     outerIndex: -16
+     objectName: BTComposite_Selector
+     packageName: None
+     bImportOptional: 0
+   6:
+     classPackage: /Script/CoreUObject
+     className: Class
+     outerIndex: -16
+     objectName: BTComposite_Sequence
+     packageName: None
+     bImportOptional: 0
+   7:
+     classPackage: /Script/CoreUObject
+     className: Class
+     outerIndex: -17
+     objectName: BehaviorTreeGraph
+     packageName: None
+     bImportOptional: 0
+   8:
+     classPackage: /Script/CoreUObject
+     className: Class
+     outerIndex: -17
+     objectName: BehaviorTreeGraphNode_Composite
+     packageName: None
+     bImportOptional: 0
+   9:
+     classPackage: /Script/CoreUObject
+     className: Class
+     outerIndex: -17
+     objectName: BehaviorTreeGraphNode_Root
+     packageName: None
+     bImportOptional: 0
+   10:
+     classPackage: /Script/CoreUObject
+     className: Class
+     outerIndex: -17
+     objectName: BehaviorTreeGraphNode_Task
+     packageName: None
+     bImportOptional: 0
+   11:
+     classPackage: /Script/CoreUObject
+     className: Package
+     outerIndex: 0
+     objectName: /Game/Actors/EnemyUnleashed/BB_EnemyUnleashed
+     packageName: None
+     bImportOptional: 0
+   12:
+     classPackage: /Script/CoreUObject
+     className: Package
+     outerIndex: 0
+     objectName: /Game/BehaviourTrees/Tasks/BTTask_Attack
+     packageName: None
+     bImportOptional: 0
+   13:
+     classPackage: /Script/CoreUObject
+     className: Package
+     outerIndex: 0
+     objectName: /Game/BehaviourTrees/Tasks/BTTask_CheckAreaForPlayer
+     packageName: None
+     bImportOptional: 0
+   14:
+     classPackage: /Script/CoreUObject
+     className: Package
+     outerIndex: 0
+     objectName: /Game/BehaviourTrees/Tasks/BTTask_MoveToPlayer
+     packageName: None
+     bImportOptional: 0
+   15:
+     classPackage: /Script/CoreUObject
+     className: Package
+     outerIndex: 0
+     objectName: /Script/AIModule
+     packageName: None
+     bImportOptional: 0
+   16:
+     classPackage: /Script/CoreUObject
+     className: Package
+     outerIndex: 0
+     objectName: /Script/BehaviorTreeEditor
+     packageName: None
+     bImportOptional: 0
+
+exports:
+ 0:
+   classIndex: -5
+   superIndex: 0
+   templateIndex: 0
+   outerIndex: 0
+   objectName: Test
+   objectFlags: 11
+   serialSize: 312
+   serialOffset: 4811
+   bForcedExport: 0
+   bNotForClient: 0
+   bNotForServer: 0
+   packageGuid: 00000000000000000100000001000000
+   packageFlags: 0
+   bNotAlwaysLoadedForEditorGame: -1
+   bIsAsset: 0
+   bGeneratePublicHash: 0
+   firstExportDependency: 0
+   serializationBeforeSerializationDependencies: 0
+   createBeforeSerializationDependencies: 0
+   serializationBeforeCreateDependencies: 0
+   createBeforeCreateDependencies: 308
+   data:
+     0: 
+     1: 10496
+ 1:
+   classIndex: 0
+   superIndex: -8
+   templateIndex: 0
+   outerIndex: 0
+   objectName: 
+   objectFlags: 0
+   serialSize: 953482739720
+   serialOffset: 22003117457408
+   bForcedExport: 0
+   bNotForClient: 0
+   bNotForServer: 0
+   packageGuid: 00000000000000000000000001000000
+   packageFlags: 0
+   bNotAlwaysLoadedForEditorGame: 0
+   bIsAsset: -1
+   bGeneratePublicHash: 0
+   firstExportDependency: 0
+   serializationBeforeSerializationDependencies: 0
+   createBeforeSerializationDependencies: 0
+   serializationBeforeCreateDependencies: 0
+   createBeforeCreateDependencies: 0
+   data:
+     0: /Game/Actors/EnemyUnleashed/Test
+     1: 0
+ 2:
+   classIndex: 218
+   superIndex: 0
+   templateIndex: -9
+   outerIndex: 0
+   objectName: 
+   objectFlags: 63
+   serialSize: 34359738369
+   serialOffset: 735
+   bForcedExport: 5345
+   bNotForClient: 0
+   bNotForServer: 0
+   packageGuid: 00000000000000000000000000000000
+   packageFlags: 1
+   bNotAlwaysLoadedForEditorGame: 0
+   bIsAsset: 0
+   bGeneratePublicHash: -1
+   firstExportDependency: 0
+   serializationBeforeSerializationDependencies: 0
+   createBeforeSerializationDependencies: 0
+   serializationBeforeCreateDependencies: 0
+   createBeforeCreateDependencies: 0
+   data:
+     0: 
+     1: 1868720995
+ 3:
+   classIndex: 0
+   superIndex: 239
+   templateIndex: 0
+   outerIndex: -10
+   objectName: /Game/Actors/EnemyUnleashed/Test
+   objectFlags: 2
+   serialSize: 4294967360
+   serialOffset: 1421634174984
+   bForcedExport: 0
+   bNotForClient: 6080
+   bNotForServer: 0
+   packageGuid: 00000000000000000000000000000000
+   packageFlags: 0
+   bNotAlwaysLoadedForEditorGame: 1
+   bIsAsset: 0
+   bGeneratePublicHash: 0
+   firstExportDependency: -1
+   serializationBeforeSerializationDependencies: 0
+   createBeforeSerializationDependencies: 0
+   serializationBeforeCreateDependencies: 0
+   createBeforeCreateDependencies: 0
+   data:
+     0: /Game/Actors/EnemyUnleashed/Test
+     1: 0
+ 4:
+   classIndex: 0
+   superIndex: 0
+   templateIndex: 103
+   outerIndex: 0
+   objectName: 
+   objectFlags: 0
+   serialSize: 279172874242
+   serialOffset: 34359738369
+   bForcedExport: 640
+   bNotForClient: 0
+   bNotForServer: 6411
+   packageGuid: 00000000000000000000000000000000
+   packageFlags: 0
+   bNotAlwaysLoadedForEditorGame: 0
+   bIsAsset: 1
+   bGeneratePublicHash: 0
+   firstExportDependency: 0
+   serializationBeforeSerializationDependencies: -1
+   createBeforeSerializationDependencies: 0
+   serializationBeforeCreateDependencies: 0
+   createBeforeCreateDependencies: 0
+   data:
+     0: /Game/Actors/EnemyUnleashed/Test
+     1: 0
+ 5:
+   classIndex: 0
+   superIndex: 0
+   templateIndex: 0
+   outerIndex: 412
+   objectName: 
+   objectFlags: 0
+   serialSize: 8589934592
+   serialOffset: 38654705729
+   bForcedExport: 8
+   bNotForClient: 604
+   bNotForServer: 0
+   packageGuid: 8B1B0000000000000000000000000000
+   packageFlags: 0
+   bNotAlwaysLoadedForEditorGame: 0
+   bIsAsset: 0
+   bGeneratePublicHash: 1
+   firstExportDependency: 0
+   serializationBeforeSerializationDependencies: 0
+   createBeforeSerializationDependencies: -1
+   serializationBeforeCreateDependencies: 0
+   createBeforeCreateDependencies: 0
+   data:
+     0: /Game/Actors/EnemyUnleashed/Test
+     1: 0
+ 6:
+   classIndex: 0
+   superIndex: 0
+   templateIndex: 0
+   outerIndex: 0
+   objectName: 
+   objectFlags: 4294967285
+   serialSize: 0
+   serialOffset: 279172874242
+   bForcedExport: 10
+   bNotForClient: 8
+   bNotForServer: 604
+   packageGuid: 00000000E71D00000000000000000000
+   packageFlags: 0
+   bNotAlwaysLoadedForEditorGame: 0
+   bIsAsset: 0
+   bGeneratePublicHash: 0
+   firstExportDependency: 1
+   serializationBeforeSerializationDependencies: 0
+   createBeforeSerializationDependencies: 0
+   serializationBeforeCreateDependencies: -1
+   createBeforeCreateDependencies: 0
+   data:
+ 7:
+   classIndex: 0
+   superIndex: 0
+   templateIndex: 0
+   outerIndex: 0
+   objectName: 
+   objectFlags: 0
+   serialSize: 4294967290
+   serialOffset: 4294967296
+   bForcedExport: 75
+   bNotForClient: 0
+   bNotForServer: 0
+   packageGuid: FA000000000000004320000000000000
+   packageFlags: 0
+   bNotAlwaysLoadedForEditorGame: 0
+   bIsAsset: 0
+   bGeneratePublicHash: 0
+   firstExportDependency: 0
+   serializationBeforeSerializationDependencies: 1
+   createBeforeSerializationDependencies: 0
+   serializationBeforeCreateDependencies: 0
+   createBeforeCreateDependencies: -1
+   data:
+     0: /Game/Actors/EnemyUnleashed/Test
+     1: 0
+ 8:
+   classIndex: 0
+   superIndex: 0
+   templateIndex: 0
+   outerIndex: 0
+   objectName: /Game/Actors/EnemyUnleashed/Test
+   objectFlags: 246
+   serialSize: -30064771072
+   serialOffset: 0
+   bForcedExport: 1
+   bNotForClient: 69
+   bNotForServer: 1
+   packageGuid: 080000006F020000000000003D210000
+   packageFlags: 0
+   bNotAlwaysLoadedForEditorGame: 0
+   bIsAsset: 0
+   bGeneratePublicHash: 0
+   firstExportDependency: 0
+   serializationBeforeSerializationDependencies: 0
+   createBeforeSerializationDependencies: 1
+   serializationBeforeCreateDependencies: 0
+   createBeforeCreateDependencies: 0
+   data:
+ 9:
+   classIndex: -1
+   superIndex: 0
+   templateIndex: 0
+   outerIndex: 0
+   objectName: /Game/Actors/EnemyUnleashed/Test
+   objectFlags: 0
+   serialSize: 619
+   serialOffset: 4294967294
+   bForcedExport: 0
+   bNotForClient: 1
+   bNotForServer: 70
+   packageGuid: 01000000080000004700000000000000
+   packageFlags: 9132
+   bNotAlwaysLoadedForEditorGame: 0
+   bIsAsset: 0
+   bGeneratePublicHash: 0
+   firstExportDependency: 0
+   serializationBeforeSerializationDependencies: 0
+   createBeforeSerializationDependencies: 0
+   serializationBeforeCreateDependencies: 1
+   createBeforeCreateDependencies: 0
+   data:
+     0: /Game/Actors/EnemyUnleashed/Test
+     1: 0
+ 10:
+   classIndex: 0
+   superIndex: -1
+   templateIndex: 0
+   outerIndex: 0
+   objectName: /Game/Actors/EnemyUnleashed/Test
+   objectFlags: 0
+   serialSize: 287762808832
+   serialOffset: -12884901888
+   bForcedExport: 0
+   bNotForClient: 0
+   bNotForServer: 1
+   packageGuid: 47000000010000000800000047000000
+   packageFlags: 0
+   bNotAlwaysLoadedForEditorGame: 9203
+   bIsAsset: 0
+   bGeneratePublicHash: 0
+   firstExportDependency: 0
+   serializationBeforeSerializationDependencies: 0
+   createBeforeSerializationDependencies: 0
+   serializationBeforeCreateDependencies: 0
+   createBeforeCreateDependencies: 1
+   data:
+     0: /Game/Actors/EnemyUnleashed/Test
+     1: 0
+ 11:
+   classIndex: 0
+   superIndex: 0
+   templateIndex: -1
+   outerIndex: 0
+   objectName: /Game/Actors/EnemyUnleashed/Test
+   objectFlags: 0
+   serialSize: 0
+   serialOffset: 67
+   bForcedExport: -4
+   bNotForClient: 0
+   bNotForServer: 0
+   packageGuid: 01000000480000000100000008000000
+   packageFlags: 71
+   bNotAlwaysLoadedForEditorGame: 0
+   bIsAsset: 9274
+   bGeneratePublicHash: 0
+   firstExportDependency: 0
+   serializationBeforeSerializationDependencies: 0
+   createBeforeSerializationDependencies: 0
+   serializationBeforeCreateDependencies: 0
+   createBeforeCreateDependencies: 0
+   data:
+
+depends:
+ Depends:
+
+softPackageReferences:
+
+
+searchableNames:
+
+
+thumbnails:
+ Index:
+ Thumbnails:
+
+assetRegistryData:
+ size: 79
+ DependencyDataOffset: 4791
+ data:
+   0:
+     ObjectPath: Test
+     ObjectClassName: /Script/AIModule.BehaviorTree
+     Tags:
+
+preloadDependency:
+
+
+bulkDataStart:

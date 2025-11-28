@@ -20,10 +20,6 @@ public class GeneticGeneration : ModuleRules
 			"JsonUtilities",
 			"AssetRegistry"
 		});
-		
-		#if WITH_EDITOR
-		    PrivateDependencyModuleNames.Add("UnrealEd"); // only if you absolutely need editor-only helpers
-		#endif
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"Projects",
@@ -38,5 +34,10 @@ public class GeneticGeneration : ModuleRules
 			"SlateCore",
 			"BehaviorTreeEditor"      // Fixes FBehaviorTreeEditorUtils
 		});
+		
+		if (Target.bBuildEditor == true)
+		{
+			PrivateDependencyModuleNames.Add("BehaviourTreeGraph");
+		}
 	}
 }

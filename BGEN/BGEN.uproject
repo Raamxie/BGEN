@@ -19,8 +19,13 @@
 			"AdditionalDependencies": [
 				"AIModule",
 				"Engine",
-              "EditorScriptingUtilities"
+				"EditorScriptingUtilities"
 			]
+		},
+		{
+			"Name": "BehaviourTreeGraph",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
 		}
 	],
 	"Plugins": [

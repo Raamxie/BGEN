@@ -1,0 +1,92 @@
+Begin Object Class=/Script/AIModule.BehaviorTree Name="BT_EnemyUnleashed"
+   Begin Object Class=/Script/BehaviorTreeEditor.BehaviorTreeGraph Name="Behavior Tree"
+      Begin Object Class=/Script/BehaviorTreeEditor.BehaviorTreeGraphNode_Task Name="BehaviorTreeGraphNode_Task_9"
+      End Object
+      Begin Object Class=/Script/BehaviorTreeEditor.BehaviorTreeGraphNode_Task Name="BehaviorTreeGraphNode_Task_8"
+      End Object
+      Begin Object Class=/Script/BehaviorTreeEditor.BehaviorTreeGraphNode_Task Name="BehaviorTreeGraphNode_Task_0"
+      End Object
+      Begin Object Class=/Script/BehaviorTreeEditor.BehaviorTreeGraphNode_Root Name="BehaviorTreeGraphNode_Root_0"
+      End Object
+      Begin Object Class=/Script/BehaviorTreeEditor.BehaviorTreeGraphNode_Composite Name="BehaviorTreeGraphNode_Composite_0"
+      End Object
+   End Object
+   Begin Object Class=/Game/BehaviourTrees/Tasks/BTTask_MoveToPlayer.BTTask_MoveToPlayer_C Name="BTTask_MoveTo_C_0"
+   End Object
+   Begin Object Class=/Game/BehaviourTrees/Tasks/BTTask_CheckAreaForPlayer.BTTask_CheckAreaForPlayer_C Name="BTTask_CheckAreaForPlayer_C_0"
+   End Object
+   Begin Object Class=/Game/BehaviourTrees/Tasks/BTTask_Attack.BTTask_Attack_C Name="BTTask_Attack_C_0"
+   End Object
+   Begin Object Class=/Script/AIModule.BTComposite_Sequence Name="BTComposite_Sequence_0"
+   End Object
+   Begin Object Name="Behavior Tree"
+      Begin Object Name="BehaviorTreeGraphNode_Task_9"
+         ClassData=(AssetName="BTTask_MoveTo",GeneratedClassPackage="/Game/BehaviourTrees/Tasks/BTTask_MoveTo",ClassName="BTTask_MoveTo_C")
+         NodeInstance="/Game/BehaviourTrees/Tasks/BTTask_MoveToPlayer.BTTask_MoveToPlayer_C'BT_EnemyUnleashed:BTTask_MoveTo_C_0'"
+         NodePosX=48
+         NodePosY=272
+         NodeGuid=EA2EDEB4445ACE0FBF81F5A4FC6E921C
+         CustomProperties Pin (PinId=73366DDB43DACD763A92AE843705C5C6,PinName="In",PinType.PinCategory="SingleComposite",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,PinType.bIsUObjectWrapper=False,PinType.bSerializeAsSinglePrecisionFloat=False,LinkedTo=(BehaviorTreeGraphNode_Composite_0 6C64D30441048988C5059889FA4B38C9,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
+      End Object
+      Begin Object Name="BehaviorTreeGraphNode_Task_8"
+         ClassData=(AssetName="BTTask_Attack",GeneratedClassPackage="/Game/BehaviourTrees/Tasks/BTTask_Attack",ClassName="BTTask_Attack_C")
+         NodeInstance="/Game/BehaviourTrees/Tasks/BTTask_Attack.BTTask_Attack_C'BT_EnemyUnleashed:BTTask_Attack_C_0'"
+         NodePosX=336
+         NodePosY=272
+         NodeGuid=45E76BBB47D54A8CC38DBDACF31520FD
+         CustomProperties Pin (PinId=D73D500D48A61D0CCFBE6CA4CCF15922,PinName="In",PinType.PinCategory="SingleComposite",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,PinType.bIsUObjectWrapper=False,PinType.bSerializeAsSinglePrecisionFloat=False,LinkedTo=(BehaviorTreeGraphNode_Composite_0 6C64D30441048988C5059889FA4B38C9,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
+      End Object
+      Begin Object Name="BehaviorTreeGraphNode_Task_0"
+         ClassData=(AssetName="BTTask_CheckAreaForPlayer",GeneratedClassPackage="/Game/BehaviourTrees/Tasks/BTTask_CheckAreaForPlayer",ClassName="BTTask_CheckAreaForPlayer_C")
+         NodeInstance="/Game/BehaviourTrees/Tasks/BTTask_CheckAreaForPlayer.BTTask_CheckAreaForPlayer_C'BT_EnemyUnleashed:BTTask_CheckAreaForPlayer_C_0'"
+         NodePosX=-304
+         NodePosY=272
+         NodeGuid=178D7C6641C5D86A7B7AECBE87CA232B
+         CustomProperties Pin (PinId=DDC0322945808A7F363BE9B4A357AC4C,PinName="In",PinType.PinCategory="SingleComposite",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,PinType.bIsUObjectWrapper=False,PinType.bSerializeAsSinglePrecisionFloat=False,LinkedTo=(BehaviorTreeGraphNode_Composite_0 6C64D30441048988C5059889FA4B38C9,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
+      End Object
+      Begin Object Name="BehaviorTreeGraphNode_Root_0"
+         BlackboardAsset="/Script/AIModule.BlackboardData'/Game/Actors/EnemyUnleashed/BB_EnemyUnleashed.BB_EnemyUnleashed'"
+         NodeGuid=BAB1CFEC41AB47AC55CCC4B74336C553
+         CustomProperties Pin (PinId=D41B179540337855650D998254F1B74F,PinName="In",Direction="EGPD_Output",PinType.PinCategory="SingleComposite",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,PinType.bIsUObjectWrapper=False,PinType.bSerializeAsSinglePrecisionFloat=False,LinkedTo=(BehaviorTreeGraphNode_Composite_0 FC17D72B46AAF0A07A1B098DBE655B00,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
+      End Object
+      Begin Object Name="BehaviorTreeGraphNode_Composite_0"
+         ClassData=(ClassName="BTComposite_Sequence")
+         NodeInstance="/Script/AIModule.BTComposite_Sequence'BT_EnemyUnleashed:BTComposite_Sequence_0'"
+         NodePosY=96
+         NodeGuid=3E8227724E4B2B6D603045A8BA6BD19B
+         CustomProperties Pin (PinId=FC17D72B46AAF0A07A1B098DBE655B00,PinName="In",PinType.PinCategory="MultipleNodes",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,PinType.bIsUObjectWrapper=False,PinType.bSerializeAsSinglePrecisionFloat=False,LinkedTo=(BehaviorTreeGraphNode_Root_0 D41B179540337855650D998254F1B74F,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
+         CustomProperties Pin (PinId=6C64D30441048988C5059889FA4B38C9,PinName="Out",Direction="EGPD_Output",PinType.PinCategory="MultipleNodes",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,PinType.bIsUObjectWrapper=False,PinType.bSerializeAsSinglePrecisionFloat=False,LinkedTo=(BehaviorTreeGraphNode_Task_0 DDC0322945808A7F363BE9B4A357AC4C,BehaviorTreeGraphNode_Task_9 73366DDB43DACD763A92AE843705C5C6,BehaviorTreeGraphNode_Task_8 D73D500D48A61D0CCFBE6CA4CCF15922,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
+      End Object
+      ModCounter=103
+      bIsUsingModCounter=True
+      GraphVersion=3
+      Nodes(0)="/Script/BehaviorTreeEditor.BehaviorTreeGraphNode_Root'BehaviorTreeGraphNode_Root_0'"
+      Nodes(1)="/Script/BehaviorTreeEditor.BehaviorTreeGraphNode_Composite'BehaviorTreeGraphNode_Composite_0'"
+      Nodes(2)="/Script/BehaviorTreeEditor.BehaviorTreeGraphNode_Task'BehaviorTreeGraphNode_Task_8'"
+      Nodes(3)="/Script/BehaviorTreeEditor.BehaviorTreeGraphNode_Task'BehaviorTreeGraphNode_Task_0'"
+      Nodes(4)="/Script/BehaviorTreeEditor.BehaviorTreeGraphNode_Task'BehaviorTreeGraphNode_Task_9'"
+      GraphGuid=4B77C0144CC48841FB243AA626A76A2F
+   End Object
+   Begin Object Name="BTTask_MoveTo_C_0"
+      TreeAsset="/Script/AIModule.BehaviorTree'BT_EnemyUnleashed'"
+      ParentNode="/Script/AIModule.BTComposite_Sequence'BT_EnemyUnleashed:BTComposite_Sequence_0'"
+   End Object
+   Begin Object Name="BTTask_CheckAreaForPlayer_C_0"
+      TreeAsset="/Script/AIModule.BehaviorTree'BT_EnemyUnleashed'"
+      ParentNode="/Script/AIModule.BTComposite_Sequence'BT_EnemyUnleashed:BTComposite_Sequence_0'"
+   End Object
+   Begin Object Name="BTTask_Attack_C_0"
+      TreeAsset="/Script/AIModule.BehaviorTree'BT_EnemyUnleashed'"
+      ParentNode="/Script/AIModule.BTComposite_Sequence'BT_EnemyUnleashed:BTComposite_Sequence_0'"
+   End Object
+   Begin Object Name="BTComposite_Sequence_0"
+      Children(0)=(ChildTask="/Game/BehaviourTrees/Tasks/BTTask_CheckAreaForPlayer.BTTask_CheckAreaForPlayer_C'BT_EnemyUnleashed:BTTask_CheckAreaForPlayer_C_0'")
+      Children(1)=(ChildTask="/Game/BehaviourTrees/Tasks/BTTask_MoveToPlayer.BTTask_MoveToPlayer_C'BT_EnemyUnleashed:BTTask_MoveTo_C_0'")
+      Children(2)=(ChildTask="/Game/BehaviourTrees/Tasks/BTTask_Attack.BTTask_Attack_C'BT_EnemyUnleashed:BTTask_Attack_C_0'")
+      TreeAsset="/Script/AIModule.BehaviorTree'BT_EnemyUnleashed'"
+   End Object
+   RootNode="/Script/AIModule.BTComposite_Sequence'BTComposite_Sequence_0'"
+   BTGraph="/Script/BehaviorTreeEditor.BehaviorTreeGraph'Behavior Tree'"
+   LastEditedDocuments(0)=(EditedObjectPath="/Game/Actors/EnemyUnleashed/BT_EnemyUnleashed.BT_EnemyUnleashed:Behavior Tree",SavedViewOffset=(X=-543.259521,Y=-263.982239),SavedZoomAmount=1.000000)
+   BlackboardAsset="/Script/AIModule.BlackboardData'/Game/Actors/EnemyUnleashed/BB_EnemyUnleashed.BB_EnemyUnleashed'"
+End Object

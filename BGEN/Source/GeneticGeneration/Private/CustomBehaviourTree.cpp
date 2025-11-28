@@ -1,185 +1,177 @@
 #include "CustomBehaviourTree.h"
-
-#include "BehaviorTree/BehaviorTree.h"
-#include "BehaviorTree/BlackboardData.h"
-#include "BehaviorTree/BlackboardComponent.h"
-#include "BehaviorTree/Blackboard/BlackboardKeyType_Int.h"
-#include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
-#include "BehaviorTree/BehaviorTreeComponent.h"
-#include "BehaviorTree/BTCompositeNode.h"
-#include "BehaviorTree/Composites/BTComposite_Selector.h"
-#include "BehaviorTree/Composites/BTComposite_Sequence.h"
-#include "BehaviorTree/BTTaskNode.h"
-#include "AIController.h"
-#include "GeneticGenerationModule.h"
-#include "AssetRegistry/AssetRegistryModule.h"
-#include "UObject/Package.h"
-#include "BehaviorTreeEditorModule.h"
-#include "BehaviorTree/BehaviorTree.h"
-#include "AssetRegistry/AssetRegistryModule.h"
 #include "Misc/PackageName.h"
-#include "UObject/SavePackage.h"
-#include "Modules/ModuleManager.h"
-#include "Misc/Guid.h"
-#include "UObject/UnrealType.h" // FProperty & friends
 #include "UObject/Package.h"
-#include "UObject/UObjectGlobals.h"
-#include "Serialization/Archive.h"
-#include "Misc/Paths.h"
-#include "Misc/FeedbackContext.h"
-#include "BehaviorTreeFactory.h"
+#include "UObject/SavePackage.h"
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "BehaviorTree/BTCompositeNode.h"
+#include "BehaviorTree/BTTaskNode.h"
+#include "BehaviorTree/Composites/BTComposite_Sequence.h"
 
-
-
-UCustomBehaviourTree::UCustomBehaviourTree()
+bool UCustomBehaviourTree::LoadBehaviorTree(const FString& AssetPath)
 {
-    BehaviorTree = nullptr;
-    BlackboardData = nullptr;
-    ActiveComponent = nullptr;
+    if (AssetPath.IsEmpty())
+    {
+        UE_LOG(LogTemp, Error, TEXT("LoadBehaviorTree: AssetPath is empty"));
+        return false;
+    }
+
+    // Build object path
+    FString ObjectPath = AssetPath;
+    if (!AssetPath.Contains(TEXT(".")))
+    {
+        FString BaseName = FPaths::GetCleanFilename(AssetPath);
+        ObjectPath = FString::Printf(TEXT("%s.%s"), *AssetPath, *BaseName);
+    }
+
+    UObject* Loaded = StaticLoadObject(UBehaviorTree::StaticClass(), nullptr, *ObjectPath);
+    if (!Loaded)
+    {
+        UE_LOG(LogTemp, Error, TEXT("LoadBehaviorTree: Failed to load object at path %s"), *ObjectPath);
+        return false;
+    }
+
+    BehaviorTreeAsset = Cast<UBehaviorTree>(Loaded);
+    if (!BehaviorTreeAsset)
+    {
+        UE_LOG(LogTemp, Error, TEXT("LoadBehaviorTree: Loaded object is not UBehaviorTree: %s"), *ObjectPath);
+        return false;
+    }
+	UPackage* Pkg = BehaviorTreeAsset->GetOutermost();
+	if (Pkg)
+	{
+		Pkg->FullyLoad();        // Force all exports to instantiate
+	}
+
+	BehaviorTreeAsset->ConditionalPostLoad();
+
+    UE_LOG(LogTemp, Log, TEXT("LoadBehaviorTree: Successfully loaded BT: %s"), *ObjectPath);
+    return true;
 }
 
-UBehaviorTree* UCustomBehaviourTree::LoadBehaviorTree(const FString& AssetPath)
+UBTCompositeNode* UCustomBehaviourTree::GetRootComposite()
 {
-    UObject* Obj = StaticLoadObject(UBehaviorTree::StaticClass(), nullptr, *AssetPath);
-    return Cast<UBehaviorTree>(Obj);
+    if (!BehaviorTreeAsset)
+    {
+        return nullptr;
+    }
+    return BehaviorTreeAsset->RootNode;
 }
 
-void UCustomBehaviourTree::CreateRuntimeBlackboard()
+bool UCustomBehaviourTree::MutateTree_AddSequenceWithAttack()
 {
-    if (!BlackboardData)
+    UBTCompositeNode* Root = GetRootComposite();
+    if (!Root)
     {
-        // Create runtime BlackboardData owned by this UObject
-        BlackboardData = NewObject<UBlackboardData>(this, UBlackboardData::StaticClass(), TEXT("RuntimeBlackboard"));
-        if (!BlackboardData)
-        {
-            UE_LOG(LogTemp, Error, TEXT("Failed to create runtime BlackboardData"));
-            return;
-        }
+        UE_LOG(LogTemp, Error, TEXT("MutateTree: Root composite is null"));
+        return false;
     }
 
-    // Clear previous keys if any
-    BlackboardData->Keys.Empty();
-
-    // Add keys required by the user
-    AddBlackboardKey(TEXT("SightRange"), UBlackboardKeyType_Int::StaticClass());
-    AddBlackboardKey(TEXT("Player"), UBlackboardKeyType_Object::StaticClass());
-    AddBlackboardKey(TEXT("AttackRange"), UBlackboardKeyType_Int::StaticClass());
-
-    UE_LOG(LogTemp, Log, TEXT("Created runtime blackboard with %d keys"), BlackboardData->Keys.Num());
-}
-
-void UCustomBehaviourTree::AddBlackboardKey(FName KeyName, UClass* KeyTypeClass)
-{
-    if (!BlackboardData || !KeyTypeClass) return;
-
-    FBlackboardEntry Entry;
-    Entry.EntryName = KeyName;
-    // Create a KeyType instance owned by the BlackboardData
-    Entry.KeyType = NewObject<UBlackboardKeyType>(BlackboardData, KeyTypeClass);
-    BlackboardData->Keys.Add(Entry);
-
-    UE_LOG(LogTemp, Log, TEXT("Added blackboard key %s"), *KeyName.ToString());
-}
-
-void UCustomBehaviourTree::StartTree(AAIController* Controller)
-{
-    if (!Controller)
+    // 1) Remove first child
+    if (Root->Children.Num() > 0)
     {
-        UE_LOG(LogTemp, Error, TEXT("StartTree failed — Controller is null."));
-        return;
-    }
-
-    if (!BehaviorTree)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("No BehaviorTree available to start."));
-        return;
-    }
-
-    // Ensure controller has a BlackboardComponent (we expect the controller to have created one as a subobject)
-    UBlackboardComponent* BBC = Controller->FindComponentByClass<UBlackboardComponent>();
-    if (!BBC)
-    {
-        // As a fallback, create one and register it (rare if controller constructor created one)
-        BBC = NewObject<UBlackboardComponent>(Controller, TEXT("RuntimeCreatedBlackboardComp"));
-        if (BBC)
-        {
-            BBC->RegisterComponent();
-        }
-    }
-
-    if (!BBC)
-    {
-        UE_LOG(LogTemp, Error, TEXT("Failed to get or create a BlackboardComponent on controller %s"), *Controller->GetName());
-        return;
-    }
-
-    // Initialize the controller's blackboard with our runtime blackboard data
-    if (BlackboardData)
-    {
-        BBC->InitializeBlackboard(*BlackboardData);
-        BBC->SetValueAsInt(TEXT("SightRange"), 5000);
-        BBC->SetValueAsInt(TEXT("AttackRange"), 1000);
-    }
-
-    // Use the controller's RunBehaviorTree which will make its internal brain component run the provided tree
-    const bool bStarted = Controller->RunBehaviorTree(BehaviorTree);
-    if (bStarted)
-    {
-        // Cache the running component pointer
-        ActiveComponent = Cast<UBehaviorTreeComponent>(Controller->GetBrainComponent());
-        UE_LOG(LogTemp, Log, TEXT("Started runtime BehaviorTree on controller %s"), *Controller->GetName());
+        Root->Children.RemoveAt(0);
+        UE_LOG(LogTemp, Log, TEXT("MutateTree: Removed first child of root"));
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("Controller failed to start runtime BehaviorTree %s"), *Controller->GetName());
+        UE_LOG(LogTemp, Warning, TEXT("MutateTree: No child to remove"));
     }
+
+    // 2) Insert a Sequence as first child
+    UObject* Outer = BehaviorTreeAsset;
+    UBTComposite_Sequence* SequenceNode = NewObject<UBTComposite_Sequence>(Outer, UBTComposite_Sequence::StaticClass(), NAME_None, RF_Public | RF_Standalone);
+    if (!SequenceNode)
+    {
+        UE_LOG(LogTemp, Error, TEXT("MutateTree: Failed to create sequence node"));
+        return false;
+    }
+    SequenceNode->SetFlags(RF_Public | RF_Standalone);
+
+    FBTCompositeChild SeqChild;
+    SeqChild.ChildComposite = SequenceNode;
+    Root->Children.Insert(SeqChild, 0);
+    UE_LOG(LogTemp, Log, TEXT("MutateTree: Inserted sequence as first child"));
+
+    // 3) Add a task child of type Attack
+	// If your BTTask_Attack is a Blueprint task in /Game/AI/Tasks/BTTask_Attack.BTTask_Attack_C
+	UClass* AttackTaskClass = LoadObject<UClass>(
+		nullptr,
+		TEXT("/Game/BehaviourTrees/Tasks/BTTask_Attack.BTTask_Attack_C")
+	);
+
+    if (!AttackTaskClass)
+    {
+        AttackTaskClass = UBTTaskNode::StaticClass();
+        UE_LOG(LogTemp, Warning, TEXT("MutateTree: Could not find BTTask_Attack, using UBTTaskNode fallback"));
+    }
+
+    UBTTaskNode* TaskNode = NewObject<UBTTaskNode>(Outer, AttackTaskClass, NAME_None, RF_Public | RF_Standalone);
+    if (!TaskNode)
+    {
+        UE_LOG(LogTemp, Error, TEXT("MutateTree: Failed to create task node"));
+        return false;
+    }
+    TaskNode->SetFlags(RF_Public | RF_Standalone);
+    TaskNode->NodeName = TEXT("Attack");
+
+    FBTCompositeChild TaskChild;
+    TaskChild.ChildTask = TaskNode;
+    SequenceNode->Children.Add(TaskChild);
+
+    UE_LOG(LogTemp, Log, TEXT("MutateTree: Added Attack task under the sequence"));
+
+    return true;
 }
 
-// This function is correct as-is
-UBTTaskNode* UCustomBehaviourTree::LoadAndInstanceTask(const FString& Path, UObject* Outer)
+bool UCustomBehaviourTree::SaveAsNewAsset(const FString& DestinationPackagePath, bool bOverwriteExisting)
 {
-	if (!Outer)
-	{
-		UE_LOG(LogGeneticGeneration, Error, TEXT("LoadAndInstanceTask requires a valid Outer."));
-		return nullptr;
-	}
-
-	// Load BlueprintGeneratedClass or native class
-	UClass* TaskClass = StaticLoadClass(UBTTaskNode::StaticClass(), nullptr, *Path);
-
-	if (!TaskClass)
-	{
-		UE_LOG(LogGeneticGeneration, Error, TEXT("Failed to load class at path: %s"), *Path);
-		return nullptr;
-	}
-
-	// Create instance
-	UBTTaskNode* Node = NewObject<UBTTaskNode>(Outer, TaskClass);
-
-	if (!Node)
-	{
-		UE_LOG(LogGeneticGeneration, Error, TEXT("Failed to instantiate task: %s"), *Path);
-	}
-
-	return Node;
-}
-
-
-
-
-void UCustomBehaviourTree::StopTree()
-{
-    if (!ActiveComponent)
+    if (!BehaviorTreeAsset)
     {
-        UE_LOG(LogTemp, Warning, TEXT("No active BT component to stop"));
-        return;
+        UE_LOG(LogTemp, Error, TEXT("SaveAsNewAsset: No BehaviorTree loaded"));
+        return false;
+    }
+    if (DestinationPackagePath.IsEmpty())
+    {
+        UE_LOG(LogTemp, Error, TEXT("SaveAsNewAsset: DestinationPackagePath is empty"));
+        return false;
     }
 
-    if (ActiveComponent->IsRunning())
+    FString PackageName = DestinationPackagePath;
+    FString AssetName = FPackageName::GetShortName(PackageName);
+    UPackage* Package = CreatePackage(*PackageName);
+    if (!Package)
     {
-        ActiveComponent->StopTree(EBTStopMode::Safe);
-        UE_LOG(LogTemp, Log, TEXT("Stopped runtime BehaviorTree"));
+        UE_LOG(LogTemp, Error, TEXT("SaveAsNewAsset: Failed to create package %s"), *PackageName);
+        return false;
     }
 
-    ActiveComponent = nullptr;
+    EObjectFlags Flags = RF_Public | RF_Standalone;
+
+	UBehaviorTree* NewBT = DuplicateObject<UBehaviorTree>(BehaviorTreeAsset, Package);
+	if (!NewBT)
+	{
+		UE_LOG(LogTemp, Error, TEXT("SaveAsNewAsset: DuplicateObject failed"));
+		return false;
+	}
+
+	NewBT->Rename(*AssetName, Package);
+	NewBT->SetFlags(RF_Public | RF_Standalone);
+
+	Package->MarkPackageDirty();
+	Package->FullyLoad();
+
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	AssetRegistryModule.Get().AssetCreated(NewBT);
+
+	FString Filename = FPackageName::LongPackageNameToFilename(PackageName, FPackageName::GetAssetPackageExtension());
+	FSavePackageArgs SaveArgs;
+	SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
+
+	FSavePackageResultStruct result = UPackage::Save(Package, NewBT, *Filename, SaveArgs);
+	if (!result.IsSuccessful())
+	{
+		UE_LOG(LogTemp, Error, TEXT("SaveAsNewAsset: Failed to save package %s"), *Filename);
+		return false;
+	}
+	return true;
 }
