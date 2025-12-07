@@ -1,9 +1,0 @@
-{
-	"BuildId": "43139311",
-	"Modules": 
-	{
-		"BGEN": "UnrealEditor-BGEN.dll",
-		"BehaviourTreeGraph": "UnrealEditor-BehaviourTreeGraph.dll",
-		"GeneticGeneration": "UnrealEditor-GeneticGeneration.dll"
-	}
-}

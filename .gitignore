@@ -246,3 +246,26 @@ Plugins/**/Intermediate/*
 
 # End of https://www.toptal.com/developers/gitignore/api/rider,unrealengine
 BGEN/Intermediate/ProjectFiles/.Rider/Win64/Development/Editor/UnrealEditor.json
+
+
+# Visual Studio / Rider / VSCode
+.vs/
+.idea/
+.vscode/
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.user
+
+# Unreal Engine Build folders
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+Build/
+.cad/
+
+# OS generated
+Thumbs.db
+.DS_Store
