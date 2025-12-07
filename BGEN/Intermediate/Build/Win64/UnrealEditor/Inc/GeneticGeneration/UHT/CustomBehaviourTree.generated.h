@@ -19,7 +19,7 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 // ********** Begin Class UCustomBehaviourTree *****************************************************
 #define FID_Users_Raamxie_Documents_Unreal_Projects_BGEN_BGEN_Source_GeneticGeneration_Public_CustomBehaviourTree_h_14_RPC_WRAPPERS_NO_PURE_DECLS \
 	DECLARE_FUNCTION(execSaveAsNewAsset); \
-	DECLARE_FUNCTION(execMutateTree_AddSequenceWithAttack); \
+	DECLARE_FUNCTION(execMutateTree_Dynamic); \
 	DECLARE_FUNCTION(execLoadBehaviorTree);
 
 

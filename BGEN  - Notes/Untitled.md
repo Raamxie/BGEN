@@ -1,81 +1,109 @@
 ```cpp
-if (!World)  
-{  
-    UE_LOG(LogGeneticGeneration, Error, TEXT("No world context found!"));  
-    return;  
-}  
-  
-UE_LOG(LogGeneticGeneration, Log, TEXT("Simulation starting in world: %s"), *World->GetName());  
-  
-// --- 1) Choose a spawn location ------------------------------------------------------  
-  
-FVector SpawnLocation(0.f, 0.f, 100.f);  
-FRotator SpawnRotation = FRotator::ZeroRotator;  
-  
-// Optional: Move spawn location if things overlap  
-if (AActor* Player = World->GetFirstPlayerController() ? World->GetFirstPlayerController()->GetPawn() : nullptr)  
-{  
-    SpawnLocation = Player->GetActorLocation() + FVector(300.f, 0.f, 0.f);  
-}  
-  
-// --- 2) Prepare spawn parameters -----------------------------------------------------  
-  
-FActorSpawnParameters SpawnParams;  
-SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;  
-SpawnParams.Owner = nullptr;  
-SpawnParams.Instigator = nullptr;  
-SpawnParams.bDeferConstruction = false;  
-  
-// --- 3) Spawn the character ----------------------------------------------------------  
-  
-UClass* CharacterClass = AGeneratedCharacter::StaticClass();  
-if (!CharacterClass)  
-{  
-    UE_LOG(LogGeneticGeneration, Error, TEXT("AGeneratedCharacter class missing!"));  
-    return;  
-}  
-  
-AGeneratedCharacter* Enemy = World->SpawnActor<AGeneratedCharacter>(  
-    CharacterClass,    SpawnLocation,    SpawnRotation,    SpawnParams);  
-  
-if (!Enemy)  
-{  
-    UE_LOG(LogGeneticGeneration, Error, TEXT("Failed to spawn AGeneratedCharacter!"));  
-    return;  
-}  
-  
-UE_LOG(LogGeneticGeneration, Log, TEXT("Spawned GeneratedCharacter %s at %s"),  
-       *Enemy->GetName(), *SpawnLocation.ToString());  
-  
-// --- 4) Wait until AIController is assigned -----------------------------------------  
-  
-World->GetTimerManager().SetTimerForNextTick([World, Enemy]()  
-{  
-    if (!Enemy)  
-    {        UE_LOG(LogGeneticGeneration, Error, TEXT("Enemy disappeared before control assignment"));  
-        return;  
-    }  
-    ACustomAIController* Controller = Cast<ACustomAIController>(Enemy->GetController());  
-    if (!Controller)  
-    {        UE_LOG(LogGeneticGeneration, Warning, TEXT("Enemy has no controller yet. Trying again..."));  
-  
-        // Try again next tick  
-        World->GetTimerManager().SetTimerForNextTick([World, Enemy]()  
-        {  
-            ACustomAIController* C2 = Cast<ACustomAIController>(Enemy->GetController());  
-            if (!C2)  
-            {                UE_LOG(LogGeneticGeneration, Error, TEXT("Controller still missing after delay."));  
-                return;  
-            }  
-            UE_LOG(LogGeneticGeneration, Log, TEXT("AI Controller acquired on retry: %s"), *C2->GetName());  
-        });        return;  
-    }  
-    UE_LOG(LogGeneticGeneration, Log, TEXT("AIController assigned: %s"), *Controller->GetName());  
-  
-	    Controller->RuntimeBehaviourWrapper->Test_ModifyTreeAndSave(TEXT("/Game/Actors/EnemyUnleashed/BT_EnemyUnleashed.BT_EnemyUnleashed"), TEXT("/Game/Generated/Test"));  
-});  
-  
-// --- 5) Simulation is now running ----------------------------------------------------  
-  
-UE_LOG(LogGeneticGeneration, Log, TEXT("Simulation started successfully!"));
+void AGeneticGenerationModule::SpawnEnemies(int32 Count)
+{
+    UWorld* World = GetWorld();
+    if (!World)
+        return;
+
+    // ---------------------------------------------------
+    // 1. HARD-LOAD BLUEPRINT CLASS
+    // ---------------------------------------------------
+    FString EnemyPath = TEXT("Blueprint'/Game/AI/Enemies/BP_EnemyCharacter.BP_EnemyCharacter_C'");
+    UClass* EnemyClass = LoadObject<UClass>(nullptr, *EnemyPath);
+
+    if (!EnemyClass)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to load Enemy Blueprint class: %s"), *EnemyPath);
+        return;
+    }
+
+    // ---------------------------------------------------
+    // 2. HARD-LOAD BEHAVIOR TREE ASSET
+    // ---------------------------------------------------
+    FString BTPath = TEXT("BehaviorTree'/Game/AI/BT/BT_Enemy.BT_Enemy'");
+    UBehaviorTree* BTAsset = LoadObject<UBehaviorTree>(nullptr, *BTPath);
+
+    if (!BTAsset)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to load Behavior Tree: %s"), *BTPath);
+        return;
+    }
+
+    // ---------------------------------------------------
+    // 3. HARD-LOAD BLACKBOARD ASSET
+    // ---------------------------------------------------
+    FString BlackboardPath = TEXT("BlackboardData'/Game/AI/BB/BB_Enemy.BB_Enemy'");
+    UBlackboardData* BlackboardAsset = LoadObject<UBlackboardData>(nullptr, *BlackboardPath);
+
+    if (!BlackboardAsset)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to load Blackboard: %s"), *BlackboardPath);
+        return;
+    }
+
+    // ---------------------------------------------------
+    // 4. Spawn Enemies
+    // ---------------------------------------------------
+    for (int32 i = 0; i < Count; i++)
+    {
+        FVector SpawnLocation = FVector(0, i * 200, 200);
+        FRotator SpawnRotation = FRotator::ZeroRotator;
+
+        APawn* Enemy = World->SpawnActor<APawn>(
+            EnemyClass,
+            SpawnLocation,
+            SpawnRotation
+        );
+
+        if (!Enemy)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Failed to spawn enemy %d"), i);
+            continue;
+        }
+
+	        // ---------------------------------------------------
+	        // 5. Create an AI controller manually
+	        // ---------------------------------------------------
+	        AAIController* AI = World->SpawnActor<AAIController>(
+	            AAIController::StaticClass(),
+	            SpawnLocation,
+	            SpawnRotation
+	        );
+	
+	        if (!AI)
+	        {
+	            UE_LOG(LogTemp, Warning, TEXT("Failed to spawn AIController for enemy %d"), i);
+	            continue;
+	        }
+	
+	        AI->Possess(Enemy);
+	
+	        // ---------------------------------------------------
+	        // 6. Create Blackboard & BehaviorTree components
+	        // ---------------------------------------------------
+	        UBlackboardComponent* BlackboardComp = NewObject<UBlackboardComponent>(AI);
+	        BlackboardComp->RegisterComponent();
+	        BlackboardComp->InitializeBlackboard(*BlackboardAsset);
+	
+	        UBehaviorTreeComponent* BTComp = NewObject<UBehaviorTreeComponent>(AI);
+	        BTComp->RegisterComponent();
+	
+	        // ---------------------------------------------------
+	        // 7. Create Custom Behaviour Tree Wrapper
+	        // ---------------------------------------------------
+	        UCustomBehaviourTree* CustomBT = NewObject<UCustomBehaviourTree>(AI);
+	        CustomBT->BehaviorTreeAsset = BTAsset; // expose as UPROPERTY() in your class
+	
+	        // Initialize any internals in your custom class
+	        CustomBT->InitializeTree(BlackboardComp, BTComp);
+	
+	        // ---------------------------------------------------
+	        // 8. Launch the Behavior Tree
+	        // ---------------------------------------------------
+	        BTComp->StartTree(*BTAsset);
+	
+	        UE_LOG(LogTemp, Display, TEXT("Spawned AI %d and started behavior tree."), i);
+    }
+}
+
 ```

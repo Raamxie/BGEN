@@ -46,3 +46,26 @@ void ACustomAIController::RunAssignedTree()
 
     RunBehaviorTree(AssignedTree);
 }
+
+
+void ACustomAIController::BeginPlay()
+{
+	Super::BeginPlay();
+	DamageDealt = 0.0f;
+	SpawnTime = GetWorld()->GetTimeSeconds();
+
+}
+
+void ACustomAIController::RecordDamageDealt(float Amount)
+{
+	DamageDealt += Amount;
+}
+
+float ACustomAIController::GetTimeAlive() const
+{
+	if (GetWorld())
+	{
+		return GetWorld()->GetTimeSeconds() - SpawnTime;
+	}
+	return 0.0f;
+}

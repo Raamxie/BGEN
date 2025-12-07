@@ -18,16 +18,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
 	bool LoadBehaviorTree(const FString& AssetPath);
 
-	/// Apply a fixed mutation:
-	/// 1. Remove first child of root
-	/// 2. Insert Sequence as first composite child
-	/// 3. Add BTTask_Attack (or fallback) under that sequence.
+	FString GetCleanNodeName(UBTNode* Node);
+
 	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
-	bool MutateTree_AddSequenceWithAttack();
+	bool MutateTree_Dynamic(const FString& SearchPath = "/Game/BehaviourTrees/Tasks");
 
 	/// Save current tree into a new package: DestinationPackagePath is like "/Game/Generated/MyEvolvedBT"
 	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
 	bool SaveAsNewAsset(const FString& DestinationPackagePath, bool bOverwriteExisting = false);
+	void DebugMutation();
+	void DebugLogTree();
 
 	/// Get the in-memory UBehaviorTree instance
 	UBehaviorTree* GetBTAsset() const { return BehaviorTreeAsset; }
@@ -36,4 +36,15 @@ private:
 	UBehaviorTree* BehaviorTreeAsset = nullptr;
 
 	UBTCompositeNode* GetRootComposite();
+
+	
+	void PrintPrettyNode(UBTNode* Node, FString Prefix, bool bIsLast);
+	void PrintNodeRecursive(class UBTNode* Node, int32 Depth);
+
+	// --- HELPERS ---
+	/** Scans the Asset Registry for Blueprint classes derived from BTTaskNode */
+	TArray<UClass*> GetAvailableTaskClasses(const FString& Path);
+
+	/** Recursively collects all composites (branches) and tasks (leaves) */
+	void CollectNodes(UBTNode* Node, TArray<UBTCompositeNode*>& OutComposites, TArray<UBTTaskNode*>& OutTasks);
 };

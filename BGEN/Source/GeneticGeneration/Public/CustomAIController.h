@@ -29,10 +29,18 @@ public:
 
 	/** Run the assigned tree (if any) */
 	void RunAssignedTree();
+	void BeginPlay();
 
 	/** A runtime helper object that builds/starts behavior trees */
 	UPROPERTY()
 	UCustomBehaviourTree* RuntimeBehaviourWrapper;
+
+	// Called by Player when hit
+	void RecordDamageDealt(float Amount);
+
+	// Getters for the Wrapper
+	float GetDamageDealt() const { return DamageDealt; }
+	float GetTimeAlive() const;
 
 protected:
 	/** Subobjects created in constructor */
@@ -41,7 +49,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
 	UBehaviorTreeComponent* BehaviorComp;
-
+	
+	float DamageDealt = 0.0f;
+	float SpawnTime = 0.0f;
 
 
 	/** Stored tree assigned via AssignTree */

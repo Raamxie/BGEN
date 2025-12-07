@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
+#include "GeneticSimulationManager.h"
 #include "Modules/ModuleManager.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogGeneticGeneration, Log, All);
@@ -13,6 +14,8 @@ public:
 
 private:
 	void OnWorldInitialized(UWorld* world, const UWorld::InitializationValues IVS);
-	void RunSimulation(UWorld* world);
-	void RunBenchmark(UWorld* world);
+	void RunSimulation(UWorld* World);
+
+	UPROPERTY()
+	UGeneticSimulationManager* ActiveManager = nullptr;
 };
