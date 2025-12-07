@@ -15,6 +15,7 @@ public:
 private:
 	void OnWorldInitialized(UWorld* world, const UWorld::InitializationValues IVS);
 	void RunSimulation(UWorld* World);
+	void RunMutationDemonstration(UWorld* World);
 
 	UPROPERTY()
 	UGeneticSimulationManager* ActiveManager = nullptr;

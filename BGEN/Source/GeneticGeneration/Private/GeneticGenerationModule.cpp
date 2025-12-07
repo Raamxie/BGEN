@@ -72,6 +72,36 @@ void FGeneticGenerationModule::OnWorldInitialized(UWorld* world, const UWorld::I
 void FGeneticGenerationModule::RunSimulation(UWorld* World)
 {
 	UE_LOG(LogGeneticGeneration, Log, TEXT("GeneticGeneration: World Init Detected."));
+	if (!World) return;
+
+	// SCENARIO A: First Run (Manager doesn't exist)
+	if (!ActiveManager)
+	{
+		UE_LOG(LogGeneticGeneration, Log, TEXT("PERSISTENCE: Creating NEW Simulation Manager."));
+        
+		ActiveManager = NewObject<UGeneticSimulationManager>(GetTransientPackage());
+		ActiveManager->AddToRoot(); // Prevent GC
+		ActiveManager->Init(World); // Initial Setup
+        
+		// Start the first run
+		ActiveManager->SetPause(true);
+		ActiveManager->PreparePlayer();
+		ActiveManager->SpawnEnemies(1);
+		ActiveManager->Simulate();
+	}
+	// SCENARIO B: Reload Run (Manager exists and holds data)
+	else
+	{
+		UE_LOG(LogGeneticGeneration, Log, TEXT("PERSISTENCE: Existing Manager found. Re-initializing for new world."));
+        
+		// Just update the world and restart logic, preserving member variables
+		ActiveManager->OnLevelReload(World);
+	}
+}
+
+void FGeneticGenerationModule::RunMutationDemonstration(UWorld* World)
+{
+	UE_LOG(LogGeneticGeneration, Log, TEXT("GeneticGeneration: World Init Detected."));
 
 	UE_LOG(LogGeneticGeneration, Log, TEXT("--- STARTING WORKFLOW TEST ---"));
 
@@ -161,35 +191,6 @@ void FGeneticGenerationModule::RunSimulation(UWorld* World)
     }
 
     UE_LOG(LogGeneticGeneration, Log, TEXT("--- WORKFLOW TEST COMPLETE ---"));
-
-
-	return;
-
-	if (!World) return;
-
-	// SCENARIO A: First Run (Manager doesn't exist)
-	if (!ActiveManager)
-	{
-		UE_LOG(LogGeneticGeneration, Log, TEXT("PERSISTENCE: Creating NEW Simulation Manager."));
-        
-		ActiveManager = NewObject<UGeneticSimulationManager>(GetTransientPackage());
-		ActiveManager->AddToRoot(); // Prevent GC
-		ActiveManager->Init(World); // Initial Setup
-        
-		// Start the first run
-		ActiveManager->SetPause(true);
-		ActiveManager->PreparePlayer();
-		ActiveManager->SpawnEnemies(1);
-		ActiveManager->Simulate();
-	}
-	// SCENARIO B: Reload Run (Manager exists and holds data)
-	else
-	{
-		UE_LOG(LogGeneticGeneration, Log, TEXT("PERSISTENCE: Existing Manager found. Re-initializing for new world."));
-        
-		// Just update the world and restart logic, preserving member variables
-		ActiveManager->OnLevelReload(World);
-	}
 }
 
 void FGeneticGenerationModule::ShutdownModule()

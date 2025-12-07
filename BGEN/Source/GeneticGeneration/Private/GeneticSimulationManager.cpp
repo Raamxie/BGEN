@@ -2,6 +2,7 @@
 #include "GeneticGenerationModule.h" // For LogGeneticGeneration
 #include "CustomAIController.h"
 #include "CustomBehaviourTree.h"
+#include "GeneticFitnessTracker.h"
 #include "PlayerUnleashedBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
@@ -35,7 +36,6 @@ void UGeneticSimulationManager::Init(UWorld* InWorld)
 void UGeneticSimulationManager::OnLevelReload(UWorld* NewWorld)
 {
 	UE_LOG(LogGeneticGeneration, Display, TEXT("PERSISTENCE: Manager surviving into Generation %d"), GenerationCount);
-	UKismetSystemLibrary::QuitEditor();
 
 	// 1. Update the World Context
 	TargetWorld = NewWorld;
@@ -119,6 +119,7 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn)
 
     if (!TargetWorld) return;
 
+    // 1. Load Assets
     UClass* EnemyClass = GetClassFromPath("/Game/Actors/EnemyUnleashed/EnemyUnleashed.EnemyUnleashed_C");
     UClass* ControllerClass = GetClassFromPath("/Game/Actors/EnemyUnleashed/AIController_EnemyUnleashed.AIController_EnemyUnleashed_C");
     UBlackboardData* BBAsset = Cast<UBlackboardData>(LoadObjectFromPath("/Game/Actors/EnemyUnleashed/BB_EnemyUnleashed.BB_EnemyUnleashed"));
@@ -129,42 +130,45 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn)
         return;
     }
 
+    // 2. Spawn Loop
     for (int32 i = 0; i < AmountToSpawn; i++)
     {
-        FVector Loc = (EnemySpawnPositions.IsValidIndex(i)) ? EnemySpawnPositions[i] : FVector(i * -60.0f, 25.0f, 210.0f);
+        // Simple grid offset for spawn location to avoid collision
+        FVector Loc = (EnemySpawnPositions.IsValidIndex(i)) ? EnemySpawnPositions[i] : FVector(i * 150.0f, 0.0f, 210.0f);
         
-        // Spawn Pawn
         ACharacter* Enemy = TargetWorld->SpawnActor<ACharacter>(EnemyClass, Loc, FRotator::ZeroRotator);
-        if (!Enemy) 
+        if (!Enemy) continue;
+
+        // 3. Inject Fitness Tracker (But do NOT start it yet)
+        UGeneticFitnessTracker* FitnessComp = NewObject<UGeneticFitnessTracker>(Enemy);
+        if (FitnessComp)
         {
-            UE_LOG(LogGeneticGeneration, Warning, TEXT("DEBUG: Failed to spawn Enemy Pawn %d"), i);
-            continue;
+            FitnessComp->RegisterComponent(); 
+            Enemy->AddInstanceComponent(FitnessComp);
         }
 
-        // Spawn Controller
+        // 4. Spawn & Possess AI
         ACustomAIController* AI = TargetWorld->SpawnActor<ACustomAIController>(ControllerClass, Loc, FRotator::ZeroRotator);
         if (AI)
         {
             AI->Possess(Enemy);
             
-            // Generate Tree
+            // 5. Generate & Assign Tree
             UCustomBehaviourTree* GenHelper = NewObject<UCustomBehaviourTree>(this);
             GenHelper->LoadBehaviorTree("/Game/Actors/EnemyUnleashed/BT_EnemyUnleashed.BT_EnemyUnleashed");
             
-            // bool bMutated = GenHelper->MutateTree_AddSequenceWithAttack();
-            // if(bMutated)
-            // {
-            //      UE_LOG(LogGeneticGeneration, Log, TEXT("DEBUG: Tree mutated for Enemy %d"), i);
-            // }
+            // TODO: Apply Mutations here using GenHelper->MutateTree(...)
 
             UBehaviorTree* FinalTree = GenHelper->GetBTAsset();
-
             if (FinalTree)
             {
                 AI->AssignTree(FinalTree, BBAsset);
                 AI->RunAssignedTree();
-                UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Enemy %d Spawned and Tree Running."), i);
             }
+            
+            // 6. Track this Agent
+            ActiveAgents.Add(Enemy, GenHelper);
+            UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Agent %d generated. Tree: %s"), i, *FinalTree->GetName());
         }
     }
 }
@@ -175,49 +179,144 @@ void UGeneticSimulationManager::SetSpawnPositions(TArray<FVector> positions)
 
 void UGeneticSimulationManager::Simulate()
 {
-    UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Simulate() called. Starting Timer."));
+	UE_LOG(LogGeneticGeneration, Display, TEXT("--------------------------------------------------"));
+	UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Simulate() called. Initializing Run..."));
 
-    if (!TargetWorld) return;
+	if (!TargetWorld)
+	{
+		UE_LOG(LogGeneticGeneration, Error, TEXT("DEBUG: TargetWorld is invalid! Cannot simulate."));
+		return;
+	}
 
-	UGameplayStatics::SetGlobalTimeDilation(TargetWorld, 1.0f);
-    // Timeout (e.g., 30 seconds)
+	// 1. Verify we actually have agents to simulate
+	if (ActiveAgents.Num() == 0)
+	{
+		UE_LOG(LogGeneticGeneration, Warning, TEXT("DEBUG: No Active Agents found! Did SpawnEnemies fail?"));
+		StopSimulation(); // Immediate exit
+		return;
+	}
+
+	// 2. Synchronized Start: Activate all Fitness Trackers NOW
+	int32 TrackersStarted = 0;
+	for (auto& Pair : ActiveAgents)
+	{
+		APawn* Agent = Pair.Key;
+		if (IsValid(Agent))
+		{
+			UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>();
+			if (Tracker)
+			{
+				Tracker->BeginTracking(); // Start the stopwatch here!
+				TrackersStarted++;
+			}
+		}
+	}
+	UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Fitness Tracking started for %d agents."), TrackersStarted);
+
+	// 3. Set Global Time Dilation (Optional speed up)
+	UGameplayStatics::SetGlobalTimeDilation(TargetWorld, 1.0f); // Set to 5.0f to train faster!
+
+	// 4. Set Safety Timer (Simulation Duration)
 	float TimeoutGameSeconds = 30.0f;
 	TargetWorld->GetTimerManager().SetTimer(
-		TimerHandle, 
-		this, 
-		&UGeneticSimulationManager::TimerCallback, 
-		TimeoutGameSeconds, 
-		false
+	   TimerHandle, 
+	   this, 
+	   &UGeneticSimulationManager::TimerCallback, 
+	   TimeoutGameSeconds, 
+	   false
 	);
-	
-    SetPause(false);
-    UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Simulation active. Timeout set for %.2fs."), TimeoutGameSeconds);
+    
+	// 5. GO!
+	SetPause(false);
+    
+	UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Simulation LIVE. Max Duration: %.2fs"), TimeoutGameSeconds);
+	UE_LOG(LogGeneticGeneration, Display, TEXT("--------------------------------------------------"));
 }
 
 void UGeneticSimulationManager::TimerCallback()
 {
-    UE_LOG(LogGeneticGeneration, Warning, TEXT("DEBUG: TIMEOUT! Simulation took too long."));
-	TriggerRestart();
+	UE_LOG(LogGeneticGeneration, Warning, TEXT("DEBUG: TIMEOUT! Simulation time limit reached."));
+	StopSimulation(); 
 }
 
 void UGeneticSimulationManager::PlayerDiedListener()
 {
-    UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: EVENT: Player Died! Stopping simulation."));
-    TriggerRestart();
+	UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: EVENT: Player Died! Goal condition met."));
+	StopSimulation(); 
 }
 
 void UGeneticSimulationManager::StopSimulation()
 {
-    UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Stopping Simulation..."));
+    UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: StopSimulation called. Collecting Fitness & Cleaning up..."));
 
-    // Clear timer
+    // 1. Clear any pending timer so we don't timeout while processing results
     if (TargetWorld)
     {
         TargetWorld->GetTimerManager().ClearTimer(TimerHandle);
     }
 
     SetPause(true);
-    UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Game Paused. Simulation Complete."));
+
+    // 2. Container for this generation's results
+    TArray<FSimulationResult> GenerationResults;
+
+    // 3. Iterate over all active agents to gather fitness
+    for (auto& Pair : ActiveAgents)
+    {
+        APawn* Agent = Pair.Key;
+        UCustomBehaviourTree* TreeWrapper = Pair.Value;
+
+        // Ensure agent and tree are still valid
+        if (IsValid(Agent) && TreeWrapper)
+        {
+            float FitnessScore = 0.0f;
+
+            // Retrieve the Fitness Component we attached in SpawnEnemies
+            UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>();
+            if (Tracker)
+            {
+                FitnessScore = Tracker->CalculateFitness();
+            }
+            else
+            {
+                UE_LOG(LogGeneticGeneration, Warning, TEXT("Agent %s had no FitnessTracker! Defaulting to 0."), *Agent->GetName());
+            }
+
+            // Log for debug transparency
+            UE_LOG(LogGeneticGeneration, Log, TEXT("RESULTS: Agent [%s] | Fitness: %f"), *Agent->GetName(), FitnessScore);
+
+            // Store result
+            FSimulationResult Result;
+            Result.BehaviorTree = TreeWrapper->GetBTAsset(); // The actual UBehaviorTree*
+            Result.Fitness = FitnessScore;
+            
+            GenerationResults.Add(Result);
+        }
+
+        // 4. Cleanup: Destroy the Agent and Controller explicitly
+        if (IsValid(Agent))
+        {
+            if (AController* C = Agent->GetController())
+            {
+                C->Destroy();
+            }
+            Agent->Destroy();
+        }
+    }
+
+    // 5. Clear the tracking map
+    ActiveAgents.Empty();
+
+    // 6. CRITICAL: Pass results to your Genetic Module or Store them
+    // WARNING: 'TriggerRestart' calls OpenLevel, which will DESTROY this Manager instance 
+    // and lose 'GenerationResults' unless you pass them to a persistent object (like GameInstance or your Module).
+    UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Collected %d results. Passing to Evolution Pipeline..."), GenerationResults.Num());
+    
+    // Example hook: 
+    // FGeneticGenerationModule::Get().ProcessGenerationResults(GenerationResults);
+
+    // 7. Restart the loop
+    TriggerRestart();
 }
 
 void UGeneticSimulationManager::TriggerRestart()

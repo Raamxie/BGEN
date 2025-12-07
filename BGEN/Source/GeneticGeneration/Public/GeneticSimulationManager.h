@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "CustomBehaviourTree.h"
 #include "UObject/NoExportTypes.h"
 #include "Engine/EngineTypes.h" // For FTimerHandle
 #include "GeneticSimulationManager.generated.h"
@@ -8,6 +9,20 @@
 // Forward declarations
 class UBehaviorTree;
 class UWorld;
+
+
+// In GeneticSimulationManager.h
+USTRUCT()
+struct FSimulationResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	UBehaviorTree* BehaviorTree = nullptr;
+
+	UPROPERTY()
+	float Fitness = 0.0f;
+};
 
 /**
  * Manages the genetic algorithm simulation loop.
@@ -80,4 +95,7 @@ protected:
 	
 	/** Stops timers and calculates fitness before restart */
 	void StopSimulation();
+
+	UPROPERTY()
+	TMap<APawn*, UCustomBehaviourTree*> ActiveAgents;
 };

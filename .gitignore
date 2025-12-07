@@ -269,3 +269,5 @@ Build/
 # OS generated
 Thumbs.db
 .DS_Store
+
+!Saved/Logs/
