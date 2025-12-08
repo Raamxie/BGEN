@@ -98,4 +98,7 @@ protected:
 
 	UPROPERTY()
 	TMap<APawn*, UCustomBehaviourTree*> ActiveAgents;
+
+	FTimerHandle WarmupTimerHandle;
+	void OnWarmupFinished();
 };

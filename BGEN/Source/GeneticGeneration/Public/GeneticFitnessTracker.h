@@ -4,7 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "PlayerUnleashedBase.h"
 #include "GeneticFitnessTracker.generated.h"
+
 
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -29,6 +31,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness")
 	float DamageTakenPenalty = 0.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness")
+	float EfficiencyWeight = 0.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness")
+	float SurvivalWeight = 0.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness")
+	float PlayerKillBonus = 0.0f;
+
 	// --- Runtime API ---
 
 	// Starts the timer and binds events
@@ -51,10 +62,14 @@ protected:
 	UFUNCTION()
 	void OnPlayerTakeDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser);
 
+	UFUNCTION()
+	void OnPlayerDied();
+
 private:
 	float AccumulatedReward = 0.0f;
 	double StartTime = 0.0f;
 	bool bTrackingActive = false;
+	bool bPlayerWasKilled = false;
 
 	// Cache the player reference to detect when we hurt them
 	UPROPERTY()

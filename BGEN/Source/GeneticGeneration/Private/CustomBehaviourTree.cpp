@@ -47,6 +47,7 @@ bool UCustomBehaviourTree::LoadBehaviorTree(const FString& AssetPath)
 	BehaviorTreeAsset->ConditionalPostLoad();
 
     UE_LOG(LogTemp, Log, TEXT("LoadBehaviorTree: Successfully loaded BT: %s"), *ObjectPath);
+	DebugLogTree();
 
 	return true;
 }

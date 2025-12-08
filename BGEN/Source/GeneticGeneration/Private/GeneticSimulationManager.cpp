@@ -28,8 +28,12 @@ void UGeneticSimulationManager::Init(UWorld* InWorld)
     }
 	if (GEngine)
 	{
-		GEngine->bSmoothFrameRate = false;
-		GEngine->FixedFrameRate = 0.0f; // Uncapped
+		// GEngine->bSmoothFrameRate = false;
+		// GEngine->FixedFrameRate = 0.0f; // Uncapped
+
+		GEngine->bSmoothFrameRate = false; 
+		GEngine->bUseFixedFrameRate = true; // FORCE DETERMINISM
+		GEngine->FixedFrameRate = 60.0f;    // Lock to 60 FPS
 	}
 }
 
@@ -163,7 +167,6 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn)
             if (FinalTree)
             {
                 AI->AssignTree(FinalTree, BBAsset);
-                AI->RunAssignedTree();
             }
             
             // 6. Track this Agent
@@ -204,11 +207,6 @@ void UGeneticSimulationManager::Simulate()
 		if (IsValid(Agent))
 		{
 			UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>();
-			if (Tracker)
-			{
-				Tracker->BeginTracking(); // Start the stopwatch here!
-				TrackersStarted++;
-			}
 		}
 	}
 	UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Fitness Tracking started for %d agents."), TrackersStarted);
@@ -306,17 +304,54 @@ void UGeneticSimulationManager::StopSimulation()
 
     // 5. Clear the tracking map
     ActiveAgents.Empty();
-
-    // 6. CRITICAL: Pass results to your Genetic Module or Store them
-    // WARNING: 'TriggerRestart' calls OpenLevel, which will DESTROY this Manager instance 
-    // and lose 'GenerationResults' unless you pass them to a persistent object (like GameInstance or your Module).
+	
     UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Collected %d results. Passing to Evolution Pipeline..."), GenerationResults.Num());
-    
-    // Example hook: 
-    // FGeneticGenerationModule::Get().ProcessGenerationResults(GenerationResults);
-
-    // 7. Restart the loop
+	
     TriggerRestart();
+}
+
+void UGeneticSimulationManager::OnWarmupFinished()
+{
+	UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Warmup Complete. STARTING AI & FITNESS TRACKING NOW."));
+
+	// 1. Activate AI Brains (Synchronized Start)
+	for (auto& Pair : ActiveAgents)
+	{
+		APawn* Agent = Pair.Key;
+		if (IsValid(Agent))
+		{
+			ACustomAIController* AI = Cast<ACustomAIController>(Agent->GetController());
+			if (AI)
+			{
+				// NOW we run the tree, ensuring all agents start from a stable physical state
+				AI->RunAssignedTree();
+			}
+		}
+	}
+
+	// 2. Activate Fitness Trackers (Reset StartTime to NOW)
+	for (auto& Pair : ActiveAgents)
+	{
+		APawn* Agent = Pair.Key;
+		if (IsValid(Agent))
+		{
+			UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>();
+			if (Tracker)
+			{
+				Tracker->BeginTracking(); // This captures GetTimeSeconds() *after* the warmup
+			}
+		}
+	}
+
+	// 3. Start the Simulation Timeout (e.g., 30s limit)
+	float TimeoutGameSeconds = 30.0f;
+	TargetWorld->GetTimerManager().SetTimer(
+	   TimerHandle, 
+	   this, 
+	   &UGeneticSimulationManager::TimerCallback, 
+	   TimeoutGameSeconds, 
+	   false
+	);
 }
 
 void UGeneticSimulationManager::TriggerRestart()
