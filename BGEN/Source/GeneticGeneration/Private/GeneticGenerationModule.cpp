@@ -64,7 +64,8 @@ void FGeneticGenerationModule::OnWorldInitialized(UWorld* world, const UWorld::I
     // Simulate delayed execution manually (since no loop runs)
     UE_LOG(LogGeneticGeneration, Log, TEXT("World %s initialized, running simulation now."), *world->GetName());
 
-	RunSimulation(world);
+	//RunSimulation(world);
+	RunMutationDemonstration(world);
 }
 
 
@@ -117,7 +118,6 @@ void FGeneticGenerationModule::RunMutationDemonstration(UWorld* World)
         return;
     }
     UE_LOG(LogGeneticGeneration, Log, TEXT("[Step 1] Loaded Original."));
-	Wrapper->DebugLogTree();
 
     // --- STEP 2: MUTATE (Original) ---
     // This modifies the object currently in memory (The Original)
@@ -148,7 +148,6 @@ void FGeneticGenerationModule::RunMutationDemonstration(UWorld* World)
         return;
     }
     UE_LOG(LogGeneticGeneration, Log, TEXT("[Step 4] Verified & Loaded Gen1."));
-	Wrapper->DebugLogTree();
 
     // --- STEP 5: MUTATE (Generation 1 -> Generation 2) ---
     // Now we are mutating 'BT_Gen1' in memory
@@ -178,8 +177,6 @@ void FGeneticGenerationModule::RunMutationDemonstration(UWorld* World)
         return;
     }
     UE_LOG(LogGeneticGeneration, Log, TEXT("[Step 7] SUCCESS: Gen2 Loaded and Verified."));
-	Wrapper->DebugLogTree();
-
     // OPTIONAL: Build Editor Graphs for visualization
     // If we don't do this, the trees work in-game but look empty in the editor
     if (FModuleManager::Get().IsModuleLoaded("BehaviourTreeGraph"))

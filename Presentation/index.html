@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Project BGEN: Evolutionary Behavior Tree Framework</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Fonts: Professional Sans-Serif -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Reveal.js Themes -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/theme/black.css" id="theme">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/highlight/monokai.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/math/math.js"></script>
+
+    <style>
+        /* --- VISUALS: Professional Dark Theme --- */
+        :root {
+            --primary-accent: #64b5f6; /* Soft Blue */
+            --secondary-accent: #81c784; /* Soft Green */
+            --alert-accent: #e57373; /* Soft Red */
+            --bg-dark: #121212;
+            --bg-card: #1e1e1e;
+            --text-main: #e0e0e0;
+            --text-muted: #b0bec5;
+            --border-color: #37474f;
+        }
+
+        body, html {
+            background-color: var(--bg-dark);
+            background-image: linear-gradient(to bottom right, #121212, #1c2331);
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Force hide scrollbars */
+        }
+
+        /* --- TYPOGRAPHY --- */
+        .reveal {
+            font-family: 'Inter', sans-serif;
+            font-weight: 400;
+            color: var(--text-main);
+        }
+
+        .reveal h1, .reveal h2, .reveal h3, .reveal h4 { 
+            font-family: 'Inter', sans-serif;
+            color: #ffffff;
+            text-transform: none;
+            letter-spacing: -0.5px;
+            text-shadow: none;
+        }
+
+        .reveal h1 { font-size: 3.2em; font-weight: 800; color: var(--primary-accent); }
+        .reveal h2 { font-size: 2.2em; font-weight: 600; color: #ffffff; margin-bottom: 30px; }
+        .reveal h3 { font-size: 1.5em; color: var(--text-muted); font-weight: 400; }
+        .reveal p { font-size: 1.1em; line-height: 1.6em; color: var(--text-muted); }
+        
+        /* --- LISTS AS GRIDS (Preserved) --- */
+        ul.grid-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+            list-style: none;
+            padding: 0;
+            margin-top: 30px;
+        }
+
+        ul.grid-list li {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 25px;
+            margin: 0;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            border-left: 4px solid var(--primary-accent);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        ul.grid-list li:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+            border-color: var(--primary-accent);
+        }
+
+        ul.grid-list li strong {
+            color: #ffffff;
+            display: block;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        /* --- CONTAINERS & BOXES --- */
+        .col-container { 
+            display: flex; 
+            gap: 40px; 
+            align-items: stretch;
+            justify-content: center;
+        }
+        .col { flex: 1; }
+
+        .concept-box, .struggle-box { 
+            background: var(--bg-card); 
+            padding: 30px; 
+            margin-top: 30px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            border-left: 5px solid var(--primary-accent);
+            text-align: left;
+        }
+
+        .struggle-box { border-left-color: var(--alert-accent); }
+
+        /* --- CODE BLOCKS --- */
+        .reveal pre { 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+            border: 1px solid var(--border-color);
+            background: #0d0d0d;
+            border-radius: 8px;
+        }
+        .reveal code {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 1.0em;
+            line-height: 1.5em;
+        }
+
+        /* --- TAGS --- */
+        .slide-tag {
+            position: fixed; 
+            top: 30px; 
+            right: 30px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.75em; 
+            font-weight: 600;
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+            padding: 8px 16px;
+            border-radius: 4px;
+            background: rgba(30,30,30,0.8);
+            backdrop-filter: blur(4px);
+            z-index: 10;
+        }
+
+        /* --- Custom Bullet Points for Standard Lists --- */
+        .reveal ul:not(.grid-list) {
+            list-style: none;
+            margin-left: 0;
+            padding-left: 0;
+        }
+        .reveal ul:not(.grid-list) li {
+            padding-left: 25px;
+            position: relative;
+            margin-bottom: 15px;
+        }
+        .reveal ul:not(.grid-list) li::before {
+            content: "•";
+            color: var(--primary-accent);
+            font-weight: bold;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+        }
+
+        /* 1. Force the code block to scroll instead of overflowing */
+    .reveal pre code {
+        max-height: 600px !important;  /* Adjust based on your screen size */
+        overflow: auto !important;     /* Force scrollbar */
+        white-space: pre !important;   /* Prevent weird text wrapping */
+    }
+
+    /* 2. Fix the line number background stacking issue */
+    .reveal pre .hljs-ln {
+        opacity: 1 !important;         /* Ensure line numbers stay visible */
+    }
+    </style>
+</head>
+<body>
+
+<div class="reveal">
+    <div class="slides">
+
+        <!-- 1. INTRODUCTION -->
+        <section>
+            <section>
+                <h1>Automatic generation of enemies in a survival computer game</h1>
+                <div style="height: 4px; width: 60px; background: var(--primary-accent); margin: 30px auto;"></div>
+				<p>Michal Baránek</p>
+				<div style="align-content: end; justify-content: right; text-align: right; max-width: 90%;margin-top: 5%;"><p>Supervisor: Alexander Šimko</p></div>
+            </section>
+
+			<section>
+        <h1>Introduction</h1>
+        <h3 style="color: var(--text-muted);">The Evolution of Game AI</h3>
+        
+        <div style="text-align: left; margin-top: 40px; max-width: 90%; margin-left: auto; margin-right: auto;">
+            <p class="fragment fade-up">
+                AI has been crucial since the earliest arcade systems. As games became 
+                <span style="color: var(--primary-accent);">larger and more dynamic</span>, 
+                developers faced a new challenge. <br>
+                The systems needed to be predictable, efficient, and understandable.
+            </p>
+            
+            <div class="fragment fade-up concept-box" style="margin-top: 30px;">
+                <h4 style="margin-bottom: 10px; color: white;">Behavior Trees</h4>
+                <p style="font-size: 0.9em;">
+                    Behavior Trees (BTs) emerged as the dominant framework for scalable decision-making.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h2>What Are Behavior Trees?</h2>
+<div class="col" style="flex: 1.5; text-align: left; margin-top: 40px; max-width: 90%; margin-left: auto; margin-right: auto;">
+    <p style="font-size: 1em">
+        A hierarchical model representing AI logic as a <strong>directed tree of nodes</strong>, determining how an agent chooses actions.
+    </p><br>
+
+    <div style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: nowrap; width: 100%;">
+        
+        <ul class="grid-list" style="font-size: 0.75em; max-width: 50%; margin: 0;">
+            <li class="fragment fade-up">
+                <strong>Hierarchical Structure</strong> Decisions flow Parent to Child, ensuring readability.
+            </li>
+            <li class="fragment fade-up">
+                <strong>Control Flow</strong> Composites (Selectors, Sequences) dictate execution flow.
+            </li>
+            <li class="fragment fade-up">
+                <strong>Leaf Nodes</strong> Tasks trigger actual gameplay actions.
+            </li>
+            <li class="fragment fade-up">
+                <strong>Deterministic</strong> Consistent behavior given the same world state.
+            </li>
+        </ul>
+
+        <div style="max-width: 48%;">
+            <img src="Images/Screenshot 2025-12-10 204236.png" style="width: 100%; object-fit: contain;">
+        </div>
+
+    </div>
+</div>
+    </section>
+
+    <section>
+        <h2 style="margin-bottom: 8%;">Advantages of Behavior Trees</h2>
+        
+        <ul class="grid-list">
+            <li class="fragment fade-up">
+                <strong>Modularity</strong>
+                Extend or reorganize logic without rewriting entire systems.
+            </li>
+            <li class="fragment fade-up">
+                <strong>Reusability</strong>
+                Subtrees can be shared across different NPC types.
+            </li>
+            <li class="fragment fade-up">
+                <strong>Debuggability</strong>
+                Visual editors (like Unreal's) allow step-by-step inspection.
+            </li>
+            <li class="fragment fade-up">
+                <strong>Scalability</strong>
+                Handles both simple and complex logic efficiently.
+            </li>
+        </ul>
+    </section>
+
+<section>
+    <h2>Genetic Programming (GP)</h2>
+    <div style="text-align: center; margin-bottom: 40px; max-width: 80%; margin-left: auto; margin-right: auto;">
+        <p>
+            An evolutionary computation technique that evolves computer programs, typically represented as <span style="color: var(--primary-accent);">tree structures</span>.
+        </p>
+    </div>
+
+    <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+        
+        <div style="flex: 0 0 70%; text-align: left;">
+            <div class="concept-box fragment fade-up" style="margin-top: 0; padding: 40px;">
+                <h4 style="color: white; text-align: center; margin-bottom: 30px;"></h4>
+                
+                <ul style="font-size: 0.9em; margin: 0 auto;">
+                    <li class="fragment fade-up" style="list-style: none; margin-bottom: 20px; padding-left: 20px;">
+                        <strong>Tree Representation:</strong> GP and BT's are inherently hierarchical.
+                    </li>
+                    <li class="fragment fade-up" style="list-style: none; margin-bottom: 20px; padding-left: 20px;">
+                        <strong>Subtree Crossover:</strong> Swapping branches works naturally in both.
+                    </li>
+                    <li class="fragment fade-up" style="list-style: none; margin-bottom: 20px; padding-left: 20px;">
+                        <strong>Mutation:</strong> Inserting/removing nodes mirrors code mutation.
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+	 <section>
+            <h2 style="margin-bottom: 8%">The Problem</h2>
+            <p>The manual design of BTs for autonomous agents creates these complications:</p>
+            <ul class="grid-list">
+                <li class="fragment fade-up" style="border-left-color: var(--alert-accent);">
+                    <strong>Time Consuming</strong>
+                    Manual authoring is iterative and slow. Tweak → Compile → Test loop is inefficient.
+                </li>
+                <li class="fragment fade-up" style="border-left-color: var(--alert-accent);">
+                    <strong>Designer Bias</strong>
+                    We only build logic we can predict. This limits exploration of novel strategies.
+                </li>
+                <li class="fragment fade-up" style="border-left-color: var(--alert-accent);">
+                    <strong>Scalability</strong>
+                    As complexity grows, maintaining massive BTs becomes unmanageable.
+                </li>
+                <li class="fragment fade-up" style="border-left-color: var(--secondary-accent); display: flex; align-items: center; justify-content: center; background: #2e3b2f;">
+                    <span style="font-size: 1.2em; font-weight: 600; color: #fff;">Need: Automated Exploration</span>
+                </li>
+            </ul>
+        </section>
+        </section>
+       
+
+        <!-- 3. PROJECT OVERVIEW -->
+        <section>
+            <h2 style="margin-bottom: 8%">Framework</h2>
+            <ul class="grid-list">
+                <li class="fragment">
+                    <strong>Direct Evolution</strong>
+                    Works directly with real <code>UBehaviorTree</code> node structures.
+                </li>
+                <li class="fragment">
+                    <strong>No Symbolic DNA</strong>
+                    Evolution happens on concrete memory objects, not a string abstraction.
+                </li>
+                <li class="fragment">
+                    <strong>Offline Tool</strong>
+                    An AI training tool for developers, not a runtime learner for shipped games.
+                </li>
+            </ul>
+        </section>
+
+        <!-- 4. SYSTEM ARCHITECTURE -->
+        <section>
+            <h2 style="margin-bottom: 8%">System Architecture</h2>
+            <ul class="grid-list">
+                <li class="fragment">
+                    <strong>Simulation Manager</strong>
+                    The "God Object" controlling the full evolutionary loop.
+                </li>
+                <li class="fragment">
+                    <strong>Dynamic Constructor</strong>
+                    Creates and modifies <code>UBehaviorTree</code> nodes in memory.
+                </li>
+                <li class="fragment">
+                    <strong>AI Controller Wrapper</strong>
+                    Executes the generated BTs on agents.
+                </li>
+                <li class="fragment">
+                    <strong>Fitness Tracker</strong>
+                    Monitors metrics (Survival, Damage, Navigation).
+                </li>
+            </ul>
+        </section>
+
+
+        <!-- 6. SIMULATION ENVIRONMENT -->
+        <section>
+            <h2>Simulation Environment</h2>
+            <div class="concept-box" style="margin-bottom: 30px; max-width: 90%; margin-left: auto; margin-right: auto;">
+                <h4 style="color: #fff; margin-bottom: 10px;">Benchmark Mode</h4>
+                <p>Uses <code>-benchmark</code> launch option.</p>
+                <p style="color: var(--primary-accent); font-weight: 600;">Ensures Deterministic, Maximum-FPS simulation speed.</p>
+            </div>
+            <ul class="grid-list" style="max-width: 90%; margin-left: auto; margin-right: auto;">
+                <li class="fragment">
+                    <strong>Controlled Arena</strong>
+                    Predictable testing environment.
+                </li>
+                <li class="fragment">
+                    <strong>Population</strong>
+                    Supports Single-Agent evaluation setups.
+                </li>
+            </ul>
+        </section>
+
+        <!-- 7. FITNESS EVALUATION -->
+        <section>
+            <h2>Fitness Metrics</h2>
+            <ul class="grid-list">
+                <li class="fragment" style="border-left-color: var(--secondary-accent);">
+                    <strong>Survival Time</strong>
+                    Duration alive in hostile environment.
+                </li>
+                <li class="fragment" style="border-left-color: var(--secondary-accent);">
+                    <strong>Damage Dealt</strong>
+                    Aggression towards player/objectives.
+                </li>
+                <li class="fragment" style="border-left-color: var(--secondary-accent);">
+                    <strong>Time to kill</strong>
+                    Duration to kill player.
+                </li>
+            </ul>
+            <p class="fragment" style="margin-top: 40px; font-size: 0.9em; opacity: 0.8;">And many more planned.</p>
+        </section>
+
+        <!-- 8. GENETIC ALGORITHM WORKFLOW -->
+        <section>
+            <section>
+                <h2>Genetic Algorithm Workflow</h2>
+                <div style="margin-top: 80px; display: flex; justify-content: space-around;">
+                    <h3 class="fragment fade-up" style="color: var(--text-muted);">1. Selection</h3>
+                    <h3 class="fragment fade-up" style="color: var(--text-muted);">2. Crossover</h3>
+                    <h3 class="fragment fade-up" style="color: var(--text-muted);">3. Mutation</h3>
+                </div>
+            </section>
+
+            <!-- <section>
+                <h2>Selection</h2>
+                <p>Choosing top-performing BTs based on fitness.</p>
+                <ul class="grid-list">
+                    <li class="fragment">
+                        <strong>Elitism</strong>
+                        Best models preserved exactly.
+                    </li>
+                    <li class="fragment">
+                        <strong>Tournament</strong>
+                        Competing for reproduction slots.
+                    </li>
+                </ul>
+            </section> -->
+<!-- 
+            <section>
+                <h2>Crossover (Subtree Swap)</h2>
+                <div class="concept-box">
+                    <ol style="line-height: 1.8em;">
+                        <li>Identify subtree in Parent A.</li>
+                        <li>Identify insertion point in Parent B.</li>
+                        <li>Swap full UObject node subtrees.</li>
+                        <li>Reconnect parent-child relationships.</li>
+                    </ol>
+                </div>
+            </section> -->
+
+            <section>
+                <h2>Mutation (Tree Editing)</h2>
+                <ul class="grid-list" style="font-size: 0.9em;">
+                    <li class="fragment fade-up"><strong>Replace Type</strong> Change Sequence to Select</li>
+                    <li class="fragment fade-up"><strong>Insert Task</strong> Add new leaf</li>
+                    <li class="fragment fade-up"><strong>Prune</strong> Remove branch</li>
+                    <li class="fragment fade-up"><strong>Swap Order</strong> Reorder execution</li>
+                </ul>
+            </section>
+        </section>
+
+        <!-- 12. CHALLENGES -->
+        <section>
+            <h2>Challenges</h2>
+            <ul class="grid-list">
+                <li class="fragment">
+                    <strong>Reachability</strong>
+                    Preventing logic bottlenecks where a single dominant branch blocks the execution of others.
+                </li>
+                <li class="fragment">
+                    <strong>Complexity</strong>
+                    Large trees degrade comprehensibility and evolution speed.
+                </li>
+                <li class="fragment">
+                    <strong>Fitness Shaping</strong>
+                    "You get what you measure" (e.g. passive survival vs active combat).
+                </li>
+            </ul>
+        </section>
+
+		<section>
+            <h2>Current Implementation Status</h2>
+            <p style="font-size: 0.9em; color: var(--text-muted); margin-bottom: 0%">Key milestones achieved in the prototype.</p>
+            
+            <ul class="grid-list" style="font-size: 0.75em;">
+                <li class="fragment fade-up">
+                    <strong>Modularisation</strong>
+                    Decoupled core evolutionary logic from game-specific mechanics.
+                </li>
+                <li class="fragment fade-up">
+                    <strong>Persistence & Visualization</strong>
+                    Load/Save BTs with auto-generated visual graphs for inspection.
+                </li>
+                <li class="fragment fade-up">
+                    <strong>Deterministic Speedup</strong>
+                    Faster than real-world simulation.
+                </li>
+                <li class="fragment fade-up">
+                    <strong>Use of Headless Mode</strong>
+                    Supports command-line execution for faster training cycles.
+                </li>
+                <li class="fragment fade-up">
+                    <strong>Simulation Loop</strong>
+                    Mutation, simulation, evaluation.
+                </li>
+                <li class="fragment fade-up">
+                    <strong>Fitness Evaluation</strong>
+                    Multi-part scoring system.
+                </li>
+                <li class="fragment fade-up">
+                    <strong>Custom Log Output</strong>
+                    Structured data export for easier debugging.
+                </li>
+            </ul>
+        </section>
+
+
+        <section>
+    <h3>Genetic Evolution Pipeline</h3>
+    <pre><code class="cpp" data-trim data-line-numbers="1-5|7-21|23-28|30-41">Function OnLevelReload(World):
+    TargetWorld = World 
+    ActiveAgent = null 
+    PreparePlayer() 
+    RunEvolutionStep() 
+
+Function RunEvolutionStep():
+    CandidateTree = NewTree(BestTree) // Hill Climbing Logic
+    Mutate(CandidateTree)
+    
+    // Spawn & Possess
+    SpawnPos = GetSpawnLocation() 
+    Enemy = SpawnActor(EnemyClass, SpawnPos)
+    Controller = SpawnActor(AIClass, SpawnPos) 
+    Controller.Possess(Enemy) 
+
+    // Assign Tree & Track
+    BehaviourTree = TreeWrapper.AssignTree(CandidateTree)
+    Controller.AssignTree(BehaviourTree, BlackboardData)
+    ActiveAgent = {Enemy, TreeWrapper, Controller}
+    StartSimulation(30.0) 
+
+Function StartSimulation(Timeout):
+    UnpauseGame()
+    Wait(2.0) // Physics warmup
+    ActiveAgent.Controller.RunAssignedTree()
+    ActiveAgent.FitnessTracker.BeginTracking()
+    SetTimer(StopSimulation, Timeout)
+
+Function StopSimulation():
+    PauseGame()
+    Fitness = ActiveAgent.FitnessTracker.CalculateFitness()
+
+    // Restart
+    GenerationCount++
+    OpenLevel(CurrentLevelName)
+    </code></pre>
+</section>
+    <!-- // Selection (Hill Climbing)
+    If (Fitness > BestFitness_SoFar):
+        BestFitness_SoFar = Fitness
+        SaveTree(ActiveAgent.StoredTree)
+        BestTree = ActiveAgent.StoredTree -->
+
+        <section>
+            <section>
+                <h2>Results Preview</h2>
+                <div style="height: 4px; width: 60px; background: var(--primary-accent); margin: 30px auto;"></div>
+                <p>Quantifying speedup & visualizing intelligence.</p>
+            </section>
+
+            <section>
+                <h2>Simulation Speedup</h2>
+                <div class="col-container">
+                    <div class="col" style="flex: 1;">
+                        <div class="concept-box" style="padding: 20px;">
+                            <h4 style="color: white; margin-bottom: 10px;">Benchmark Mode</h4>
+                            <p style="font-size: 0.8em;">
+                                By decoupling game logic from rendering framerate, we achieve massive time acceleration.
+                            </p>
+                            <p style="color: var(--secondary-accent); font-weight: 600; font-size: 0.9em;">
+                                30 seconds of gameplay ≈ 1 second of compute.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col" style="flex: 1.5;">
+                        <pre><code class="" data-trim data-line-numbers="1,6|2,5">
+[23.40.33:467]LogGeneticGeneration: Warmup Complete. 
+[23.40.34:477]LogGeneticGeneration: TIMEOUT! Simulation time limit reached.
+                        </code></pre>
+                        <p style="font-size: 0.6em; text-align: center; color: var(--text-muted);">
+                            Log snippet showing a full 30 second timeout simulating in 1 second.
+                        </p>
+                    </div>
+                </div>
+            </section>
+            <section>
+                <h2>Generation 0: The Baseline</h2>
+                <div class="col-container" style="align-items: center;">
+                    <div class="col" style="flex: 1;">
+                        <pre><code class="bash" data-trim data-line-numbers="1-2|4-8|9-10" style="font-size: 0.55em; line-height: 1.3em; max-height: 600px;">
+[LogGeneticGeneration] --- STARTING WORKFLOW ---
+[LogTemp] LoadBehaviorTree: Loaded BT_EnemyUnleashed
+
+// INITIAL STRUCTURE
+[LogTemp] Display: L-- Sequence
+[LogTemp] Display:      |-- CheckAreaForPlayer
+[LogTemp] Display:      |-- MoveToPlayer
+[LogTemp] Display:      L-- Attack
+
+[LogGeneticGeneration] [Step 1] Loaded Original.
+[LogTemp] Found 3 valid Task classes for mutation.
+                        </code></pre>
+                        <div class="concept-box" style="padding: 15px; margin-top: 20px;">
+                            <h4 style="font-size: 0.7em; color: var(--text-muted); margin: 0;">Status</h4>
+                            <p style="font-size: 0.6em; margin: 5px 0;">
+                                Hand-authored logic. Standard patrol behavior.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="col" style="flex: 1.5;">
+                        <img src="Images/Screenshot 2025-12-11 041052.png" 
+                             style="width: 100%; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                        <p style="font-size: 0.6em; color: var(--text-muted); margin-top: 10px;">
+                            <strong>Structure:</strong> Check &rarr; Move &rarr; Attack
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2>Generation 1: Mutation</h2>
+                <div class="col-container" style="align-items: center;">
+                    <div class="col" style="flex: 1;">
+                        <pre><code class="bash" data-trim data-line-numbers="1-2|4-5|7-12" style="font-size: 0.55em; line-height: 1.3em; max-height: 600px;">
+// MUTATION EVENT: INSERTION
+[LogTemp] MutateTree: Inserted BTTask_Attack_C_1
+
+[LogGeneticGeneration] [Step 2] Mutated (In-Memory)
+[LogGeneticGeneration] [Step 3] Saved Gen1.uasset
+
+// NEW STRUCTURE
+[LogTemp] Display: L-- Sequence
+[LogTemp] Display:      |-- CheckAreaForPlayer
+[LogTemp] Display:      |-- MoveToPlayer
+[LogTemp] Display:      |-- Attack
+[LogTemp] Display:      L-- Attack
+                        </code></pre>
+                    </div>
+
+                    <div class="col" style="flex: 1.5;">
+                        <img src="Images/Screenshot 2025-12-11 041118.png" 
+                             style="width: 100%; border-radius: 8px; border: 2px solid var(--primary-accent); box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
+                        <p style="font-size: 0.6em; color: var(--primary-accent); margin-top: 10px;">
+                            <strong>Change:</strong> Added second <em>Attack</em> node.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2>Generation 2: Refinement</h2>
+                <div class="col-container" style="align-items: center;">
+                    <div class="col" style="flex: 1;">
+                        <pre><code class="bash" data-trim data-line-numbers="1-2|4-5|7-12" style="font-size: 0.55em; line-height: 1.3em; max-height: 600px;">
+// MUTATION EVENT: REPLACEMENT
+[LogTemp] MutateTree: Replaced CheckArea with MoveTo
+
+[LogGeneticGeneration] [Step 5] Mutated (In-Memory)
+[LogGeneticGeneration] [Step 6] Saved Gen2.uasset
+
+// FINAL STRUCTURE
+[LogTemp] Display: L-- Sequence
+[LogTemp] Display:      |-- MoveToPlayer
+[LogTemp] Display:      |-- MoveToPlayer
+[LogTemp] Display:      |-- Attack
+[LogTemp] Display:      L-- Attack
+                        </code></pre>
+                    </div>
+
+                    <div class="col" style="flex: 1.5;">
+                        <img src="Images/Screenshot 2025-12-11 041138.png" 
+                             style="width: 100%; border-radius: 8px; border: 2px solid var(--secondary-accent); box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
+                        <p style="font-size: 0.6em; color: var(--secondary-accent); margin-top: 10px;">
+                            <strong>Change:</strong> Replaced <em>CheckAreaForPlayer</em> initial logic.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+        </section>
+
+        <section>
+            <section>
+                <h2>Insights from Literature</h2>
+                <div style="height: 4px; width: 60px; background: var(--primary-accent); margin: 30px auto;"></div>
+                <p>Foundational research validating the BGEN approach.</p>
+            </section>
+
+            <section>
+                <h3>Constructing Complex NPC Behavior via Multi-Objective Neuroevolution</h3>
+                <p style="font-size: 0.6em; color: var(--primary-accent);">Schrum & Miikkulainen (2008)</p>
+                
+                <div class="col-container">
+                    <div class="col" style="flex: 1.2;">
+                        <ul class="grid-list" style="font-size: 0.8em; grid-template-columns: 1fr;">
+                            <li class="fragment fade-up">
+                                <strong>Multi-Objective Evolution</strong>
+                                Uses <em>Pareto Fronts</em> to balance objective rewards. Bots excelling at one task but failing others are overtaken by universal bots.
+                            </li>
+                            <li class="fragment fade-up">
+                                <strong>Emergent Strategy</strong>
+                                Evolving produced roles and complex strategies: <span style="color: var(--secondary-accent);">Baiting, Retreating, Flanking, and Coordinated Attacks.</span>
+                            </li>
+                            <li class="fragment fade-up">
+                                <strong>Group Fitness</strong>
+                                Averaging group fitness ranked cooperative teams higher than individualistic bots.
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col fragment" style="flex: 0.8;">
+                        <div class="concept-box" style="margin-top: 30px; max-width: 85%;">
+                            <h5 style="color: white;">The Loop</h5>
+                            <hr style="opacity: 0.2">
+                            <p style="font-size: 0.7em; line-height: 1.4;">
+                                1. Start with simple player behavior.<br>
+                                2. Identify promising bot individuals.<br>
+                                3. Increase player complexity.<br>
+                                4. Further evolve bots against new challenge.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h3>Procedural Enemy Generation through Parallel Evolutionary Algorithm</h3>
+                <p style="font-size: 0.6em; color: var(--primary-accent);">Pereira et al. (2021)</p>
+
+                <ul class="grid-list" style="font-size: 0.65em; width: 90%; margin-left: auto; margin-right: auto;">
+                    <li class="fragment fade-up">
+                        <strong>Goal</strong>
+                        [cite_start]Automatically generate diverse, balanced enemies matching a required difficulty[cite: 5431, 5456].
+                    </li>
+                    <li class="fragment fade-up">
+                        <strong>Attribute Adjustment</strong>
+                        [cite_start]Evolution adjusts stats (Health, Damage, Speed) rather than logic[cite: 5398].
+                    </li>
+                    <li class="fragment fade-up">
+                        <strong>Parallel Evolutionary Algorithm</strong>
+                        [cite_start]Uses Behavior Trees evolved in parallel to ensure performance[cite: 5437, 5438].
+                    </li>
+                </ul>
+
+                <div class="fragment fade-up concept-box" style="width: 90%; margin-left: auto; margin-right: auto; padding: 20px;">
+                    <h5 style="color: white; margin-top: 0;">Fitness Calculation From Stats</h5>
+                    <div style="display: flex; align-items: center; justify-content: space-around;">
+                        <div style="font-size: 0.65em; font-family: 'Roboto Mono', monospace; color: var(--text-muted); text-align: left;">
+                            $$ f_w = damage \times weapon $$ <br>
+                            $$ f_m = movement\_speed \times movement $$
+                        </div>
+                        <div style="font-size: 0.8em; font-family: 'Roboto Mono', monospace; color: var(--primary-accent);">
+                            $$ f = health + active + \frac{1}{rest} + f_W + f_p + f_m $$
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h3>AI in Computer Games: Generating Interesting Interactive Opponents by the use of Evolutionary Computation</h3>
+                <p style="font-size: 0.6em; color: var(--primary-accent);">Georgios N. Yannakakis</p>
+
+                <div class="col-container" style="gap: 20px; width: 90%; margin-left: auto; margin-right: auto;">
+                    <div class="col fragment fade-up">
+                         <div class="concept-box" style="padding: 15px; height: 100%;">
+                            <h4 style="color: white; font-size: 0.8em;">1. Challenge ($T$)</h4>
+                            <p style="font-size: 0.6em; margin-top: 10px;">
+                                Too many or too few steps to kill the player is not optimal.
+                            </p>
+                            <div style="font-size: 0.6em; font-family: 'Roboto Mono', monospace; color: var(--secondary-accent); margin-top: 10px;">
+                                $$ T = (1 - \frac{E\{t_k\}}{max\{t_k\}})^{p_1} $$
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col fragment fade-up">
+                         <div class="concept-box" style="padding: 15px; height: 100%;">
+                            <h4 style="color: white; font-size: 0.8em;">2. Behavior ($S$)</h4>
+                            <p style="font-size: 0.6em; margin-top: 10px;">
+                                Higher standard deviation of steps taken to kill = more interesting.
+                            </p>
+                            <div style="font-size: 0.6em; font-family: 'Roboto Mono', monospace; color: var(--secondary-accent); margin-top: 10px;">
+                                $$ S = (\frac{\sigma_{t_k}}{\sigma_{max}})^{p_2} $$
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col fragment fade-up">
+                         <div class="concept-box" style="padding: 15px; height: 100%;">
+                            <h4 style="color: white; font-size: 0.8em;">3. Spatial ($H_n$)</h4>
+                            <p style="font-size: 0.6em; margin-top: 10px;">
+                                Entropy of predator visits across regions (cells) of the world.
+                            </p>
+                            <div style="font-size: 0.6em; font-family: 'Roboto Mono', monospace; color: var(--secondary-accent); margin-top: 10px;">
+                                $$ H_n = [\frac{-1}{\log V_n} \sum \frac{v_{in}}{V_n} \log ...]^{p_3} $$
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </section>
+
+        <!-- 13. FUTURE WORK -->
+        <section>
+            <h2>Future Work</h2>
+            <ul class="grid-list">
+				<li class="fragment">
+                    <strong>Mutation penalties</strong>
+                    Penalize BTs with large trees
+                </li>
+                <li class="fragment">
+                    <strong>Multi-Objective Fitness</strong>
+                    Pareto optimization for complex traits.
+                </li>
+				<li class="fragment">
+                    <strong>Group Fitness</strong>
+                    Averaging fitness of multiple agents to promote teamwork
+                </li>
+                <li class="fragment">
+                    <strong>Distributed Evaluation</strong>
+                    Parallel simulation across cores.
+                </li>
+            </ul>
+        </section>
+
+        <!-- 15. Q&A -->
+        <section>
+            <h1 style="font-size: 5em; color: var(--primary-accent); margin-bottom: 20px;">Thank you</h1>
+
+        </section>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/highlight/highlight.js"></script>
+<script>
+    // Maximize layout to fill screen and prevent cut-off
+    Reveal.initialize({
+        width: 1920,
+        height: 1080,
+        margin: 0,
+        minScale: 0.1,
+        maxScale: 10.0,
+        controls: true,
+        progress: true,
+        center: true,
+        hash: true,
+        backgroundTransition: 'fade',
+        plugins: [ RevealHighlight, RevealMath.KaTeX ]
+    });
+    Reveal.configure({ pdfSeparateFragments: false });
+</script>
+</body>
+</html>

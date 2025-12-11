@@ -28,6 +28,9 @@ public:
 	bool SaveAsNewAsset(const FString& DestinationPackagePath, bool bOverwriteExisting = false);
 	void DebugMutation();
 	void DebugLogTree();
+	
+	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
+	void InitFromTreeInstance(UBehaviorTree* SourceTree);
 
 	/// Get the in-memory UBehaviorTree instance
 	UBehaviorTree* GetBTAsset() const { return BehaviorTreeAsset; }

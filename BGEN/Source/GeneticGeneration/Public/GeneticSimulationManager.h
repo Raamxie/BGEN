@@ -10,8 +10,6 @@
 class UBehaviorTree;
 class UWorld;
 
-
-// In GeneticSimulationManager.h
 USTRUCT()
 struct FSimulationResult
 {
@@ -26,7 +24,7 @@ struct FSimulationResult
 
 /**
  * Manages the genetic algorithm simulation loop.
- * This object remains persistent across level reloads to store generation data.
+ * Persistent across level reloads.
  */
 UCLASS()
 class GENETICGENERATION_API UGeneticSimulationManager : public UObject
@@ -49,6 +47,8 @@ public:
 	void PreparePlayer();
 	void SpawnEnemies(int32 AmountToSpawn);
 	void SetSpawnPositions(TArray<FVector> positions);
+	
+	/** Begins the Warmup Phase, followed automatically by the Simulation */
 	void Simulate();
 
 	// --- Helpers ---
@@ -56,10 +56,9 @@ public:
 	void SetPause(bool bPauseState);
 	bool IsPaused() const;
 
-	// Essential override: Allows this UObject to access the World (for Timers, Spawning)
 	virtual UWorld* GetWorld() const override;
 
-	// --- Persistent Data (Survives Level Reloads) ---
+	// --- Persistent Data ---
 	
 	UPROPERTY(VisibleAnywhere, Category = "Genetic Data")
 	int32 GenerationCount = 1;
@@ -68,7 +67,7 @@ public:
 	float BestFitnessAllTime = 0.0f;
 
 protected:
-	// --- Transient Data (Reset every run) ---
+	// --- Transient Data ---
 
 	UPROPERTY()
 	UWorld* TargetWorld;
@@ -76,7 +75,20 @@ protected:
 	UPROPERTY()
 	TArray<FVector> EnemySpawnPositions;
 
+	// Timer for the actual simulation limit (e.g. 30s)
 	FTimerHandle TimerHandle;
+
+	// Timer for the physics settling phase (e.g. 2s)
+	FTimerHandle WarmupTimerHandle;
+
+	UPROPERTY()
+	TMap<APawn*, UCustomBehaviourTree*> ActiveAgents;
+
+	UPROPERTY()
+	FString LastGenerationBestTreePath;
+
+	UPROPERTY()
+	UCustomBehaviourTree* BestGenTreeWrapper;
 
 	// --- Internal Logic ---
 
@@ -96,9 +108,6 @@ protected:
 	/** Stops timers and calculates fitness before restart */
 	void StopSimulation();
 
-	UPROPERTY()
-	TMap<APawn*, UCustomBehaviourTree*> ActiveAgents;
-
-	FTimerHandle WarmupTimerHandle;
+	/** Called when physics have settled; starts AI logic and fitness tracking */
 	void OnWarmupFinished();
 };

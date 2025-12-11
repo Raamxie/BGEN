@@ -52,6 +52,26 @@ bool UCustomBehaviourTree::LoadBehaviorTree(const FString& AssetPath)
 	return true;
 }
 
+void UCustomBehaviourTree::InitFromTreeInstance(UBehaviorTree* SourceTree)
+{
+	if (!SourceTree)
+	{
+		UE_LOG(LogTemp, Error, TEXT("InitFromTreeInstance: SourceTree is null!"));
+		return;
+	}
+
+	// Create a new unique name for this generation's variant
+	FString NewName = FString::Printf(TEXT("%s_MutableCopy"), *SourceTree->GetName());
+
+	// DEEP COPY the asset into this object (Transient)
+	BehaviorTreeAsset = DuplicateObject<UBehaviorTree>(SourceTree, this, *NewName);
+
+	// Detach from any old graph to prevent editor crashes if we open it
+	BehaviorTreeAsset->BTGraph = nullptr;
+
+	UE_LOG(LogTemp, Log, TEXT("Cloned Tree: %s -> %s"), *SourceTree->GetName(), *BehaviorTreeAsset->GetName());
+}
+
 UBTCompositeNode* UCustomBehaviourTree::GetRootComposite()
 {
     if (!BehaviorTreeAsset)
