@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BGEN | Evolutionary Behavior Trees in UE5</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --primary-color: #4CAF50; /* Green for "Genetic/Life" */
+            --text-color: #e0e0e0;
+            --code-bg: #2d2d2d;
+            --accent: #00bcd4;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: var(--surface-color);
+            padding: 2rem;
+            border-bottom: 3px solid var(--primary-color);
+            text-align: center;
+        }
+
+        h1 { margin: 0; font-size: 2.5rem; color: var(--primary-color); }
+        h2 { border-bottom: 1px solid var(--primary-color); padding-bottom: 0.5rem; margin-top: 2rem; }
+        h3 { color: var(--accent); }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .pipeline-step {
+            background-color: var(--surface-color);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--accent);
+            border-radius: 0 4px 4px 0;
+        }
+
+        code {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: var(--code-bg);
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            color: #ff9800;
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            padding: 1rem;
+            overflow-x: auto;
+            border-radius: 5px;
+            border: 1px solid #333;
+        }
+
+        .btn {
+            display: inline-block;
+            background-color: var(--primary-color);
+            color: #000;
+            padding: 0.8rem 1.5rem;
+            text-decoration: none;
+            font-weight: bold;
+            border-radius: 4px;
+            margin-top: 1rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            font-size: 0.9rem;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>BGEN Project</h1>
+        <p>Evolutionary Behavior Tree Generation in Unreal Engine 5</p>
+        <a href="https://github.com/raamxie/bgen" class="btn">View Source Code</a>
+    </header>
+
+    <div class="container">
+        
+        <section id="abstract">
+            <h2>Abstract</h2>
+            <p>
+                BGEN is a research project exploring the use of <strong>Genetic Algorithms (GA)</strong> to evolve the structure of Behavior Trees (BT) for enemy AI. 
+                Instead of manually designing AI logic, BGEN generates populations of Behavior Trees, evaluates them in a headless simulation, and evolves them over generations based on fitness criteria such as survival time and damage dealt.
+            </p>
+        </section>
+
+        <section id="pipeline">
+            <h2>The Evolution Pipeline</h2>
+            <p>The system runs an automated simulation loop to evolve intelligence. Based on the current architecture:</p>
+
+            <div class="pipeline-step">
+                <h3>1. Initialization</h3>
+                <p>The system loads the world, snapshots the state (navmesh, rng seeds), and pools enemy actors. The <code>GeneticSimulationManager</code> handles the deterministic seeding to ensure reproducible runs.</p>
+            </div>
+
+            <div class="pipeline-step">
+                <h3>2. Generation & Mutation</h3>
+                <p>Behavior Trees are selected via tournament selection. High-fitness trees are preserved as "Elites." The rest undergo operations like <code>Subtree Swap</code> (Crossover) or <code>Parameter Perturbation</code> (Mutation).</p>
+            </div>
+
+            <div class="pipeline-step">
+                <h3>3. Simulation (The Trials)</h3>
+                <p>Actors are reset using fast-pooling. The custom BT assets are assigned to AI Controllers. The simulation runs at accelerated time-scales until a termination condition is met (Player Death, Timeout, or Extinction).</p>
+            </div>
+
+            <div class="pipeline-step">
+                <h3>4. Fitness Calculation</h3>
+                <p>Telemetry is collected: <code>damage_dealt</code>, <code>survival_time</code>, and <code>path_failures</code>. These are normalized into a scalar fitness score.</p>
+            </div>
+        </section>
+
+        <section id="technical-details">
+            <h2>Technical Highlights</h2>
+            <p>
+                The core of the system relies on constructing <code>UBehaviorTree</code> objects dynamically at runtime using C++. 
+                Below is a snippet demonstrating how tasks are mutated by replacing child nodes in the composite structure.
+            </p>
+
+<pre><code class="language-cpp">// Example: Mutation Logic from CustomBehaviourTree.cpp
+
+void UCustomBehaviourTree::MutateCurrentTree()
+{
+    // Access the Root Composite
+    UBTCompositeNode* Root = BehaviorTree->RootNode;
+    
+    // Randomly decide mutation type
+    int MutationType = FMath::RandRange(0, 2);
+
+    switch (MutationType)
+    {
+    case 0: // Replace existing child task
+        if (Root->Children.Num() > 0)
+        {
+            int Index = FMath::RandRange(0, Root->Children.Num() - 1);
+            // Inject new random task from DNA pool
+            UBTTaskNode* NewTask = CreateRandomTask(); 
+            Root->Children[Index].ChildTask = NewTask;
+        }
+        break;
+    // ... Additional mutation logic (Add/Remove nodes)
+    }
+    
+    BehaviorTree->MarkPackageDirty();
+}</code></pre>
+        </section>
+
+        <section id="future-work">
+            <h2>Roadmap</h2>
+            <ul>
+                <li>Implementation of Speciation to protect novel topologies.</li>
+                <li>Visualizer for "Family Trees" of behavior history.</li>
+                <li>Co-evolution of Player AI vs Enemy AI.</li>
+            </ul>
+        </section>
+
+    </div>
+
+    <footer>
+        <p>Project BGEN &copy; 2024-2025. Built with Unreal Engine 5.6.</p>
+    </footer>
+
+</body>
+</html>
