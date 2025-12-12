@@ -107,6 +107,86 @@
             font-size: 0.9rem;
             background-color: #0a0a0a;
         }
+/* --- Timeline / Weekly Log (Compact Version) --- */
+        .timeline {
+            position: relative;
+            max-width: 700px; /* Reduced width */
+            margin: 0 auto;
+            padding: 1rem 0;
+        }
+
+        /* The vertical line */
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 15px; /* Moved slightly left */
+            width: 2px; /* Thinner line */
+            background: var(--primary-color);
+            opacity: 0.3;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 1.5rem; /* Reduced gap between items */
+            padding-left: 45px; /* Less indentation */
+        }
+
+        /* The Dot on the line */
+        .timeline-dot {
+            position: absolute;
+            left: 8px; /* Adjusted for new line position */
+            top: 5px;
+            width: 16px; /* Smaller dot */
+            height: 16px;
+            background-color: var(--bg-color);
+            border: 2px solid var(--secondary-color); /* Thinner border */
+            border-radius: 50%;
+            z-index: 1;
+            transition: all 0.3s ease;
+        }
+
+        .timeline-item:hover .timeline-dot {
+            background-color: var(--secondary-color);
+            box-shadow: 0 0 8px var(--secondary-color);
+        }
+
+        .timeline-date {
+            font-size: 0.8rem; /* Smaller font */
+            color: var(--primary-color);
+            font-weight: bold;
+            margin-bottom: 0.2rem;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .timeline-content {
+            background-color: var(--surface-color);
+            padding: 0.8rem 1rem; /* Reduced padding */
+            border-radius: 6px;
+            border-left: 2px solid var(--muted-text);
+            transition: transform 0.2s ease;
+        }
+
+        .timeline-item:hover .timeline-content {
+            transform: translateX(5px);
+            border-left-color: var(--secondary-color);
+        }
+
+        .timeline-content h5 {
+            margin: 0 0 0.3rem 0;
+            font-size: 1rem; /* Smaller title */
+            color: #fff;
+        }
+
+        .timeline-content p {
+            margin: 0;
+            font-size: 0.9rem; /* Smaller text */
+            color: var(--muted-text);
+            line-height: 1.4; /* Tighter line height */
+        }
     </style>
 </head>
 <body>
@@ -159,6 +239,96 @@
                     <h4>📊 Fitness Evaluation</h4>
                     <p>Created a telemetry system that tracks agent metrics (Damage Dealt, Survival Time, Movement Efficiency) to calculate fitness scores for selection.</p>
                 </div>
+            </div>
+        </section>
+
+<section id="weekly-log">
+            <h2>Development Log</h2>
+            <p>Weekly breakdown of system architecture and implementation (Oct - Dec 2025).</p>
+            
+            <div class="timeline">
+                
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <span class="timeline-date">Oct Week 1</span>
+                    <div class="timeline-content">
+                        <h5>Headless Mode & Sim Speed</h5>
+                        <p>Initial feasibility testing. Configured UE5 to run in Headless Mode to minimize GPU overhead. Stress-tested simulation speed (Time Dilation) to ensure generations could evolve rapidly without rendering frames.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <span class="timeline-date">Oct Week 2</span>
+                    <div class="timeline-content">
+                        <h5>Asset Persistence System</h5>
+                        <p>Developed the pipeline for saving generated Behavior Trees to disk. Verified that runtime-generated `UBehaviorTree` assets could be serialized and reloaded in future sessions without data loss.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <span class="timeline-date">Oct Week 3 - 4</span>
+                    <div class="timeline-content">
+                        <h5>Visual Graph Generation & Structure</h5>
+                        <p>Deep dive into UE5's visual graph system. Encountered significant challenges deciphering the undocumented internal structure of Behavior Tree graphs. Spent weeks reverse-engineering how visual nodes are linked and stored to understand the underlying mechanics.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <span class="timeline-date">Nov Week 1</span>
+                    <div class="timeline-content">
+                        <h5>Simulation Manager ("God Object")</h5>
+                        <p>Created the central manager class responsible for spawning agents, tracking round time, and resetting the arena state based on the previous performance benchmarks.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <span class="timeline-date">Nov Week 2</span>
+                    <div class="timeline-content">
+                        <h5>Agent "Brain" Setup</h5>
+                        <p>Setup the base AIController and Blackboard components. Created BT task nodes (Attack, Find player, Move to player) that the AI will eventually choose between.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <span class="timeline-date">Nov Week 3</span>
+                    <div class="timeline-content">
+                        <h5>Dynamic BT Construction</h5>
+                        <p>Successfully instantiated a UBehaviorTree from scratch using C++ without the editor. Created the `CustomBehaviourTree` class.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <span class="timeline-date">Nov Week 4</span>
+                    <div class="timeline-content">
+                        <h5>Genetic Operators (C++)</h5>
+                        <p>Wrote the core C++ structs for the Genetic Programming. Defined the structure and implemented the Mutation logic to modify the trees.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <span class="timeline-date">Dec Week 1</span>
+                    <div class="timeline-content">
+                        <h5>Fitness Evaluation</h5>
+                        <p>Implemented the scoring system. Validated that agents who survived longer and dealt damage received higher fitness.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <span class="timeline-date">Dec Week 2 (Current)</span>
+                    <div class="timeline-content">
+                        <h5>Preparing for Project Seminar</h5>
+                        <p>Writing neccessary papers and preparing presentation.</p>
+                    </div>
+                </div>
+
             </div>
         </section>
 
