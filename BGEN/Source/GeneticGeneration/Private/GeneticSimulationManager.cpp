@@ -414,3 +414,12 @@ bool UGeneticSimulationManager::IsPaused() const
 {
     return UGameplayStatics::IsGamePaused(TargetWorld);
 }
+
+void UGeneticSimulationManager::FinishEpoch()
+{
+	UE_LOG(LogTemp, Log, TEXT("Manager: Epoch Finished. notifying Module..."));
+	if (OnEpochComplete.IsBound())
+	{
+		OnEpochComplete.Broadcast();
+	}
+}

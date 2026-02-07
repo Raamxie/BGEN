@@ -12,11 +12,23 @@ public:
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 
-private:
-	void OnWorldInitialized(UWorld* world, const UWorld::InitializationValues IVS);
-	void RunSimulation(UWorld* World);
-	void RunMutationDemonstration(UWorld* World);
+	// This handles the "Event Loop" logic
+	void OnWorldInitialized(UWorld* World, const UWorld::InitializationValues IVS);
+    
+	// Callback caught from the Manager
+	UFUNCTION()
+	void OnEpochFinished();
 
-	UPROPERTY()
+private:
+	void RunSimulation(UWorld* World);
+	void LoadSimulationMap();
+
+	// PERSISTENT POINTER
+	// Kept alive via AddToRoot() in CPP
 	UGeneticSimulationManager* ActiveManager = nullptr;
+
+	// STATE TRACKING
+	int32 CurrentEpoch = 0;
+	int32 TotalEpochs = 10; // Configure this as needed
+	bool bIsRunningGeneticLoop = false;
 };

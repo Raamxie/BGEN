@@ -6,13 +6,16 @@
 #include "Engine/EngineTypes.h" // For FTimerHandle
 #include "GeneticSimulationManager.generated.h"
 
+// Define a multicast delegate to notify the module
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnEpochComplete);
+
 // Forward declarations
 class UBehaviorTree;
 class UWorld;
 
 USTRUCT()
 struct FSimulationResult
-{
+{	
 	GENERATED_BODY()
 
 	UPROPERTY()
@@ -65,6 +68,14 @@ public:
 
 	UPROPERTY(VisibleAnywhere, Category = "Genetic Data")
 	float BestFitnessAllTime = 0.0f;
+
+	// Bind to this in the Module to know when to reload the map
+	UPROPERTY()
+	FOnEpochComplete OnEpochComplete;
+
+	// Call this when your simulation logic determines the epoch is over
+	UFUNCTION()
+	void FinishEpoch();
 
 protected:
 	// --- Transient Data ---
