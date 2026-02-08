@@ -6,16 +6,17 @@
 #include "Engine/EngineTypes.h" // For FTimerHandle
 #include "GeneticSimulationManager.generated.h"
 
-// Define a multicast delegate to notify the module
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnEpochComplete);
-
 // Forward declarations
 class UBehaviorTree;
 class UWorld;
 
+// 1. DEFINE DELEGATE
+// Standard C++ Multicast Delegate (Compatible with raw C++ Classes like Modules)
+DECLARE_MULTICAST_DELEGATE(FOnEpochComplete);
+
 USTRUCT()
 struct FSimulationResult
-{	
+{
 	GENERATED_BODY()
 
 	UPROPERTY()
@@ -27,7 +28,7 @@ struct FSimulationResult
 
 /**
  * Manages the genetic algorithm simulation loop.
- * Persistent across level reloads.
+ * This object remains persistent across level reloads to store generation data.
  */
 UCLASS()
 class GENETICGENERATION_API UGeneticSimulationManager : public UObject
@@ -45,13 +46,19 @@ public:
 	/** Called by the Module when the level reloads to hand over the new World pointer */
 	void OnLevelReload(UWorld* NewWorld);
 
+	// --- Communication API ---
+	
+	/** The Module binds to this to know when to reload the map */
+	FOnEpochComplete OnEpochComplete;
+
+	/** Called internally when simulation ends to notify the Module */
+	void FinishEpoch();
+
 	// --- Simulation API ---
 
 	void PreparePlayer();
 	void SpawnEnemies(int32 AmountToSpawn);
 	void SetSpawnPositions(TArray<FVector> positions);
-	
-	/** Begins the Warmup Phase, followed automatically by the Simulation */
 	void Simulate();
 
 	// --- Helpers ---
@@ -61,7 +68,7 @@ public:
 
 	virtual UWorld* GetWorld() const override;
 
-	// --- Persistent Data ---
+	// --- Persistent Data (Survives Level Reloads) ---
 	
 	UPROPERTY(VisibleAnywhere, Category = "Genetic Data")
 	int32 GenerationCount = 1;
@@ -69,16 +76,8 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Genetic Data")
 	float BestFitnessAllTime = 0.0f;
 
-	// Bind to this in the Module to know when to reload the map
-	UPROPERTY()
-	FOnEpochComplete OnEpochComplete;
-
-	// Call this when your simulation logic determines the epoch is over
-	UFUNCTION()
-	void FinishEpoch();
-
 protected:
-	// --- Transient Data ---
+	// --- Transient Data (Reset every run) ---
 
 	UPROPERTY()
 	UWorld* TargetWorld;
@@ -86,20 +85,7 @@ protected:
 	UPROPERTY()
 	TArray<FVector> EnemySpawnPositions;
 
-	// Timer for the actual simulation limit (e.g. 30s)
 	FTimerHandle TimerHandle;
-
-	// Timer for the physics settling phase (e.g. 2s)
-	FTimerHandle WarmupTimerHandle;
-
-	UPROPERTY()
-	TMap<APawn*, UCustomBehaviourTree*> ActiveAgents;
-
-	UPROPERTY()
-	FString LastGenerationBestTreePath;
-
-	UPROPERTY()
-	UCustomBehaviourTree* BestGenTreeWrapper;
 
 	// --- Internal Logic ---
 
@@ -113,12 +99,12 @@ protected:
 	UFUNCTION()
 	void PlayerDiedListener();
 	
-	/** Reloads the current level to reset the simulation environment */
-	void TriggerRestart();
-	
-	/** Stops timers and calculates fitness before restart */
+	/** Stops timers and calculates fitness before notifying module */
 	void StopSimulation();
 
-	/** Called when physics have settled; starts AI logic and fitness tracking */
+	UPROPERTY()
+	TMap<APawn*, UCustomBehaviourTree*> ActiveAgents;
+
+	FTimerHandle WarmupTimerHandle;
 	void OnWarmupFinished();
 };

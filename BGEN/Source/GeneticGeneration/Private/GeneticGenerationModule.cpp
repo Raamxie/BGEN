@@ -1,130 +1,171 @@
 ﻿#include "GeneticGenerationModule.h"
-#include "GeneticSimulationManager.h"
 
-// Engine Includes
+#include "CustomBehaviourTree.h"
+#include "Engine/Engine.h" 
 #include "Engine/World.h"
-#include "Kismet/GameplayStatics.h"
+#include "Engine/GameEngine.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
+#include "HAL/PlatformMisc.h"
+#include "Kismet/GameplayStatics.h"
+#include "EngineUtils.h"
+#include "GeneticSimulationManager.h"
+#include "BehaviourTreeGraph/Public/BehaviourTreeGraphModule.h"
+#include "Containers/Ticker.h"
 #include "Misc/OutputDeviceFile.h"
 
-DEFINE_LOG_CATEGORY(LogGeneticGeneration, Log, All);
+DEFINE_LOG_CATEGORY(LogGeneticGeneration);
 
 void FGeneticGenerationModule::StartupModule()
 {
-    // 1. Check Command Line
+    // 1. Validate Command Line
     if (!FParse::Param(FCommandLine::Get(), TEXT("GeneticRun")))
     {
         UE_LOG(LogGeneticGeneration, Log, TEXT("GeneticGeneration module skipped (no -GeneticRun flag)."));
         return;
     }
 
-    UE_LOG(LogGeneticGeneration, Log, TEXT("GeneticGenerationModule: Startup."));
+    UE_LOG(LogGeneticGeneration, Log, TEXT("GeneticGenerationModule started."));    
 
-    // 2. Create the Manager immediately
-    // We utilize the Transient Package so it doesn't belong to a specific world (which dies)
+    // 2. Setup Logging
+    static FOutputDeviceFile GeneticLogFile(*FPaths::Combine(FPaths::ProjectLogDir(), TEXT("GeneticGeneration.log")), true);
+    if (!GLog->IsRedirectingTo(&GeneticLogFile))
+    {
+        GLog->AddOutputDevice(&GeneticLogFile);
+    }
+
+    // 3. Create Manager (Persistent)
     ActiveManager = NewObject<UGeneticSimulationManager>(GetTransientPackage());
-    ActiveManager->AddToRoot(); // CRITICAL: Prevent Garbage Collection between map loads
+    ActiveManager->AddToRoot(); // Prevent GC
+    
+    // 4. Bind Manager -> Module Delegate
+    ActiveManager->OnEpochComplete.AddRaw(this, &FGeneticGenerationModule::OnEpochFinished);
 
-    // 3. Bind the Listener for when an Epoch finishes
-    ActiveManager->OnEpochComplete.AddDynamic(this, &FGeneticGenerationModule::OnEpochFinished);
-
-    // 4. Bind the Map Load Listener (Persists for the life of the module)
+    // 5. Bind World Init
     FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FGeneticGenerationModule::OnWorldInitialized);
 
-    // 5. Initialize State
+    // 6. Initialize State
     CurrentEpoch = 0;
-    TotalEpochs = 5; // Set your desired count
+    TotalEpochs = 10; // Set desired amount
     bIsRunningGeneticLoop = true;
 
-    // 6. KICKSTART THE LOOP
-    // We cannot load the map *instantly* in StartupModule because the Engine isn't fully ready.
-    // We defer the first load slightly, or rely on the user launching the editor with the map.
-    // If running headless/commandline, we can request a map load:
-    
-    UE_LOG(LogGeneticGeneration, Warning, TEXT("--- STARTING GENETIC LOOP EPOCH %d ---"), CurrentEpoch);
-    // Note: If the editor launches into 'Main', OnWorldInitialized will fire automatically.
+    // 7. KICKSTART THE LOOP
+    // We cannot load the map instantly here (GEngine might be null during startup).
+    // We wait for the Engine to be fully initialized.
+    if (GEngine && GEngine->IsInitialized())
+    {
+        OnEngineInitComplete();
+    }
+    else
+    {
+        FCoreDelegates::OnPostEngineInit.AddRaw(this, &FGeneticGenerationModule::OnEngineInitComplete);
+    }
 }
 
-void FGeneticGenerationModule::OnWorldInitialized(UWorld* World, const UWorld::InitializationValues IVS)
-{
-    // Safety Checks
-    if (!bIsRunningGeneticLoop) return;
-    if (!World) return;
-    
-    // Filter out preview worlds, material editor worlds, etc.
-    if (!World->IsGameWorld()) return; 
+IMPLEMENT_MODULE(FGeneticGenerationModule, GeneticGeneration)
 
-    // Filter specific map names if necessary
-    if (World->GetName() != TEXT("Main") && World->GetName() != TEXT("Benchmark"))
+void FGeneticGenerationModule::OnEngineInitComplete()
+{
+    UE_LOG(LogGeneticGeneration, Log, TEXT("Engine Init Complete. Kicking off Genetic Loop..."));
+    LoadSimulationMap();
+}
+
+void FGeneticGenerationModule::LoadSimulationMap()
+{
+    if (!bIsRunningGeneticLoop) return;
+
+    UWorld* WorldContext = nullptr;
+    if (GEngine && GEngine->GetWorldContexts().Num() > 0)
     {
+        WorldContext = GEngine->GetWorldContexts()[0].World();
+    }
+
+    if (WorldContext)
+    {
+        const FString MapName = TEXT("Main"); // MUST match your map asset name
+        UE_LOG(LogGeneticGeneration, Log, TEXT("Loading Map: %s (Epoch %d)"), *MapName, CurrentEpoch);
+        UGameplayStatics::OpenLevel(WorldContext, FName(*MapName));
+    }
+    else
+    {
+        UE_LOG(LogGeneticGeneration, Error, TEXT("FATAL: Could not find World Context to load map!"));
+    }
+}
+
+void FGeneticGenerationModule::OnWorldInitialized(UWorld* world, const UWorld::InitializationValues IVS)
+{
+    // Filter out editor previews, etc.
+    if (!world || !world->IsGameWorld()) return;
+
+    // Ensure we are in the correct map
+    if (world->GetName() != TEXT("Main") && world->GetName() != TEXT("Benchmark"))
+    {
+        UE_LOG(LogGeneticGeneration, Log, TEXT("Skipping non-target world: %s"), *world->GetName());
         return;
     }
 
-    UE_LOG(LogGeneticGeneration, Log, TEXT("World Init Detected: %s. Starting Epoch %d logic."), *World->GetName(), CurrentEpoch);
-
-    // Execute the Simulation Logic
-    RunSimulation(World);
+    UE_LOG(LogGeneticGeneration, Log, TEXT("World %s initialized. Starting Simulation Logic."), *world->GetName());
+    RunSimulation(world);
 }
 
 void FGeneticGenerationModule::RunSimulation(UWorld* World)
 {
     if (!ActiveManager) return;
 
-    // Pass the specific world context to the manager
-    // The manager will spawn actors, run the timeline, etc.
+    UE_LOG(LogGeneticGeneration, Log, TEXT("--- EPOCH %d START ---"), CurrentEpoch);
+
+    // SCENARIO A: First Run
     if (CurrentEpoch == 0)
     {
-        ActiveManager->Init(World);
+        ActiveManager->Init(World); // Setup basic settings
+        ActiveManager->SetPause(true);
+        ActiveManager->PreparePlayer();
+        ActiveManager->SpawnEnemies(1);
+        ActiveManager->Simulate();
     }
+    // SCENARIO B: Reload Run
     else
     {
+        // Manager keeps its member variables (GenerationCount, BestFitness),
+        // but needs the new World pointer.
         ActiveManager->OnLevelReload(World);
     }
-
-    // IMPORTANT: 
-    // The Manager code must eventually call `FinishEpoch()` 
-    // after X seconds or when all AI die.
 }
 
 void FGeneticGenerationModule::OnEpochFinished()
 {
     UE_LOG(LogGeneticGeneration, Log, TEXT("--- EPOCH %d COMPLETE ---"), CurrentEpoch);
 
-    // 1. Increment Generation
+    // 1. Increment State
     CurrentEpoch++;
+    
+    // Update Manager's generation count for the next run
+    if (ActiveManager)
+    {
+        ActiveManager->GenerationCount = CurrentEpoch + 1;
+    }
 
     // 2. Check Exit Condition
     if (CurrentEpoch >= TotalEpochs)
     {
-        UE_LOG(LogGeneticGeneration, Warning, TEXT("Genetic Simulation Complete. Exiting..."));
+        UE_LOG(LogGeneticGeneration, Warning, TEXT("=== ALL EPOCHS COMPLETE ==="));
         bIsRunningGeneticLoop = false;
         
-        // Remove Root to allow GC cleanup
-        if (ActiveManager) ActiveManager->RemoveFromRoot();
+        // Cleanup
+        if (ActiveManager) 
+        {
+            ActiveManager->RemoveFromRoot();
+            ActiveManager = nullptr;
+        }
 
-        // If running in command line mode, request engine exit
-        FPlatformMisc::RequestExit(false);
-        return;
+        // Optional: Exit Application if running in command line
+        // FPlatformMisc::RequestExit(false);
     }
-
-    // 3. RESTART LOOP (The "Wait" Logic)
-    // By opening the level again, we reset the world state.
-    // When the load finishes, 'OnWorldInitialized' fires again, starting the next step.
-    LoadSimulationMap();
-}
-
-void FGeneticGenerationModule::LoadSimulationMap()
-{
-    // We need a World Context to call OpenLevel.
-    // Since we are in a module, we can grab the current GWorld (if available) or use the Engine.
-    UWorld* CurrentWorld = GEngine->GetWorldContexts()[0].World();
-    
-    if (CurrentWorld)
+    else
     {
-        FString MapName = TEXT("Main"); // Or "Benchmark"
-        UE_LOG(LogGeneticGeneration, Log, TEXT("Loading Map for Next Epoch..."));
-        UGameplayStatics::OpenLevel(CurrentWorld, FName(*MapName));
+        // 3. RESTART LOOP
+        // Loading the map again destroys the current world and triggers OnWorldInitialized when done.
+        LoadSimulationMap();
     }
 }
 
@@ -135,4 +176,6 @@ void FGeneticGenerationModule::ShutdownModule()
         ActiveManager->RemoveFromRoot();
         ActiveManager = nullptr;
     }
+    
+    UE_LOG(LogGeneticGeneration, Log, TEXT("GeneticGenerationModule shut down."));
 }
