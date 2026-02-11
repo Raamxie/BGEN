@@ -46,7 +46,7 @@ void FGeneticGenerationModule::StartupModule()
 
     // 6. Initialize State
     CurrentEpoch = 0;
-    TotalEpochs = 10; // Set desired amount
+    TotalEpochs = 100; // Set desired amount
     bIsRunningGeneticLoop = true;
 
     // 7. KICKSTART THE LOOP
@@ -110,26 +110,15 @@ void FGeneticGenerationModule::OnWorldInitialized(UWorld* world, const UWorld::I
 
 void FGeneticGenerationModule::RunSimulation(UWorld* World)
 {
-    if (!ActiveManager) return;
+	if (!ActiveManager) return;
 
-    UE_LOG(LogGeneticGeneration, Log, TEXT("--- EPOCH %d START ---"), CurrentEpoch);
+	UE_LOG(LogGeneticGeneration, Log, TEXT("--- EPOCH %d INITIATED ---"), CurrentEpoch);
 
-    // SCENARIO A: First Run
-    if (CurrentEpoch == 0)
-    {
-        ActiveManager->Init(World); // Setup basic settings
-        ActiveManager->SetPause(true);
-        ActiveManager->PreparePlayer();
-        ActiveManager->SpawnEnemies(1);
-        ActiveManager->Simulate();
-    }
-    // SCENARIO B: Reload Run
-    else
-    {
-        // Manager keeps its member variables (GenerationCount, BestFitness),
-        // but needs the new World pointer.
-        ActiveManager->OnLevelReload(World);
-    }
+	// 1. Hand over the new World Context
+	ActiveManager->Init(World);
+
+	// 2. Activate the Manager (It will handle selection, spawning, and logic)
+	ActiveManager->StartEpoch();
 }
 
 void FGeneticGenerationModule::OnEpochFinished()

@@ -271,3 +271,4 @@ Thumbs.db
 .DS_Store
 
 !Saved/Logs/
+/BGEN/Content/BehaviourTrees/Generated

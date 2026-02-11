@@ -25,12 +25,15 @@ public:
 
 	/// Save current tree into a new package: DestinationPackagePath is like "/Game/Generated/MyEvolvedBT"
 	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
-	bool SaveAsNewAsset(const FString& DestinationPackagePath, bool bOverwriteExisting = false);
+	FString SaveAsNewAsset(const FString& DestinationPackagePath, bool bOverwriteExisting = false);
 	void DebugMutation();
 	void DebugLogTree();
 	
 	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
 	void InitFromTreeInstance(UBehaviorTree* SourceTree);
+
+	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
+	void AppendTreeToLogFile(const FString& FileName, int32 Generation, float Fitness);
 
 	/// Get the in-memory UBehaviorTree instance
 	UBehaviorTree* GetBTAsset() const { return BehaviorTreeAsset; }

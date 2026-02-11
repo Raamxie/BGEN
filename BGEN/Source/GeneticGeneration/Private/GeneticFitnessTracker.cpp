@@ -1,4 +1,6 @@
 #include "GeneticFitnessTracker.h"
+
+#include "GeneticGenerationModule.h"
 #include "GameFramework/Character.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -14,30 +16,45 @@ void UGeneticFitnessTracker::BeginPlay()
 	// We wait for explicit BeginTracking from the Manager to avoid recording setup time
 }
 
-void UGeneticFitnessTracker::BeginTracking()
+// GeneticGeneration/Private/GeneticFitnessTracker.cpp
+
+void UGeneticFitnessTracker::BeginTracking(AActor* InTargetPlayer)
 {
+	UE_LOG(LogGeneticGeneration, Log, TEXT("Begin Tracking initiated."));
+
 	AActor* Owner = GetOwner();
 	if (!Owner) return;
 
-	// 1. Existing Damage Binding...
+	// 1. Bind Owner Damage
+	Owner->OnTakeAnyDamage.RemoveDynamic(this, &UGeneticFitnessTracker::OnOwnerTakeDamage); // Safety remove
 	Owner->OnTakeAnyDamage.AddDynamic(this, &UGeneticFitnessTracker::OnOwnerTakeDamage);
 
-	// 2. Find Player and Bind to Death Event
-	AActor* PlayerActor = UGameplayStatics::GetPlayerPawn(this, 0);
-	APlayerUnleashedBase* PlayerUnleashed = Cast<APlayerUnleashedBase>(PlayerActor);
+	// 2. Use the passed Target Player (Dependency Injection)
+	TargetPlayer = InTargetPlayer; // Store in the member variable defined in .h
+
+	APlayerUnleashedBase* PlayerUnleashed = Cast<APlayerUnleashedBase>(TargetPlayer);
 
 	if (PlayerUnleashed)
 	{
-		// Subscribe to the event you showed me
+		UE_LOG(LogGeneticGeneration, Log, TEXT("Tracker: Bound to Player %s"), *PlayerUnleashed->GetName());
+
+		// Bind Death
+		PlayerUnleashed->OnPlayerEvent.RemoveDynamic(this, &UGeneticFitnessTracker::OnPlayerDied);
 		PlayerUnleashed->OnPlayerEvent.AddDynamic(this, &UGeneticFitnessTracker::OnPlayerDied);
-        
-		// Also bind to damage for partial points
+
+		// Bind Damage
+		PlayerUnleashed->OnTakeAnyDamage.RemoveDynamic(this, &UGeneticFitnessTracker::OnPlayerTakeDamage);
 		PlayerUnleashed->OnTakeAnyDamage.AddDynamic(this, &UGeneticFitnessTracker::OnPlayerTakeDamage);
 	}
+	else
+	{
+		UE_LOG(LogGeneticGeneration, Error, TEXT("Tracker: TargetPlayer is NULL or Invalid Cast!"));
+	}
 
+	// 3. Reset State
 	StartTime = GetWorld()->GetTimeSeconds();
 	bTrackingActive = true;
-	bPlayerWasKilled = false; // Reset state
+	bPlayerWasKilled = false;
 	AccumulatedReward = 0.0f;
 }
 
@@ -51,11 +68,12 @@ void UGeneticFitnessTracker::OnPlayerTakeDamage(AActor* DamagedActor, float Dama
 {
 	if (!bTrackingActive) return;
 
-	// Check if WE caused the damage
 	if (DamageCauser == GetOwner() || InstigatedBy == GetOwner()->GetInstigatorController())
 	{
 		AccumulatedReward += (Damage * DamageDealtWeight);
+		bDamagedPlayer = true;
 	}
+	
 }
 
 void UGeneticFitnessTracker::OnPlayerDied()
@@ -81,6 +99,11 @@ float UGeneticFitnessTracker::CalculateFitness()
 {
 	if (!bTrackingActive && AccumulatedReward == 0.0f) return 0.0f;
 
+	if (!bDamagedPlayer)
+	{
+		return -50.0f;
+	}
+
 	double CurrentTime = GetWorld()->GetTimeSeconds();
 	float TimeAlive = (float)(CurrentTime - StartTime);
 
@@ -99,5 +122,6 @@ float UGeneticFitnessTracker::CalculateFitness()
 		FinalScore += (TimeRemaining * 50.0f); // 50 pts per second saved
 	}
 
+	UE_LOG(LogTemp, Display, TEXT("Enemy Fitness: %f"), FinalScore);
 	return FMath::Max(0.0f, FinalScore);
 }

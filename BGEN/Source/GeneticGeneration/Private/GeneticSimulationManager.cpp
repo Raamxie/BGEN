@@ -1,5 +1,5 @@
 #include "GeneticSimulationManager.h"
-#include "GeneticGenerationModule.h" // For LogGeneticGeneration
+#include "GeneticGenerationModule.h"
 #include "CustomAIController.h"
 #include "CustomBehaviourTree.h"
 #include "GeneticFitnessTracker.h"
@@ -9,54 +9,113 @@
 #include "GameFramework/PlayerStart.h"
 #include "TimerManager.h"
 #include "BehaviorTree/BlackboardData.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "HAL/PlatformFilemanager.h"
 
 UGeneticSimulationManager::UGeneticSimulationManager()
 {
-    UE_LOG(LogGeneticGeneration, Log, TEXT("DEBUG: UGeneticSimulationManager constructed (Address: %p)"), this);
 }
 
 void UGeneticSimulationManager::Init(UWorld* InWorld)
 {
     TargetWorld = InWorld;
-    if (TargetWorld)
-    {
-        UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Manager Initialized. Target World: %s"), *TargetWorld->GetName());
-    }
-    else
-    {
-        UE_LOG(LogGeneticGeneration, Error, TEXT("DEBUG: Manager Init FAILED. TargetWorld is NULL!"));
-    }
+    
+    // Ensure determinism settings are applied every run
 	if (GEngine)
 	{
 		GEngine->bSmoothFrameRate = false; 
-		GEngine->bUseFixedFrameRate = true; // FORCE DETERMINISM
-		GEngine->FixedFrameRate = 60.0f;    // Lock to 60 FPS
+		GEngine->bUseFixedFrameRate = true; 
+		GEngine->FixedFrameRate = 60.0f;    
 	}
 }
 
-void UGeneticSimulationManager::OnLevelReload(UWorld* NewWorld)
+// THIS IS THE NEW MAIN FUNCTION
+void UGeneticSimulationManager::StartEpoch()
 {
-	UE_LOG(LogGeneticGeneration, Display, TEXT("PERSISTENCE: Manager surviving into Generation %d"), GenerationCount);
+	UE_LOG(LogGeneticGeneration, Display, TEXT("--------------------------------------------------"));
+	UE_LOG(LogGeneticGeneration, Display, TEXT("MANAGER: Starting Generation %d"), GenerationCount);
 
-	// 1. Update the World Context
-	TargetWorld = NewWorld;
+    if (!TargetWorld)
+    {
+        UE_LOG(LogGeneticGeneration, Error, TEXT("MANAGER: Cannot start epoch - TargetWorld is null!"));
+        return;
+    }
 
-	// 2. Safety: Clear any old timers from the previous world
-	if (TimerHandle.IsValid())
+	if (GenerationCount == 1)
 	{
-		TargetWorld->GetTimerManager().ClearTimer(TimerHandle);
-		TimerHandle.Invalidate();
+		FString HistoryLogPath = FPaths::ProjectLogDir() / TEXT("EvolutionHistory.txt");
+        
+		// Delete the file if it exists, so we start fresh for this session
+		if (FPaths::FileExists(HistoryLogPath))
+		{
+			IFileManager::Get().Delete(*HistoryLogPath);
+			UE_LOG(LogGeneticGeneration, Warning, TEXT("Manager: Cleared old Evolution History log."));
+		}
 	}
-
-	// 3. Reset Transient State
+	
+	// 1. Cleanup from previous runs (Safety)
+	if (TimerHandle.IsValid())
+    {
+        TargetWorld->GetTimerManager().ClearTimer(TimerHandle);
+    }
 	EnemySpawnPositions.Empty(); 
     
-	// 4. Restart the Logic
+	// 2. DECIDE: Pick the "Parent" Tree
+	FString ChosenTreePath = SelectTreeToEvolve();
+
+	// 3. EXECUTE: Setup the arena
 	SetPause(true);
 	PreparePlayer();
-	SpawnEnemies(1); 
+	
+    // 4. SPAWN: Pass the chosen gene to the spawner
+	SpawnEnemies(1, ChosenTreePath); 
+	
+    // 5. RUN
 	Simulate();
 }
+
+FString UGeneticSimulationManager::SelectTreeToEvolve()
+{
+	// 1. First Run Case: No history yet
+	if (AllTimeResults.Num() == 0)
+	{
+		UE_LOG(LogGeneticGeneration, Warning, TEXT("Selection: First run. Loading default tree."));
+		return TEXT("/Game/Actors/EnemyUnleashed/Test"); 
+	}
+
+	// 2. Step 1: Filter for "Successful" Agents (Fitness > 0)
+	TArray<FSimulationResult> PositiveCandidates;
+	for (const FSimulationResult& Result : AllTimeResults)
+	{
+		if (Result.Fitness > 0.0f)
+		{
+			PositiveCandidates.Add(Result);
+		}
+	}
+
+	// 3. Step 2: Decision
+	if (PositiveCandidates.Num() > 0)
+	{
+		// Scenario A: We have at least one successful ancestor. Pick one randomly.
+		int32 RandIndex = FMath::RandRange(0, PositiveCandidates.Num() - 1);
+		const FSimulationResult& Winner = PositiveCandidates[RandIndex];
+        
+		UE_LOG(LogGeneticGeneration, Display, TEXT("Selection: Picked successful ancestor from Gen %d (Fitness: %.2f)"), Winner.GenerationNumber, Winner.Fitness);
+		return Winner.BehaviorTreePath;
+	}
+	else
+	{
+		// Scenario B: No one has succeeded yet. Pick ANY previous attempt to mutate further.
+		int32 RandIndex = FMath::RandRange(0, AllTimeResults.Num() - 1);
+		const FSimulationResult& RandomPick = AllTimeResults[RandIndex];
+
+		UE_LOG(LogGeneticGeneration, Warning, TEXT("Selection: No positive fitness found. Picking random ancestor from Gen %d."), RandomPick.GenerationNumber);
+		return RandomPick.BehaviorTreePath;
+	}
+}
+
+// ... [Keep GetWorld, FinishEpoch, PreparePlayer as they were] ...
 
 UWorld* UGeneticSimulationManager::GetWorld() const
 {
@@ -66,8 +125,6 @@ UWorld* UGeneticSimulationManager::GetWorld() const
 void UGeneticSimulationManager::FinishEpoch()
 {
 	UE_LOG(LogGeneticGeneration, Log, TEXT("Manager: Epoch Finished. Notifying Module..."));
-	
-	// Broadcast to the Module so it can reload the map
 	if (OnEpochComplete.IsBound())
 	{
 		OnEpochComplete.Broadcast();
@@ -76,52 +133,50 @@ void UGeneticSimulationManager::FinishEpoch()
 
 void UGeneticSimulationManager::PreparePlayer()
 {
-    UE_LOG(LogGeneticGeneration, Log, TEXT("DEBUG: PreparePlayer called."));
+	if (!TargetWorld) return;
 
-    if (!TargetWorld) return;
+	// Reset reference
+	ActivePlayer = nullptr;
 
-    APlayerUnleashedBase* PlayerUnleashed = nullptr;
+	// 1. Try to find existing
+	AActor* ExistingActor = UGameplayStatics::GetPlayerCharacter(TargetWorld, 0);
+	ActivePlayer = Cast<APlayerUnleashedBase>(ExistingActor);
 
-    // 1. Try to find existing first
-    AActor* ExistingActor = UGameplayStatics::GetPlayerCharacter(TargetWorld, 0);
-    PlayerUnleashed = Cast<APlayerUnleashedBase>(ExistingActor);
+	// 2. Spawn if missing
+	if (!ActivePlayer)    
+	{
+		UClass* PlayerPawnClass = GetClassFromPath("/Game/Actors/PlayerUnleashed/PlayerUnleashed.PlayerUnleashed_C");
+		if (PlayerPawnClass)
+		{
+			AActor* PlayerStart = UGameplayStatics::GetActorOfClass(TargetWorld, APlayerStart::StaticClass());
+			FVector SpawnLoc = PlayerStart ? PlayerStart->GetActorLocation() : FVector(0, 0, 200);
+			FRotator SpawnRot = PlayerStart ? PlayerStart->GetActorRotation() : FRotator::ZeroRotator;
+            
+			FActorSpawnParameters Params;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+            
+			APawn* SpawnedPawn = TargetWorld->SpawnActor<APawn>(PlayerPawnClass, SpawnLoc, SpawnRot, Params);
+            
+			ActivePlayer = Cast<APlayerUnleashedBase>(SpawnedPawn);
 
-    // 2. If not found, spawn it
-    if (!PlayerUnleashed)	
-    {
-        UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Player not found. Spawning..."));
+			// Try to possess (might fail if PC doesn't exist yet, but we have the Pawn reference now!)
+			if (SpawnedPawn && TargetWorld->GetFirstPlayerController())
+			{
+				TargetWorld->GetFirstPlayerController()->Possess(SpawnedPawn);
+			}
+		}
+	}
 
-        UClass* PlayerPawnClass = GetClassFromPath("/Game/Actors/PlayerUnleashed/PlayerUnleashed.PlayerUnleashed_C");
-        if (!PlayerPawnClass) return;
-
-        AActor* PlayerStart = UGameplayStatics::GetActorOfClass(TargetWorld, APlayerStart::StaticClass());
-        FVector SpawnLoc = PlayerStart ? PlayerStart->GetActorLocation() : FVector(0, 0, 200);
-        FRotator SpawnRot = PlayerStart ? PlayerStart->GetActorRotation() : FRotator::ZeroRotator;
-
-        FActorSpawnParameters Params;
-        Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-
-        APawn* SpawnedPawn = TargetWorld->SpawnActor<APawn>(PlayerPawnClass, SpawnLoc, SpawnRot, Params);
-        PlayerUnleashed = Cast<APlayerUnleashedBase>(SpawnedPawn);
-
-        if (SpawnedPawn && TargetWorld->GetFirstPlayerController())
-        {
-            TargetWorld->GetFirstPlayerController()->Possess(SpawnedPawn);
-        }
-    }
-
-    // 3. Bind Event
-    if (PlayerUnleashed)
-    {
-        PlayerUnleashed->OnPlayerEvent.RemoveAll(this);
-        PlayerUnleashed->OnPlayerEvent.AddDynamic(this, &UGeneticSimulationManager::PlayerDiedListener);
-    }
+	// 3. Setup Listener on the Manager itself (existing logic)
+	if (ActivePlayer)
+	{
+		ActivePlayer->OnPlayerEvent.RemoveAll(this);
+		ActivePlayer->OnPlayerEvent.AddDynamic(this, &UGeneticSimulationManager::PlayerDiedListener);
+	}
 }
 
-void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn)
+void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn, FString GenomePath)
 {
-    UE_LOG(LogGeneticGeneration, Log, TEXT("DEBUG: SpawnEnemies called. Requesting %d enemies."), AmountToSpawn);
-
     if (!TargetWorld) return;
 
     UClass* EnemyClass = GetClassFromPath("/Game/Actors/EnemyUnleashed/EnemyUnleashed.EnemyUnleashed_C");
@@ -150,77 +205,53 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn)
             AI->Possess(Enemy);
             
             UCustomBehaviourTree* GenHelper = NewObject<UCustomBehaviourTree>(this);
-            GenHelper->LoadBehaviorTree("/Game/Actors/EnemyUnleashed/BT_EnemyUnleashed.BT_EnemyUnleashed");
-            
-            // TODO: Mutate here based on GenerationCount
-            
-            UBehaviorTree* FinalTree = GenHelper->GetBTAsset();
-            if (FinalTree)
+            bool bLoaded = GenHelper->LoadBehaviorTree(GenomePath);
+
+            if (bLoaded)
             {
-                AI->AssignTree(FinalTree, BBAsset);
+				GenHelper->MutateTree_Dynamic("/Game/BehaviourTrees/Tasks");
+				UBehaviorTree* EvolvedTree = GenHelper->GetBTAsset();
+				AI->AssignTree(EvolvedTree, BBAsset);
+				ActiveAgents.Add(Enemy, GenHelper);
+            	GenHelper->DebugLogTree();
             }
-            
-            ActiveAgents.Add(Enemy, GenHelper);
         }
     }
 }
 
-void UGeneticSimulationManager::SetSpawnPositions(TArray<FVector> positions)
-{
-}
-
 void UGeneticSimulationManager::Simulate()
 {
-	UE_LOG(LogGeneticGeneration, Display, TEXT("--------------------------------------------------"));
-	UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Simulate() called."));
-
 	if (!TargetWorld || ActiveAgents.Num() == 0)
 	{
-		UE_LOG(LogGeneticGeneration, Warning, TEXT("DEBUG: No Active Agents or World invalid. Stopping."));
 		StopSimulation(); 
 		return;
 	}
 
-	// --- FIX: KICKSTART AI BRAINS ---
-	UE_LOG(LogGeneticGeneration, Log, TEXT("DEBUG: Activating AI Brains..."));
+	// Pass the cached ActivePlayer to every agent
 	for (auto& Pair : ActiveAgents)
 	{
 		APawn* Agent = Pair.Key;
 		if (IsValid(Agent))
 		{
-			ACustomAIController* AI = Cast<ACustomAIController>(Agent->GetController());
-			if (AI)
+			if (ACustomAIController* AI = Cast<ACustomAIController>(Agent->GetController()))
 			{
-				// This call was missing!
 				AI->RunAssignedTree();
 			}
-
-			// Also start fitness tracking now
-			UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>();
-			if (Tracker)
+			if (UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>())
 			{
-				Tracker->BeginTracking();
+				// PASS THE PLAYER HERE
+				Tracker->BeginTracking(ActivePlayer);
 			}
 		}
 	}
-	// -------------------------------
 
-	// Set Time Dilation (Speed up simulation if desired)
-	UGameplayStatics::SetGlobalTimeDilation(TargetWorld, 1.0f); 
-
-	// Set Safety Timer (Simulation Duration)
-	float TimeoutGameSeconds = 30.0f;
-	TargetWorld->GetTimerManager().SetTimer(
-	   TimerHandle, 
-	   this, 
-	   &UGeneticSimulationManager::TimerCallback, 
-	   TimeoutGameSeconds, 
-	   false
-	);
-    
+	UGameplayStatics::SetGlobalTimeDilation(TargetWorld, 4.0f);
+	TargetWorld->GetTimerManager().SetTimer(TimerHandle, this, &UGeneticSimulationManager::TimerCallback, 30.0f, false);
 	SetPause(false);
-	UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Simulation LIVE. Max Duration: %.2fs"), TimeoutGameSeconds);
 }
+
+// ... [Include TimerCallback, StopSimulation (With fix), PlayerDiedListener etc] ...
+
 void UGeneticSimulationManager::TimerCallback()
 {
 	UE_LOG(LogGeneticGeneration, Warning, TEXT("DEBUG: TIMEOUT! Simulation time limit reached."));
@@ -235,16 +266,11 @@ void UGeneticSimulationManager::PlayerDiedListener()
 
 void UGeneticSimulationManager::StopSimulation()
 {
-    UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: StopSimulation called. Collecting Fitness & Cleaning up..."));
-
-    if (TargetWorld)
+    if (TargetWorld && TimerHandle.IsValid())
     {
         TargetWorld->GetTimerManager().ClearTimer(TimerHandle);
     }
-
     SetPause(true);
-
-    TArray<FSimulationResult> GenerationResults;
 
     for (auto& Pair : ActiveAgents)
     {
@@ -253,43 +279,37 @@ void UGeneticSimulationManager::StopSimulation()
 
         if (IsValid(Agent) && TreeWrapper)
         {
+            FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/Gen%d_Agent_%d"), GenerationCount, 1);
+            FString FinalAssetPath = TreeWrapper->SaveAsNewAsset(SaveName, true);
+            
             float FitnessScore = 0.0f;
-            UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>();
-            if (Tracker)
+            if (UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>())
             {
                 FitnessScore = Tracker->CalculateFitness();
             }
 
-            FSimulationResult Result;
-            Result.BehaviorTree = TreeWrapper->GetBTAsset();
-            Result.Fitness = FitnessScore;
+            FSimulationResult RunResult;
+            RunResult.BehaviorTreePath = FinalAssetPath;
+            RunResult.Fitness = FitnessScore;
+            RunResult.GenerationNumber = GenerationCount;
+
+            AllTimeResults.Add(RunResult);
+
+        	TreeWrapper->AppendTreeToLogFile(TEXT("EvolutionHistory.txt"), GenerationCount, FitnessScore);
             
-            GenerationResults.Add(Result);
-            
-            // Clean up agent
             if (AController* C = Agent->GetController()) C->Destroy();
             Agent->Destroy();
         }
     }
-
     ActiveAgents.Empty();
-	
-    UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: Collected %d results."), GenerationResults.Num());
-	
+    
+    GenerationCount++;
     FinishEpoch();
-}
-
-void UGeneticSimulationManager::OnWarmupFinished()
-{
-    // Implementation for warmup logic if needed
 }
 
 void UGeneticSimulationManager::SetPause(bool bPauseState)
 {
-    if (TargetWorld)
-    {
-        UGameplayStatics::SetGamePaused(TargetWorld, bPauseState);
-    }
+    if (TargetWorld) UGameplayStatics::SetGamePaused(TargetWorld, bPauseState);
 }
 
 bool UGeneticSimulationManager::DoesPlayerExist() const

@@ -16,7 +16,9 @@ class GENETICGENERATION_API UGeneticFitnessTracker : public UActorComponent
 
 public:	
 	UGeneticFitnessTracker();
-
+	
+	// Change the signature to accept the target
+	void BeginTracking(AActor* InTargetPlayer);
 	// --- Configuration (Designer Tweaks these) ---
 	
 	// Points awarded per unit of damage dealt to the Player
@@ -40,6 +42,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness")
 	float PlayerKillBonus = 0.0f;
 
+	bool bDamagedPlayer = false;
 	// --- Runtime API ---
 
 	// Starts the timer and binds events
@@ -53,8 +56,8 @@ public:
 	void AddCustomReward(float Amount);
 
 protected:
-	// Called when the game starts
-	virtual void BeginPlay() override;
+
+	void BeginPlay() override;
 
 	UFUNCTION()
 	void OnOwnerTakeDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser);

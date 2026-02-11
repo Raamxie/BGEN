@@ -5,9 +5,10 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "BehaviorTree/BTCompositeNode.h"
 #include "BehaviorTree/BTTaskNode.h"
-#include "BehaviorTree/Composites/BTComposite_Sequence.h"
 #include "BehaviorTree/BTDecorator.h"
 #include "BehaviorTree/BTService.h"
+#include "BehaviorTree/Composites/BTComposite_Selector.h"
+#include "BehaviorTree/Composites/BTComposite_Sequence.h"
 
 bool UCustomBehaviourTree::LoadBehaviorTree(const FString& AssetPath)
 {
@@ -81,17 +82,17 @@ UBTCompositeNode* UCustomBehaviourTree::GetRootComposite()
     return BehaviorTreeAsset->RootNode;
 }
 
-bool UCustomBehaviourTree::SaveAsNewAsset(const FString& DestinationPackagePath, bool bOverwriteExisting)
+FString UCustomBehaviourTree::SaveAsNewAsset(const FString& DestinationPackagePath, bool bOverwriteExisting)
 {
     if (!BehaviorTreeAsset)
     {
         UE_LOG(LogTemp, Error, TEXT("SaveAsNewAsset: No BehaviorTree loaded to save."));
-        return false;
+        return FString();
     }
     if (DestinationPackagePath.IsEmpty())
     {
         UE_LOG(LogTemp, Error, TEXT("SaveAsNewAsset: DestinationPackagePath is empty."));
-        return false;
+        return FString();
     }
 
     // 1. Prepare Package Name
@@ -103,7 +104,7 @@ bool UCustomBehaviourTree::SaveAsNewAsset(const FString& DestinationPackagePath,
     if (!Package)
     {
         UE_LOG(LogTemp, Error, TEXT("SaveAsNewAsset: Failed to create package %s"), *PackageName);
-        return false;
+        return FString();
     }
     Package->FullyLoad();
 
@@ -113,7 +114,7 @@ bool UCustomBehaviourTree::SaveAsNewAsset(const FString& DestinationPackagePath,
     if (!NewBT)
     {
         UE_LOG(LogTemp, Error, TEXT("SaveAsNewAsset: DuplicateObject failed."));
-        return false;
+        return FString();
     }
 
     // 4. CRITICAL: Sanitize the New Asset
@@ -138,16 +139,15 @@ bool UCustomBehaviourTree::SaveAsNewAsset(const FString& DestinationPackagePath,
     SaveArgs.SaveFlags = SAVE_NoError; // Optional: Enforce no errors
     
     // UPackage::SavePackage is the correct static function in UE5
-    bool bSaved = UPackage::SavePackage(Package, NewBT, *Filename, SaveArgs);
+	bool bSaved = UPackage::SavePackage(Package, NewBT, *Filename, SaveArgs);
 
-    if (!bSaved)
-    {
-        UE_LOG(LogTemp, Error, TEXT("SaveAsNewAsset: Failed to save package to %s"), *Filename);
-        return false;
-    }
+	if (bSaved)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Saved to %s"), *Filename);
 
-    UE_LOG(LogTemp, Log, TEXT("SaveAsNewAsset: Success! Saved to %s"), *Filename);
-    return true;
+		return PackageName + "." + AssetName; 
+	}
+	return FString();
 }
 
 void UCustomBehaviourTree::DebugMutation()
@@ -218,80 +218,139 @@ void UCustomBehaviourTree::CollectNodes(UBTNode* Node, TArray<UBTCompositeNode*>
 
 bool UCustomBehaviourTree::MutateTree_Dynamic(const FString& SearchPath)
 {
-	if (!BehaviorTreeAsset || !BehaviorTreeAsset->RootNode)
-	{
-		UE_LOG(LogTemp, Error, TEXT("MutateTree_Dynamic: Tree is invalid or empty."));
-		return false;
-	}
+    if (!BehaviorTreeAsset)
+    {
+        UE_LOG(LogTemp, Error, TEXT("MutateTree_Dynamic: No Asset Loaded."));
+        return false;
+    }
 
-	// 1. Fetch Candidates (Genes)
-	TArray<UClass*> Candidates = GetAvailableTaskClasses(SearchPath);
-	if (Candidates.Num() == 0)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("MutateTree_Dynamic: No task classes found in %s"), *SearchPath);
-		return false;
-	}
+    // --- STEP 1: BOOTSTRAP ROOT (If completely null) ---
+    if (!BehaviorTreeAsset->RootNode)
+    {
+        // Create a default Root Selector if the asset has absolutely nothing
+        UBTComposite_Selector* NewRoot = NewObject<UBTComposite_Selector>(BehaviorTreeAsset, TEXT("RootSelector"), RF_Public | RF_Standalone);
+        NewRoot->InitializeFromAsset(*BehaviorTreeAsset);
+        BehaviorTreeAsset->RootNode = NewRoot;
+        UE_LOG(LogTemp, Warning, TEXT("MutateTree: Tree was null. Created Root Selector."));
+    }
 
-	// 2. Analyze current Phenotype (The Tree)
-	TArray<UBTCompositeNode*> Composites;
-	TArray<UBTTaskNode*> Tasks;
-	CollectNodes(BehaviorTreeAsset->RootNode, Composites, Tasks);
+    // --- STEP 2: FETCH CANDIDATES ---
+    TArray<UClass*> TaskClasses = GetAvailableTaskClasses(SearchPath);
+    if (TaskClasses.Num() == 0)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MutateTree: No task classes found in %s"), *SearchPath);
+        return false;
+    }
 
-	// 3. Choose Mutation Strategy
-	bool bDoSwap = FMath::RandBool();
+    // --- STEP 3: ANALYZE PHENOTYPE ---
+    TArray<UBTCompositeNode*> Composites;
+    TArray<UBTTaskNode*> Tasks;
+    CollectNodes(BehaviorTreeAsset->RootNode, Composites, Tasks);
 
-	// Fallback: If we can't swap (no tasks), force insertion. If we can't insert (no composites), fail.
-	if (Tasks.Num() == 0) bDoSwap = false;
-	if (Composites.Num() == 0) return false;
+    // Safety check
+    if (Composites.Num() == 0) return false;
 
-	UClass* ChosenClass = Candidates[FMath::RandRange(0, Candidates.Num() - 1)];
+    // --- STEP 4: CHOOSE STRATEGY ---
+    // 0 = Swap Existing Task
+    // 1 = Insert New Task (Flat)
+    // 2 = Insert New Branch (Deep: Composite + Task)
+    
+    int32 Strategy = 0;
 
-	if (bDoSwap)
-	{
-		// --- STRATEGY: SWAP ---
-		// Pick a victim task to replace
-		UBTTaskNode* Victim = Tasks[FMath::RandRange(0, Tasks.Num() - 1)];
-		UBTCompositeNode* Parent = Victim->GetParentNode(); // Valid because we collected it via traversal
+    // LOGIC UPDATE: Handle the "Empty Root" scenario
+    if (Tasks.Num() == 0)
+    {
+        // If we have no tasks, we CANNOT swap (0).
+        // To satisfy your request: "if there is no composite... add a composite and then insert action",
+        // we FORCE Strategy 2. This prevents a flat 'Root -> Task' structure.
+        Strategy = 2; 
+        UE_LOG(LogTemp, Log, TEXT("MutateTree: Tree is empty. Forcing Branch Insertion."));
+    }
+    else
+    {
+        // Standard evolution: Randomly pick a strategy
+        Strategy = FMath::RandRange(0, 2);
+        
+        // Fallback: If we picked Swap (0) but somehow have no tasks (redundant check but safe), switch to Insert (1)
+        if (Strategy == 0 && Tasks.Num() == 0) Strategy = 1;
+    }
 
-		if (Parent)
-		{
-			// Create new node
-			UBTTaskNode* NewTask = NewObject<UBTTaskNode>(BehaviorTreeAsset, ChosenClass, NAME_None, RF_Public | RF_Standalone);
-			NewTask->InitializeFromAsset(*BehaviorTreeAsset); // Vital for initializing properties
+    // Pick a random task class for the strategies that need one
+    UClass* ChosenTaskClass = TaskClasses[FMath::RandRange(0, TaskClasses.Num() - 1)];
 
-			// Find victim index in parent and swap
-			for (int32 i = 0; i < Parent->Children.Num(); i++)
-			{
-				if (Parent->Children[i].ChildTask == Victim)
-				{
-					Parent->Children[i].ChildTask = NewTask;
-					UE_LOG(LogTemp, Log, TEXT("MutateTree: Replaced %s with %s"), *Victim->GetName(), *NewTask->GetName());
-					break;
-				}
-			}
-		}
-	}
-	else
-	{
-		// --- STRATEGY: INSERT ---
-		// Pick a parent composite
-		UBTCompositeNode* Parent = Composites[FMath::RandRange(0, Composites.Num() - 1)];
-		
-		// Create new node
-		UBTTaskNode* NewTask = NewObject<UBTTaskNode>(BehaviorTreeAsset, ChosenClass, NAME_None, RF_Public | RF_Standalone);
-		NewTask->InitializeFromAsset(*BehaviorTreeAsset);
+    // --- EXECUTE STRATEGY ---
 
-		// Add as new child
-		FBTCompositeChild NewChild;
-		NewChild.ChildTask = NewTask;
-		Parent->Children.Add(NewChild);
+    if (Strategy == 0) // SWAP
+    {
+        UBTTaskNode* Victim = Tasks[FMath::RandRange(0, Tasks.Num() - 1)];
+        UBTCompositeNode* Parent = Victim->GetParentNode();
 
-		UE_LOG(LogTemp, Log, TEXT("MutateTree: Inserted %s into %s"), *NewTask->GetName(), *Parent->GetName());
-	}
+        if (Parent)
+        {
+            UBTTaskNode* NewTask = NewObject<UBTTaskNode>(BehaviorTreeAsset, ChosenTaskClass, NAME_None, RF_Public | RF_Standalone);
+            NewTask->InitializeFromAsset(*BehaviorTreeAsset);
 
-	return true;
+            // Find and swap
+            for (int32 i = 0; i < Parent->Children.Num(); i++)
+            {
+                if (Parent->Children[i].ChildTask == Victim)
+                {
+                    Parent->Children[i].ChildTask = NewTask;
+                    UE_LOG(LogTemp, Log, TEXT("Mutate: SWAPPED %s -> %s"), *Victim->GetName(), *NewTask->GetName());
+                    break;
+                }
+            }
+        }
+    }
+    else if (Strategy == 1) // INSERT TASK (Flat)
+    {
+        UBTCompositeNode* Parent = Composites[FMath::RandRange(0, Composites.Num() - 1)];
+
+        UBTTaskNode* NewTask = NewObject<UBTTaskNode>(BehaviorTreeAsset, ChosenTaskClass, NAME_None, RF_Public | RF_Standalone);
+        NewTask->InitializeFromAsset(*BehaviorTreeAsset);
+
+        FBTCompositeChild NewChild;
+        NewChild.ChildTask = NewTask;
+        Parent->Children.Add(NewChild);
+
+        UE_LOG(LogTemp, Log, TEXT("Mutate: INSERTED Task %s into %s"), *NewTask->GetName(), *Parent->GetName());
+    }
+    else if (Strategy == 2) // INSERT NEW BRANCH (Deep)
+    {
+        UBTCompositeNode* Parent = Composites[FMath::RandRange(0, Composites.Num() - 1)];
+
+        // 1. Create New Composite
+        UBTCompositeNode* NewComposite = nullptr;
+        
+        // Optional: If you want to strictly enforce "Add Selector" behavior, you can bias this.
+        bool bIsSequence = FMath::RandBool(); 
+        if (bIsSequence)
+            NewComposite = NewObject<UBTComposite_Sequence>(BehaviorTreeAsset, NAME_None, RF_Public | RF_Standalone);
+        else
+            NewComposite = NewObject<UBTComposite_Selector>(BehaviorTreeAsset, NAME_None, RF_Public | RF_Standalone);
+        
+        NewComposite->InitializeFromAsset(*BehaviorTreeAsset);
+
+        // 2. Create Inner Task (So the new branch isn't empty)
+        UBTTaskNode* NewTask = NewObject<UBTTaskNode>(BehaviorTreeAsset, ChosenTaskClass, NAME_None, RF_Public | RF_Standalone);
+        NewTask->InitializeFromAsset(*BehaviorTreeAsset);
+
+        // 3. Link: Task -> NewComposite
+        FBTCompositeChild TaskChild;
+        TaskChild.ChildTask = NewTask;
+        NewComposite->Children.Add(TaskChild);
+
+        // 4. Link: NewComposite -> Parent
+        FBTCompositeChild CompositeChild;
+        CompositeChild.ChildComposite = NewComposite;
+        Parent->Children.Add(CompositeChild);
+
+        UE_LOG(LogTemp, Log, TEXT("Mutate: BRANCHED %s under %s (containing %s)"), 
+            *NewComposite->GetName(), *Parent->GetName(), *NewTask->GetName());
+    }
+
+    return true;
 }
-
 
 
 // DEBUG VISUALIZATION
@@ -395,4 +454,82 @@ FString UCustomBehaviourTree::GetCleanNodeName(UBTNode* Node)
 	return Name;
 }
 
+
+void UCustomBehaviourTree::AppendTreeToLogFile(const FString& FileName, int32 Generation, float Fitness)
+{
+    if (!BehaviorTreeAsset || !BehaviorTreeAsset->RootNode) return;
+
+    // 1. Setup the String Builder
+    TStringBuilder<4096> LogBuilder;
+    
+    LogBuilder.Appendf(TEXT("\n=================================================\n"));
+    LogBuilder.Appendf(TEXT(" GENERATION: %d | FITNESS: %.2f | ASSET: %s\n"), Generation, Fitness, *BehaviorTreeAsset->GetName());
+    LogBuilder.Appendf(TEXT("=================================================\n"));
+
+    // 2. Define Recursive Lambda
+    // We use 'auto&& self' to allow the lambda to call itself recursively
+    auto WriteNodeRecursive = [&](auto&& self, UBTNode* Node, FString Prefix, bool bIsLast) -> void
+    {
+        if (!Node) return;
+
+        // A. Print Current Node
+        FString Connector = bIsLast ? TEXT("L-- ") : TEXT("|-- ");
+        LogBuilder.Appendf(TEXT("%s%s%s\n"), *Prefix, *Connector, *GetCleanNodeName(Node));
+
+        // B. Prepare Prefix for Children
+        FString ChildPrefix = Prefix + (bIsLast ? TEXT("    ") : TEXT("|   "));
+
+        // C. Handle Composite Children (Services, Decorators, Sub-nodes)
+        if (UBTCompositeNode* Composite = Cast<UBTCompositeNode>(Node))
+        {
+            // Services
+            for (UBTService* Service : Composite->Services)
+            {
+                if (Service)
+                {
+                    LogBuilder.Appendf(TEXT("%s . [S] %s\n"), *ChildPrefix, *GetCleanNodeName(Service));
+                }
+            }
+
+            // Children
+            for (int32 i = 0; i < Composite->Children.Num(); i++)
+            {
+                FBTCompositeChild& ChildLink = Composite->Children[i];
+                bool bIsLastChild = (i == Composite->Children.Num() - 1);
+
+                // Decorators (Logic Gates)
+                for (UBTDecorator* Deco : ChildLink.Decorators)
+                {
+                    if (Deco)
+                    {
+                        LogBuilder.Appendf(TEXT("%s : {D} %s\n"), *ChildPrefix, *GetCleanNodeName(Deco));
+                    }
+                }
+
+                // Recurse down
+                UBTNode* ChildNode = ChildLink.ChildComposite ? (UBTNode*)ChildLink.ChildComposite : (UBTNode*)ChildLink.ChildTask;
+                self(self, ChildNode, ChildPrefix, bIsLastChild);
+            }
+        }
+    };
+
+    // 3. Execute Lambda starting at Root
+    WriteNodeRecursive(WriteNodeRecursive, BehaviorTreeAsset->RootNode, TEXT(""), true);
+
+    LogBuilder.Append(TEXT("\n"));
+
+    // 4. Write to File
+    FString FullPath = FPaths::ProjectLogDir() / FileName;
+    
+    // Create the file if it doesn't exist, otherwise append
+    FFileHelper::SaveStringToFile(
+        LogBuilder.ToString(),
+        *FullPath,
+        FFileHelper::EEncodingOptions::AutoDetect,
+        &IFileManager::Get(),
+        EFileWrite::FILEWRITE_Append
+    );
+    
+    UE_LOG(LogTemp, Log, TEXT("Logged Tree to %s"), *FullPath);
+}
 
