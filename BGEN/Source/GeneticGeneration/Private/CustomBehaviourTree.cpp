@@ -9,6 +9,7 @@
 #include "BehaviorTree/BTService.h"
 #include "BehaviorTree/Composites/BTComposite_Selector.h"
 #include "BehaviorTree/Composites/BTComposite_Sequence.h"
+#include "BehaviorTree/Decorators/BTDecorator_BlueprintBase.h"
 
 bool UCustomBehaviourTree::LoadBehaviorTree(const FString& AssetPath)
 {
@@ -150,13 +151,6 @@ FString UCustomBehaviourTree::SaveAsNewAsset(const FString& DestinationPackagePa
 	return FString();
 }
 
-void UCustomBehaviourTree::DebugMutation()
-{
-	UE_LOG(LogTemp, Log, TEXT("DebugMutation"));
-}
-
-
-
 /// MUTATION
 
 TArray<UClass*> UCustomBehaviourTree::GetAvailableTaskClasses(const FString& Path)
@@ -194,6 +188,40 @@ TArray<UClass*> UCustomBehaviourTree::GetAvailableTaskClasses(const FString& Pat
 	return ResultClasses;
 }
 
+TArray<UClass*> UCustomBehaviourTree::GetAvailableDecoratorClasses(const FString& Path)
+{
+	TArray<UClass*> ResultClasses;
+
+	// 1. Get the Asset Registry
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+
+	// 2. Define Filter
+	FARFilter Filter;
+	Filter.PackagePaths.Add(*Path);
+	Filter.bRecursivePaths = true;
+	Filter.ClassPaths.Add(UBlueprint::StaticClass()->GetClassPathName());
+
+	// 3. Search
+	TArray<FAssetData> AssetList;
+	AssetRegistryModule.Get().GetAssets(Filter, AssetList);
+
+	for (const FAssetData& Asset : AssetList)
+	{
+		UObject* LoadedAsset = Asset.GetAsset();
+		if (UBlueprint* BP = Cast<UBlueprint>(LoadedAsset))
+		{
+			// We verify if the Generated Class inherits from BTDecorator_BlueprintBase
+			if (BP->GeneratedClass && BP->GeneratedClass->IsChildOf(UBTDecorator_BlueprintBase::StaticClass()))
+			{
+				ResultClasses.Add(BP->GeneratedClass);
+			}
+		}
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("Found %d valid Decorator classes in %s"), ResultClasses.Num(), *Path);
+	return ResultClasses;
+}
+
 void UCustomBehaviourTree::CollectNodes(UBTNode* Node, TArray<UBTCompositeNode*>& OutComposites, TArray<UBTTaskNode*>& OutTasks)
 {
 	if (!Node) return;
@@ -218,135 +246,128 @@ void UCustomBehaviourTree::CollectNodes(UBTNode* Node, TArray<UBTCompositeNode*>
 
 bool UCustomBehaviourTree::MutateTree_Dynamic(const FString& SearchPath)
 {
-    if (!BehaviorTreeAsset)
-    {
-        UE_LOG(LogTemp, Error, TEXT("MutateTree_Dynamic: No Asset Loaded."));
-        return false;
-    }
+    if (!BehaviorTreeAsset) return false;
 
-    // --- STEP 1: BOOTSTRAP ROOT (If completely null) ---
+    // --- Bootstrap Root if empty ---
     if (!BehaviorTreeAsset->RootNode)
     {
-        // Create a default Root Selector if the asset has absolutely nothing
         UBTComposite_Selector* NewRoot = NewObject<UBTComposite_Selector>(BehaviorTreeAsset, TEXT("RootSelector"), RF_Public | RF_Standalone);
         NewRoot->InitializeFromAsset(*BehaviorTreeAsset);
         BehaviorTreeAsset->RootNode = NewRoot;
-        UE_LOG(LogTemp, Warning, TEXT("MutateTree: Tree was null. Created Root Selector."));
     }
 
-    // --- STEP 2: FETCH CANDIDATES ---
+    // --- Gather Data ---
     TArray<UClass*> TaskClasses = GetAvailableTaskClasses(SearchPath);
-    if (TaskClasses.Num() == 0)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("MutateTree: No task classes found in %s"), *SearchPath);
-        return false;
-    }
+    // Note: We assume Decorators live in the same folder, or you can pass a specific path like "/Game/AI/Decorators"
+    TArray<UClass*> DecoratorClasses = GetAvailableDecoratorClasses(SearchPath); 
 
-    // --- STEP 3: ANALYZE PHENOTYPE ---
     TArray<UBTCompositeNode*> Composites;
     TArray<UBTTaskNode*> Tasks;
     CollectNodes(BehaviorTreeAsset->RootNode, Composites, Tasks);
 
-    // Safety check
     if (Composites.Num() == 0) return false;
 
-    // --- STEP 4: CHOOSE STRATEGY ---
-    // 0 = Swap Existing Task
-    // 1 = Insert New Task (Flat)
-    // 2 = Insert New Branch (Deep: Composite + Task)
+    // --- Choose Strategy ---
+    // 0: Swap Task
+    // 1: Insert Task
+    // 2: New Branch
+    // 3: Add/Swap Decorator (Condition) << NEW
     
-    int32 Strategy = 0;
+    int32 Strategy = FMath::RandRange(0, 3);
 
-    // LOGIC UPDATE: Handle the "Empty Root" scenario
-    if (Tasks.Num() == 0)
+    // Handling Empty Tree Edge Case
+    if (Tasks.Num() == 0) Strategy = 2; 
+    
+    // If we picked Decorator (3) but found no decorator classes, fallback to Swap (0)
+    if (Strategy == 3 && DecoratorClasses.Num() == 0) Strategy = 0;
+
+    UE_LOG(LogTemp, Log, TEXT("Mutation Strategy Selected: %d"), Strategy);
+
+    // --- Execute ---
+
+    if (Strategy == 0 && TaskClasses.Num() > 0) // SWAP TASK
     {
-        // If we have no tasks, we CANNOT swap (0).
-        // To satisfy your request: "if there is no composite... add a composite and then insert action",
-        // we FORCE Strategy 2. This prevents a flat 'Root -> Task' structure.
-        Strategy = 2; 
-        UE_LOG(LogTemp, Log, TEXT("MutateTree: Tree is empty. Forcing Branch Insertion."));
-    }
-    else
-    {
-        // Standard evolution: Randomly pick a strategy
-        Strategy = FMath::RandRange(0, 2);
-        
-        // Fallback: If we picked Swap (0) but somehow have no tasks (redundant check but safe), switch to Insert (1)
-        if (Strategy == 0 && Tasks.Num() == 0) Strategy = 1;
-    }
-
-    // Pick a random task class for the strategies that need one
-    UClass* ChosenTaskClass = TaskClasses[FMath::RandRange(0, TaskClasses.Num() - 1)];
-
-    // --- EXECUTE STRATEGY ---
-
-    if (Strategy == 0) // SWAP
-    {
-        UBTTaskNode* Victim = Tasks[FMath::RandRange(0, Tasks.Num() - 1)];
-        UBTCompositeNode* Parent = Victim->GetParentNode();
-
-        if (Parent)
+        if (Tasks.Num() > 0)
         {
-            UBTTaskNode* NewTask = NewObject<UBTTaskNode>(BehaviorTreeAsset, ChosenTaskClass, NAME_None, RF_Public | RF_Standalone);
-            NewTask->InitializeFromAsset(*BehaviorTreeAsset);
-
-            // Find and swap
-            for (int32 i = 0; i < Parent->Children.Num(); i++)
+            UBTTaskNode* Victim = Tasks[FMath::RandRange(0, Tasks.Num() - 1)];
+            UBTCompositeNode* Parent = Victim->GetParentNode();
+            if (Parent)
             {
-                if (Parent->Children[i].ChildTask == Victim)
+                UClass* NewClass = TaskClasses[FMath::RandRange(0, TaskClasses.Num() - 1)];
+                UBTTaskNode* NewTask = NewObject<UBTTaskNode>(BehaviorTreeAsset, NewClass, NAME_None, RF_Public | RF_Standalone);
+                NewTask->InitializeFromAsset(*BehaviorTreeAsset);
+
+                for (int32 i = 0; i < Parent->Children.Num(); i++)
                 {
-                    Parent->Children[i].ChildTask = NewTask;
-                    UE_LOG(LogTemp, Log, TEXT("Mutate: SWAPPED %s -> %s"), *Victim->GetName(), *NewTask->GetName());
-                    break;
+                    if (Parent->Children[i].ChildTask == Victim)
+                    {
+                        Parent->Children[i].ChildTask = NewTask;
+                        break;
+                    }
                 }
             }
         }
     }
-    else if (Strategy == 1) // INSERT TASK (Flat)
+    else if (Strategy == 1 && TaskClasses.Num() > 0) // INSERT TASK
     {
         UBTCompositeNode* Parent = Composites[FMath::RandRange(0, Composites.Num() - 1)];
-
-        UBTTaskNode* NewTask = NewObject<UBTTaskNode>(BehaviorTreeAsset, ChosenTaskClass, NAME_None, RF_Public | RF_Standalone);
+        UClass* NewClass = TaskClasses[FMath::RandRange(0, TaskClasses.Num() - 1)];
+        
+        UBTTaskNode* NewTask = NewObject<UBTTaskNode>(BehaviorTreeAsset, NewClass, NAME_None, RF_Public | RF_Standalone);
         NewTask->InitializeFromAsset(*BehaviorTreeAsset);
 
         FBTCompositeChild NewChild;
         NewChild.ChildTask = NewTask;
         Parent->Children.Add(NewChild);
-
-        UE_LOG(LogTemp, Log, TEXT("Mutate: INSERTED Task %s into %s"), *NewTask->GetName(), *Parent->GetName());
     }
-    else if (Strategy == 2) // INSERT NEW BRANCH (Deep)
+    else if (Strategy == 2 && TaskClasses.Num() > 0) // NEW BRANCH
     {
         UBTCompositeNode* Parent = Composites[FMath::RandRange(0, Composites.Num() - 1)];
-
-        // 1. Create New Composite
-        UBTCompositeNode* NewComposite = nullptr;
         
-        // Optional: If you want to strictly enforce "Add Selector" behavior, you can bias this.
-        bool bIsSequence = FMath::RandBool(); 
-        if (bIsSequence)
+        UBTCompositeNode* NewComposite = nullptr;
+        if (FMath::RandBool())
             NewComposite = NewObject<UBTComposite_Sequence>(BehaviorTreeAsset, NAME_None, RF_Public | RF_Standalone);
         else
             NewComposite = NewObject<UBTComposite_Selector>(BehaviorTreeAsset, NAME_None, RF_Public | RF_Standalone);
         
         NewComposite->InitializeFromAsset(*BehaviorTreeAsset);
 
-        // 2. Create Inner Task (So the new branch isn't empty)
-        UBTTaskNode* NewTask = NewObject<UBTTaskNode>(BehaviorTreeAsset, ChosenTaskClass, NAME_None, RF_Public | RF_Standalone);
+        // Add a task to the new branch so it's not empty
+        UClass* NewClass = TaskClasses[FMath::RandRange(0, TaskClasses.Num() - 1)];
+        UBTTaskNode* NewTask = NewObject<UBTTaskNode>(BehaviorTreeAsset, NewClass, NAME_None, RF_Public | RF_Standalone);
         NewTask->InitializeFromAsset(*BehaviorTreeAsset);
 
-        // 3. Link: Task -> NewComposite
         FBTCompositeChild TaskChild;
         TaskChild.ChildTask = NewTask;
         NewComposite->Children.Add(TaskChild);
 
-        // 4. Link: NewComposite -> Parent
         FBTCompositeChild CompositeChild;
         CompositeChild.ChildComposite = NewComposite;
         Parent->Children.Add(CompositeChild);
+    }
+    else if (Strategy == 3 && DecoratorClasses.Num() > 0) // ADD DECORATOR (NEW)
+    {
+        // 1. Pick a random composite
+        UBTCompositeNode* TargetComposite = Composites[FMath::RandRange(0, Composites.Num() - 1)];
+        
+        if (TargetComposite->Children.Num() > 0)
+        {
+            // 2. Pick a random child of that composite
+            int32 ChildIdx = FMath::RandRange(0, TargetComposite->Children.Num() - 1);
+            FBTCompositeChild& ChildLink = TargetComposite->Children[ChildIdx];
 
-        UE_LOG(LogTemp, Log, TEXT("Mutate: BRANCHED %s under %s (containing %s)"), 
-            *NewComposite->GetName(), *Parent->GetName(), *NewTask->GetName());
+            // 3. Create the Decorator
+            UClass* DecoClass = DecoratorClasses[FMath::RandRange(0, DecoratorClasses.Num() - 1)];
+            UBTDecorator* NewDeco = NewObject<UBTDecorator>(BehaviorTreeAsset, DecoClass, NAME_None, RF_Public | RF_Standalone);
+            NewDeco->InitializeFromAsset(*BehaviorTreeAsset);
+
+            // 4. Add to the child's decorator list
+            // Note: In runtime BTs, decorators live on the CompositeChild struct
+            ChildLink.Decorators.Add(NewDeco);
+
+            UE_LOG(LogTemp, Log, TEXT("Mutate: Added DECORATOR %s to Composite %s (Child %d)"), 
+                *NewDeco->GetName(), *TargetComposite->GetName(), ChildIdx);
+        }
     }
 
     return true;

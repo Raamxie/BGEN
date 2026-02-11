@@ -209,7 +209,7 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn, FString Genome
 
             if (bLoaded)
             {
-				GenHelper->MutateTree_Dynamic("/Game/BehaviourTrees/Tasks");
+				GenHelper->MutateTree_Dynamic("/Game/BehaviourTrees");
 				UBehaviorTree* EvolvedTree = GenHelper->GetBTAsset();
 				AI->AssignTree(EvolvedTree, BBAsset);
 				ActiveAgents.Add(Enemy, GenHelper);
@@ -245,7 +245,7 @@ void UGeneticSimulationManager::Simulate()
 		}
 	}
 
-	UGameplayStatics::SetGlobalTimeDilation(TargetWorld, 4.0f);
+	// UGameplayStatics::SetGlobalTimeDilation(TargetWorld, 4.0f);
 	TargetWorld->GetTimerManager().SetTimer(TimerHandle, this, &UGeneticSimulationManager::TimerCallback, 30.0f, false);
 	SetPause(false);
 }

@@ -50,6 +50,7 @@ private:
 	// --- HELPERS ---
 	/** Scans the Asset Registry for Blueprint classes derived from BTTaskNode */
 	TArray<UClass*> GetAvailableTaskClasses(const FString& Path);
+	TArray<UClass*> GetAvailableDecoratorClasses(const FString& Path);
 
 	/** Recursively collects all composites (branches) and tasks (leaves) */
 	void CollectNodes(UBTNode* Node, TArray<UBTCompositeNode*>& OutComposites, TArray<UBTTaskNode*>& OutTasks);
