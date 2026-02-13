@@ -74,15 +74,6 @@ void UCustomBehaviourTree::InitFromTreeInstance(UBehaviorTree* SourceTree)
 	UE_LOG(LogTemp, Log, TEXT("Cloned Tree: %s -> %s"), *SourceTree->GetName(), *BehaviorTreeAsset->GetName());
 }
 
-UBTCompositeNode* UCustomBehaviourTree::GetRootComposite()
-{
-    if (!BehaviorTreeAsset)
-    {
-        return nullptr;
-    }
-    return BehaviorTreeAsset->RootNode;
-}
-
 FString UCustomBehaviourTree::SaveAsNewAsset(const FString& DestinationPackagePath, bool bOverwriteExisting)
 {
     if (!BehaviorTreeAsset)
@@ -475,82 +466,180 @@ FString UCustomBehaviourTree::GetCleanNodeName(UBTNode* Node)
 	return Name;
 }
 
+UCustomBehaviourTree* UCustomBehaviourTree::PerformCrossover(UCustomBehaviourTree* DonorTreeWrapper, FString& OutLog)
+{
+    if (!DonorTreeWrapper || !BehaviorTreeAsset) return nullptr;
+
+    UCustomBehaviourTree* ChildWrapper = NewObject<UCustomBehaviourTree>(GetOuter());
+    ChildWrapper->InitFromTreeInstance(this->BehaviorTreeAsset);
+
+    TArray<FNodeHandle> ChildSlots;
+    ChildWrapper->GetAllCompositeSlots(ChildWrapper->GetBTAsset()->RootNode, ChildSlots);
+
+    TArray<UBTNode*> DonorSubtrees;
+    ChildWrapper->GetAllSubtrees(DonorTreeWrapper->GetBTAsset()->RootNode, DonorSubtrees);
+
+    if (ChildSlots.Num() > 0 && DonorSubtrees.Num() > 0)
+    {
+        FNodeHandle TargetSlot = ChildSlots[FMath::RandRange(0, ChildSlots.Num() - 1)];
+        UBTNode* DonorNode = DonorSubtrees[FMath::RandRange(0, DonorSubtrees.Num() - 1)];
+        
+        UBTNode* ClonedGene = DuplicateObject<UBTNode>(DonorNode, ChildWrapper->GetBTAsset());
+        ClonedGene->InitializeFromAsset(*ChildWrapper->GetBTAsset());
+
+        if (TargetSlot.Parent->Children.IsValidIndex(TargetSlot.ChildIndex))
+        {
+            FBTCompositeChild& Link = TargetSlot.Parent->Children[TargetSlot.ChildIndex];
+            
+            FString OldNodeName = Link.ChildTask ? GetCleanNodeName(Link.ChildTask) : GetCleanNodeName(Link.ChildComposite);
+            
+            if (ClonedGene->IsA(UBTTaskNode::StaticClass()))
+            {
+                Link.ChildTask = Cast<UBTTaskNode>(ClonedGene);
+                Link.ChildComposite = nullptr;
+            }
+            else if (ClonedGene->IsA(UBTCompositeNode::StaticClass()))
+            {
+                Link.ChildComposite = Cast<UBTCompositeNode>(ClonedGene);
+                Link.ChildTask = nullptr;
+            }
+
+            OutLog = FString::Printf(TEXT("Replaced Node [%s] in Parent A with Donor Subtree [%s] from Parent B at Parent Node [%s]"), 
+                *OldNodeName, *GetCleanNodeName(ClonedGene), *GetCleanNodeName(TargetSlot.Parent));
+            return ChildWrapper;
+        }
+    }
+    OutLog = TEXT("Crossover Failed (No valid slots)");
+    return ChildWrapper;
+}
+
+void UCustomBehaviourTree::GetAllCompositeSlots(UBTNode* Node, TArray<FNodeHandle>& OutSlots)
+{
+    if (UBTCompositeNode* Comp = Cast<UBTCompositeNode>(Node))
+    {
+        for (int32 i = 0; i < Comp->Children.Num(); i++)
+        {
+            // Add this specific slot (Parent + Index)
+            OutSlots.Add({ Comp, i });
+
+            // Recurse
+            UBTNode* Child = Comp->Children[i].ChildComposite ? (UBTNode*)Comp->Children[i].ChildComposite : (UBTNode*)Comp->Children[i].ChildTask;
+            GetAllCompositeSlots(Child, OutSlots);
+        }
+    }
+}
+
+void UCustomBehaviourTree::GetAllSubtrees(UBTNode* Node, TArray<UBTNode*>& OutNodes)
+{
+    if (!Node) return;
+    
+    // We can steal this node
+    OutNodes.Add(Node);
+
+    if (UBTCompositeNode* Comp = Cast<UBTCompositeNode>(Node))
+    {
+        for (auto& ChildLink : Comp->Children)
+        {
+            UBTNode* Child = ChildLink.ChildComposite ? (UBTNode*)ChildLink.ChildComposite : (UBTNode*)ChildLink.ChildTask;
+            GetAllSubtrees(Child, OutNodes);
+        }
+    }
+}
+
+FString UCustomBehaviourTree::GetTreeAsString()
+{
+	if (!BehaviorTreeAsset || !BehaviorTreeAsset->RootNode) return TEXT("INVALID TREE");
+
+	TStringBuilder<4096> SB;
+	// Use a lambda to recurse
+	auto RecursivePrint = [&](auto&& Self, UBTNode* Node, FString Prefix, bool bIsLast) -> void
+	{
+		if (!Node) return;
+		FString Connector = bIsLast ? TEXT("L-- ") : TEXT("|-- ");
+		SB.Appendf(TEXT("%s%s%s\n"), *Prefix, *Connector, *GetCleanNodeName(Node));
+
+		FString ChildPrefix = Prefix + (bIsLast ? TEXT("    ") : TEXT("|   "));
+
+		if (UBTCompositeNode* Comp = Cast<UBTCompositeNode>(Node))
+		{
+			for (UBTService* Service : Comp->Services)
+			{
+				if(Service) SB.Appendf(TEXT("%s . [S] %s\n"), *ChildPrefix, *GetCleanNodeName(Service));
+			}
+			for (int32 i = 0; i < Comp->Children.Num(); i++)
+			{
+				FBTCompositeChild& Link = Comp->Children[i];
+				bool bLastChild = (i == Comp->Children.Num() - 1);
+				for (UBTDecorator* Deco : Link.Decorators)
+				{
+					if(Deco) SB.Appendf(TEXT("%s : {D} %s\n"), *ChildPrefix, *GetCleanNodeName(Deco));
+				}
+				UBTNode* Child = Link.ChildComposite ? (UBTNode*)Link.ChildComposite : (UBTNode*)Link.ChildTask;
+				Self(Self, Child, ChildPrefix, bLastChild);
+			}
+		}
+	};
+
+	RecursivePrint(RecursivePrint, BehaviorTreeAsset->RootNode, TEXT(""), true);
+	return SB.ToString();
+}
 
 void UCustomBehaviourTree::AppendTreeToLogFile(const FString& FileName, int32 Generation, float Fitness)
 {
-    if (!BehaviorTreeAsset || !BehaviorTreeAsset->RootNode) return;
+	FString FullPath = FPaths::ProjectLogDir() / FileName;
+	TStringBuilder<8192> LogBuilder;
 
-    // 1. Setup the String Builder
-    TStringBuilder<4096> LogBuilder;
-    
-    LogBuilder.Appendf(TEXT("\n=================================================\n"));
-    LogBuilder.Appendf(TEXT(" GENERATION: %d | FITNESS: %.2f | ASSET: %s\n"), Generation, Fitness, *BehaviorTreeAsset->GetName());
-    LogBuilder.Appendf(TEXT("=================================================\n"));
+	LogBuilder.Append(TEXT("\n================================================================================\n"));
+	LogBuilder.Appendf(TEXT(" GENERATION %d  |  FITNESS: %.2f  |  %s\n"), Generation, Fitness, *GetName());
+	LogBuilder.Append(TEXT("================================================================================\n"));
 
-    // 2. Define Recursive Lambda
-    // We use 'auto&& self' to allow the lambda to call itself recursively
-    auto WriteNodeRecursive = [&](auto&& self, UBTNode* Node, FString Prefix, bool bIsLast) -> void
-    {
-        if (!Node) return;
+	// 1. GENEALOGY REPORT
+	LogBuilder.Appendf(TEXT(">> PARENT SELECTION (%s)\n"), *EvolutionData.SelectionMethod);
+	LogBuilder.Appendf(TEXT("   Parent A: %s\n"), *EvolutionData.ParentA_Path);
+	if (!EvolutionData.ParentB_Path.IsEmpty())
+	{
+		LogBuilder.Appendf(TEXT("   Parent B: %s\n"), *EvolutionData.ParentB_Path);
+	}
+	else
+	{
+		LogBuilder.Append(TEXT("   Parent B: (None - Asexual Reproduction)\n"));
+	}
+	
+	// 2. MODIFICATION REPORT
+	LogBuilder.Append(TEXT("\n>> CROSSBREEDING RESULT\n"));
+	if (!EvolutionData.CrossoverLog.IsEmpty())
+	{
+		LogBuilder.Appendf(TEXT("   %s\n"), *EvolutionData.CrossoverLog);
+	}
+	else
+	{
+		LogBuilder.Append(TEXT("   No Crossover performed (Clone).\n"));
+	}
 
-        // A. Print Current Node
-        FString Connector = bIsLast ? TEXT("L-- ") : TEXT("|-- ");
-        LogBuilder.Appendf(TEXT("%s%s%s\n"), *Prefix, *Connector, *GetCleanNodeName(Node));
+	LogBuilder.Append(TEXT("\n>> MUTATION REPORT\n"));
+	if (!EvolutionData.MutationLog.IsEmpty())
+	{
+		LogBuilder.Appendf(TEXT("   %s\n"), *EvolutionData.MutationLog);
+	}
+	else
+	{
+		LogBuilder.Append(TEXT("   No Mutation occurred.\n"));
+	}
 
-        // B. Prepare Prefix for Children
-        FString ChildPrefix = Prefix + (bIsLast ? TEXT("    ") : TEXT("|   "));
+	// 3. PARENT SNAPSHOTS (Optional - can be verbose)
+	/* LogBuilder.Append(TEXT("\n>> PARENT A STRUCTURE:\n"));
+	LogBuilder.Append(EvolutionData.ParentA_Structure);
+	if (!EvolutionData.ParentB_Path.IsEmpty()) {
+		LogBuilder.Append(TEXT("\n>> PARENT B STRUCTURE:\n"));
+		LogBuilder.Append(EvolutionData.ParentB_Structure);
+	}
+	*/
 
-        // C. Handle Composite Children (Services, Decorators, Sub-nodes)
-        if (UBTCompositeNode* Composite = Cast<UBTCompositeNode>(Node))
-        {
-            // Services
-            for (UBTService* Service : Composite->Services)
-            {
-                if (Service)
-                {
-                    LogBuilder.Appendf(TEXT("%s . [S] %s\n"), *ChildPrefix, *GetCleanNodeName(Service));
-                }
-            }
+	// 4. FINAL RESULT
+	LogBuilder.Append(TEXT("\n>> FINAL PHENOTYPE (Result Tree):\n"));
+	LogBuilder.Append(GetTreeAsString());
+	
+	LogBuilder.Append(TEXT("================================================================================\n"));
 
-            // Children
-            for (int32 i = 0; i < Composite->Children.Num(); i++)
-            {
-                FBTCompositeChild& ChildLink = Composite->Children[i];
-                bool bIsLastChild = (i == Composite->Children.Num() - 1);
-
-                // Decorators (Logic Gates)
-                for (UBTDecorator* Deco : ChildLink.Decorators)
-                {
-                    if (Deco)
-                    {
-                        LogBuilder.Appendf(TEXT("%s : {D} %s\n"), *ChildPrefix, *GetCleanNodeName(Deco));
-                    }
-                }
-
-                // Recurse down
-                UBTNode* ChildNode = ChildLink.ChildComposite ? (UBTNode*)ChildLink.ChildComposite : (UBTNode*)ChildLink.ChildTask;
-                self(self, ChildNode, ChildPrefix, bIsLastChild);
-            }
-        }
-    };
-
-    // 3. Execute Lambda starting at Root
-    WriteNodeRecursive(WriteNodeRecursive, BehaviorTreeAsset->RootNode, TEXT(""), true);
-
-    LogBuilder.Append(TEXT("\n"));
-
-    // 4. Write to File
-    FString FullPath = FPaths::ProjectLogDir() / FileName;
-    
-    // Create the file if it doesn't exist, otherwise append
-    FFileHelper::SaveStringToFile(
-        LogBuilder.ToString(),
-        *FullPath,
-        FFileHelper::EEncodingOptions::AutoDetect,
-        &IFileManager::Get(),
-        EFileWrite::FILEWRITE_Append
-    );
-    
-    UE_LOG(LogTemp, Log, TEXT("Logged Tree to %s"), *FullPath);
+	FFileHelper::SaveStringToFile(LogBuilder.ToString(), *FullPath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_Append);
 }
-

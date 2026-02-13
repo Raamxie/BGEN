@@ -12,6 +12,8 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "HAL/PlatformFilemanager.h"
+#include "GeneticSelectionLibrary.h"
+#include "GeneticMutationLibrary.h"
 
 UGeneticSimulationManager::UGeneticSimulationManager()
 {
@@ -20,17 +22,15 @@ UGeneticSimulationManager::UGeneticSimulationManager()
 void UGeneticSimulationManager::Init(UWorld* InWorld)
 {
     TargetWorld = InWorld;
-    
-    // Ensure determinism settings are applied every run
+	
 	if (GEngine)
 	{
 		GEngine->bSmoothFrameRate = false; 
 		GEngine->bUseFixedFrameRate = true; 
 		GEngine->FixedFrameRate = 60.0f;    
 	}
-}
+}	
 
-// THIS IS THE NEW MAIN FUNCTION
 void UGeneticSimulationManager::StartEpoch()
 {
 	UE_LOG(LogGeneticGeneration, Display, TEXT("--------------------------------------------------"));
@@ -62,14 +62,14 @@ void UGeneticSimulationManager::StartEpoch()
 	EnemySpawnPositions.Empty(); 
     
 	// 2. DECIDE: Pick the "Parent" Tree
-	FString ChosenTreePath = SelectTreeToEvolve();
-
+	FString SeedPath = TEXT("/Game/Actors/EnemyUnleashed/Test");
+	
 	// 3. EXECUTE: Setup the arena
 	SetPause(true);
 	PreparePlayer();
 	
     // 4. SPAWN: Pass the chosen gene to the spawner
-	SpawnEnemies(1, ChosenTreePath); 
+	SpawnEnemies(1, SeedPath); 
 	
     // 5. RUN
 	Simulate();
@@ -115,7 +115,6 @@ FString UGeneticSimulationManager::SelectTreeToEvolve()
 	}
 }
 
-// ... [Keep GetWorld, FinishEpoch, PreparePlayer as they were] ...
 
 UWorld* UGeneticSimulationManager::GetWorld() const
 {
@@ -179,42 +178,121 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn, FString Genome
 {
     if (!TargetWorld) return;
 
+    // 1. Resolve Assets
     UClass* EnemyClass = GetClassFromPath("/Game/Actors/EnemyUnleashed/EnemyUnleashed.EnemyUnleashed_C");
     UClass* ControllerClass = GetClassFromPath("/Game/Actors/EnemyUnleashed/AIController_EnemyUnleashed.AIController_EnemyUnleashed_C");
     UBlackboardData* BBAsset = Cast<UBlackboardData>(LoadObjectFromPath("/Game/Actors/EnemyUnleashed/BB_EnemyUnleashed.BB_EnemyUnleashed"));
 
-    if (!EnemyClass || !ControllerClass || !BBAsset) return;
+    if (!EnemyClass || !ControllerClass || !BBAsset) 
+    {
+        UE_LOG(LogGeneticGeneration, Error, TEXT("SpawnEnemies: Missing Assets!"));
+        return;
+    }
+
+    UE_LOG(LogGeneticGeneration, Log, TEXT("--- SPAWNING GENERATION %d (%d Agents) ---"), GenerationCount, AmountToSpawn);
 
     for (int32 i = 0; i < AmountToSpawn; i++)
     {
+        // 2. Spawn Logic
         FVector Loc = (EnemySpawnPositions.IsValidIndex(i)) ? EnemySpawnPositions[i] : FVector(i * 150.0f, 0.0f, 210.0f);
-        
         ACharacter* Enemy = TargetWorld->SpawnActor<ACharacter>(EnemyClass, Loc, FRotator::ZeroRotator);
-        if (!Enemy) continue;
+        ACustomAIController* AI = TargetWorld->SpawnActor<ACustomAIController>(ControllerClass, Loc, FRotator::ZeroRotator);
 
+        if (!Enemy || !AI) continue;
+
+        // Attach Fitness
         UGeneticFitnessTracker* FitnessComp = NewObject<UGeneticFitnessTracker>(Enemy);
-        if (FitnessComp)
+        FitnessComp->RegisterComponent();
+        Enemy->AddInstanceComponent(FitnessComp);
+        
+        AI->Possess(Enemy);
+
+        // 3. GENOME LOGIC
+        UCustomBehaviourTree* ChildWrapper = nullptr;
+        FEvolutionHistory History;
+        bool bIsSeed = false;
+
+        // A. EVOLUTION (History Exists)
+        if (AllTimeResults.Num() > 0)
         {
-            FitnessComp->RegisterComponent(); 
-            Enemy->AddInstanceComponent(FitnessComp);
+            History.SelectionMethod = TEXT("Tournament");
+            FSimulationResult ParentA = UGeneticSelectionLibrary::TournamentSelection(AllTimeResults, 3);
+            FSimulationResult ParentB = UGeneticSelectionLibrary::TournamentSelection(AllTimeResults, 3);
+
+            if (UGeneticSelectionLibrary::IsValidResult(ParentA))
+            {
+                UCustomBehaviourTree* WrapperA = NewObject<UCustomBehaviourTree>(this);
+                WrapperA->LoadBehaviorTree(ParentA.BehaviorTreePath);
+                
+                // Crossover
+                if (FMath::FRand() < 0.7f) 
+                {
+                    UCustomBehaviourTree* WrapperB = NewObject<UCustomBehaviourTree>(this);
+                    if(WrapperB->LoadBehaviorTree(ParentB.BehaviorTreePath))
+                    {
+                         FString Log;
+                         ChildWrapper = WrapperA->PerformCrossover(WrapperB, Log);
+                         History.CrossoverLog = Log;
+                    }
+                }
+                
+                // Clone if Crossover didn't happen
+                if (!ChildWrapper)
+                {
+                    ChildWrapper = NewObject<UCustomBehaviourTree>(this);
+                    ChildWrapper->InitFromTreeInstance(WrapperA->GetBTAsset());
+                    History.CrossoverLog = TEXT("Clone");
+                }
+                History.ParentA_Path = ParentA.BehaviorTreePath;
+            }
         }
 
-        ACustomAIController* AI = TargetWorld->SpawnActor<ACustomAIController>(ControllerClass, Loc, FRotator::ZeroRotator);
-        if (AI)
+        // B. SEED FALLBACK (First Run or Selection Failed)
+        if (!ChildWrapper)
         {
-            AI->Possess(Enemy);
-            
-            UCustomBehaviourTree* GenHelper = NewObject<UCustomBehaviourTree>(this);
-            bool bLoaded = GenHelper->LoadBehaviorTree(GenomePath);
-
-            if (bLoaded)
+            ChildWrapper = NewObject<UCustomBehaviourTree>(this);
+            if(ChildWrapper->LoadBehaviorTree(GenomePath))
             {
-				GenHelper->MutateTree_Dynamic("/Game/BehaviourTrees");
-				UBehaviorTree* EvolvedTree = GenHelper->GetBTAsset();
-				AI->AssignTree(EvolvedTree, BBAsset);
-				ActiveAgents.Add(Enemy, GenHelper);
-            	GenHelper->DebugLogTree();
+                bIsSeed = true;
+                History.SelectionMethod = TEXT("Seed (Gen 0)");
+                History.ParentA_Path = GenomePath;
             }
+            else
+            {
+                UE_LOG(LogGeneticGeneration, Error, TEXT("Failed to load Seed: %s"), *GenomePath);
+                AI->Destroy(); Enemy->Destroy(); continue;
+            }
+        }
+
+        // 4. MUTATION & ASSIGNMENT
+        if (ChildWrapper && ChildWrapper->GetBTAsset())
+        {
+            FString MLog;
+
+            // BOOTSTRAP: If Seed (Gen 0), Force Heavy Mutation to create diversity
+            if (bIsSeed)
+            {
+                // Mutate 5 times to generate a complex tree immediately
+                for(int k=0; k<5; k++)
+                {
+                    MLog += UGeneticMutationLibrary::MutateTree(ChildWrapper, 1.0f) + " | ";
+                }
+                History.MutationLog = TEXT("BOOTSTRAP: ") + MLog;
+            }
+            else
+            {
+                // Standard Evolution
+                History.MutationLog = UGeneticMutationLibrary::MutateTree(ChildWrapper, 0.40f);
+            }
+
+            // Save History & Assign
+            ChildWrapper->EvolutionData = History;
+            AI->AssignTree(ChildWrapper->GetBTAsset(), BBAsset);
+            
+            // 5. CRITICAL: Add to Tracking List
+            ActiveAgents.Add(Enemy, ChildWrapper);
+            
+            UE_LOG(LogGeneticGeneration, Log, TEXT("Agent %d Spawned & Registered. Tree: %s"), i, *ChildWrapper->GetBTAsset()->GetName());
         }
     }
 }
@@ -266,45 +344,54 @@ void UGeneticSimulationManager::PlayerDiedListener()
 
 void UGeneticSimulationManager::StopSimulation()
 {
-    if (TargetWorld && TimerHandle.IsValid())
-    {
-        TargetWorld->GetTimerManager().ClearTimer(TimerHandle);
-    }
-    SetPause(true);
+	if (TargetWorld && TimerHandle.IsValid())
+	{
+		TargetWorld->GetTimerManager().ClearTimer(TimerHandle);
+	}
+	SetPause(true);
 
-    for (auto& Pair : ActiveAgents)
-    {
-        APawn* Agent = Pair.Key;
-        UCustomBehaviourTree* TreeWrapper = Pair.Value;
+	UE_LOG(LogGeneticGeneration, Log, TEXT("Manager: Stopping Simulation. Processing %d Agents..."), ActiveAgents.Num());
 
-        if (IsValid(Agent) && TreeWrapper)
-        {
-            FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/Gen%d_Agent_%d"), GenerationCount, 1);
-            FString FinalAssetPath = TreeWrapper->SaveAsNewAsset(SaveName, true);
+	for (auto& Pair : ActiveAgents)
+	{
+		APawn* Agent = Pair.Key;
+		UCustomBehaviourTree* TreeWrapper = Pair.Value;
+
+		if (IsValid(Agent) && TreeWrapper)
+		{
+			// 1. Calculate Fitness
+			float FitnessScore = 0.0f;
+			if (UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>())
+			{
+				FitnessScore = Tracker->CalculateFitness();
+			}
+
+			// 2. Save Asset for next generation
+			FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/Gen%d_Agent_%d"), GenerationCount, 1);
+			FString FinalAssetPath = TreeWrapper->SaveAsNewAsset(SaveName, true);
             
-            float FitnessScore = 0.0f;
-            if (UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>())
-            {
-                FitnessScore = Tracker->CalculateFitness();
-            }
+			// 3. Record Result
+			FSimulationResult RunResult;
+			RunResult.BehaviorTreePath = FinalAssetPath;
+			RunResult.Fitness = FitnessScore;
+			RunResult.GenerationNumber = GenerationCount;
 
-            FSimulationResult RunResult;
-            RunResult.BehaviorTreePath = FinalAssetPath;
-            RunResult.Fitness = FitnessScore;
-            RunResult.GenerationNumber = GenerationCount;
+			AllTimeResults.Add(RunResult);
 
-            AllTimeResults.Add(RunResult);
-
-        	TreeWrapper->AppendTreeToLogFile(TEXT("EvolutionHistory.txt"), GenerationCount, FitnessScore);
+			// 4. LOG TO FILE (This creates EvolutionHistory.txt)
+			TreeWrapper->AppendTreeToLogFile(TEXT("EvolutionHistory.txt"), GenerationCount, FitnessScore);
             
-            if (AController* C = Agent->GetController()) C->Destroy();
-            Agent->Destroy();
-        }
-    }
-    ActiveAgents.Empty();
+			// Cleanup
+			if (AController* C = Agent->GetController()) C->Destroy();
+			Agent->Destroy();
+		}
+	}
     
-    GenerationCount++;
-    FinishEpoch();
+	// Clear list for next run
+	ActiveAgents.Empty();
+    
+	GenerationCount++;
+	FinishEpoch();
 }
 
 void UGeneticSimulationManager::SetPause(bool bPauseState)
