@@ -56,22 +56,19 @@ bool UCustomBehaviourTree::LoadBehaviorTree(const FString& AssetPath)
 
 void UCustomBehaviourTree::InitFromTreeInstance(UBehaviorTree* SourceTree)
 {
-	if (!SourceTree)
+	if (!SourceTree) return;
+
+	// 1. Create a fresh Asset container
+	BehaviorTreeAsset = NewObject<UBehaviorTree>(GetOuter(), NAME_None, RF_Public | RF_Transactional);
+    
+	// Copy basic settings (Blackboard reference, etc.)
+	BehaviorTreeAsset->BlackboardAsset = SourceTree->BlackboardAsset;
+
+	// 2. DEEP COPY THE HIERARCHY
+	if (SourceTree->RootNode)
 	{
-		UE_LOG(LogTemp, Error, TEXT("InitFromTreeInstance: SourceTree is null!"));
-		return;
+		BehaviorTreeAsset->RootNode = Cast<UBTCompositeNode>(DuplicateNodeRecursive(SourceTree->RootNode, BehaviorTreeAsset));
 	}
-
-	// Create a new unique name for this generation's variant
-	FString NewName = FString::Printf(TEXT("%s_MutableCopy"), *SourceTree->GetName());
-
-	// DEEP COPY the asset into this object (Transient)
-	BehaviorTreeAsset = DuplicateObject<UBehaviorTree>(SourceTree, this, *NewName);
-
-	// Detach from any old graph to prevent editor crashes if we open it
-	BehaviorTreeAsset->BTGraph = nullptr;
-
-	UE_LOG(LogTemp, Log, TEXT("Cloned Tree: %s -> %s"), *SourceTree->GetName(), *BehaviorTreeAsset->GetName());
 }
 
 FString UCustomBehaviourTree::SaveAsNewAsset(const FString& DestinationPackagePath, bool bOverwriteExisting)
@@ -470,23 +467,32 @@ UCustomBehaviourTree* UCustomBehaviourTree::PerformCrossover(UCustomBehaviourTre
 {
     if (!DonorTreeWrapper || !BehaviorTreeAsset) return nullptr;
 
+    // 1. Create New Wrapper (Standard)
     UCustomBehaviourTree* ChildWrapper = NewObject<UCustomBehaviourTree>(GetOuter());
+    
+    // 2. Init as Deep Copy of Self (Parent A)
+    // This now uses the safe recursive copy we wrote above
     ChildWrapper->InitFromTreeInstance(this->BehaviorTreeAsset);
 
+    // 3. Find Slots
     TArray<FNodeHandle> ChildSlots;
     ChildWrapper->GetAllCompositeSlots(ChildWrapper->GetBTAsset()->RootNode, ChildSlots);
 
     TArray<UBTNode*> DonorSubtrees;
     ChildWrapper->GetAllSubtrees(DonorTreeWrapper->GetBTAsset()->RootNode, DonorSubtrees);
 
+    // 4. Perform Swap
     if (ChildSlots.Num() > 0 && DonorSubtrees.Num() > 0)
     {
         FNodeHandle TargetSlot = ChildSlots[FMath::RandRange(0, ChildSlots.Num() - 1)];
         UBTNode* DonorNode = DonorSubtrees[FMath::RandRange(0, DonorSubtrees.Num() - 1)];
-        
-        UBTNode* ClonedGene = DuplicateObject<UBTNode>(DonorNode, ChildWrapper->GetBTAsset());
-        ClonedGene->InitializeFromAsset(*ChildWrapper->GetBTAsset());
 
+        // *** FIX: USE RECURSIVE DUPLICATION ***
+        // This ensures the subtree we steal from Parent B is fully owned by the Child,
+        // with no lingering pointers to Parent B's package.
+        UBTNode* ClonedGene = DuplicateNodeRecursive(DonorNode, ChildWrapper->GetBTAsset());
+        
+        // Link it up
         if (TargetSlot.Parent->Children.IsValidIndex(TargetSlot.ChildIndex))
         {
             FBTCompositeChild& Link = TargetSlot.Parent->Children[TargetSlot.ChildIndex];
@@ -509,6 +515,7 @@ UCustomBehaviourTree* UCustomBehaviourTree::PerformCrossover(UCustomBehaviourTre
             return ChildWrapper;
         }
     }
+    
     OutLog = TEXT("Crossover Failed (No valid slots)");
     return ChildWrapper;
 }
@@ -586,60 +593,124 @@ FString UCustomBehaviourTree::GetTreeAsString()
 
 void UCustomBehaviourTree::AppendTreeToLogFile(const FString& FileName, int32 Generation, float Fitness)
 {
-	FString FullPath = FPaths::ProjectLogDir() / FileName;
-	TStringBuilder<8192> LogBuilder;
+    FString FullPath = FPaths::ProjectLogDir() / FileName;
+    TStringBuilder<16384> LogBuilder; // Increased buffer size for multiple trees
 
-	LogBuilder.Append(TEXT("\n================================================================================\n"));
-	LogBuilder.Appendf(TEXT(" GENERATION %d  |  FITNESS: %.2f  |  %s\n"), Generation, Fitness, *GetName());
-	LogBuilder.Append(TEXT("================================================================================\n"));
+    LogBuilder.Append(TEXT("\n================================================================================\n"));
+    LogBuilder.Appendf(TEXT(" GENERATION %d  |  FITNESS: %.2f  |  %s\n"), Generation, Fitness, *GetName());
+    LogBuilder.Append(TEXT("================================================================================\n"));
 
-	// 1. GENEALOGY REPORT
-	LogBuilder.Appendf(TEXT(">> PARENT SELECTION (%s)\n"), *EvolutionData.SelectionMethod);
-	LogBuilder.Appendf(TEXT("   Parent A: %s\n"), *EvolutionData.ParentA_Path);
-	if (!EvolutionData.ParentB_Path.IsEmpty())
-	{
-		LogBuilder.Appendf(TEXT("   Parent B: %s\n"), *EvolutionData.ParentB_Path);
-	}
-	else
-	{
-		LogBuilder.Append(TEXT("   Parent B: (None - Asexual Reproduction)\n"));
-	}
-	
-	// 2. MODIFICATION REPORT
-	LogBuilder.Append(TEXT("\n>> CROSSBREEDING RESULT\n"));
-	if (!EvolutionData.CrossoverLog.IsEmpty())
-	{
-		LogBuilder.Appendf(TEXT("   %s\n"), *EvolutionData.CrossoverLog);
-	}
-	else
-	{
-		LogBuilder.Append(TEXT("   No Crossover performed (Clone).\n"));
-	}
+    // 1. GENEALOGY REPORT
+    LogBuilder.Appendf(TEXT(">> PARENT SELECTION (%s)\n"), *EvolutionData.SelectionMethod);
+    LogBuilder.Appendf(TEXT("   Parent A Path: %s\n"), *EvolutionData.ParentA_Path);
+    if (!EvolutionData.ParentB_Path.IsEmpty())
+    {
+        LogBuilder.Appendf(TEXT("   Parent B Path: %s\n"), *EvolutionData.ParentB_Path);
+    }
+    else
+    {
+        LogBuilder.Append(TEXT("   Parent B Path: (None)\n"));
+    }
+    
+    // --- NEW: PARENT STRUCTURES ---
+    if (!EvolutionData.ParentA_Structure.IsEmpty())
+    {
+        LogBuilder.Append(TEXT("\n>> PARENT A STRUCTURE:\n"));
+        LogBuilder.Append(EvolutionData.ParentA_Structure);
+    }
+    
+    if (!EvolutionData.ParentB_Structure.IsEmpty())
+    {
+        LogBuilder.Append(TEXT("\n>> PARENT B STRUCTURE:\n"));
+        LogBuilder.Append(EvolutionData.ParentB_Structure);
+    }
+    // -----------------------------
 
-	LogBuilder.Append(TEXT("\n>> MUTATION REPORT\n"));
-	if (!EvolutionData.MutationLog.IsEmpty())
-	{
-		LogBuilder.Appendf(TEXT("   %s\n"), *EvolutionData.MutationLog);
-	}
-	else
-	{
-		LogBuilder.Append(TEXT("   No Mutation occurred.\n"));
-	}
+    // 2. MODIFICATION REPORT
+    LogBuilder.Append(TEXT("\n>> CROSSBREEDING RESULT\n"));
+    LogBuilder.Appendf(TEXT("   %s\n"), !EvolutionData.CrossoverLog.IsEmpty() ? *EvolutionData.CrossoverLog : TEXT("Clone (No Crossover)"));
 
-	// 3. PARENT SNAPSHOTS (Optional - can be verbose)
-	/* LogBuilder.Append(TEXT("\n>> PARENT A STRUCTURE:\n"));
-	LogBuilder.Append(EvolutionData.ParentA_Structure);
-	if (!EvolutionData.ParentB_Path.IsEmpty()) {
-		LogBuilder.Append(TEXT("\n>> PARENT B STRUCTURE:\n"));
-		LogBuilder.Append(EvolutionData.ParentB_Structure);
-	}
-	*/
+    LogBuilder.Append(TEXT("\n>> MUTATION REPORT\n"));
+    LogBuilder.Appendf(TEXT("   %s\n"), !EvolutionData.MutationLog.IsEmpty() ? *EvolutionData.MutationLog : TEXT("No Mutation"));
 
-	// 4. FINAL RESULT
-	LogBuilder.Append(TEXT("\n>> FINAL PHENOTYPE (Result Tree):\n"));
-	LogBuilder.Append(GetTreeAsString());
-	
-	LogBuilder.Append(TEXT("================================================================================\n"));
+    // 3. FINAL RESULT
+    LogBuilder.Append(TEXT("\n>> FINAL PHENOTYPE (Result Tree):\n"));
+    LogBuilder.Append(GetTreeAsString());
+    
+    LogBuilder.Append(TEXT("================================================================================\n"));
 
-	FFileHelper::SaveStringToFile(LogBuilder.ToString(), *FullPath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_Append);
+    FFileHelper::SaveStringToFile(LogBuilder.ToString(), *FullPath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_Append);
+}
+
+
+UBTNode* UCustomBehaviourTree::DuplicateNodeRecursive(UBTNode* SourceNode, UBehaviorTree* TargetAsset)
+{
+    if (!SourceNode || !TargetAsset) return nullptr;
+
+    // 1. Duplicate the Node itself (Shallow copy of properties)
+    UBTNode* NewNode = DuplicateObject<UBTNode>(SourceNode, TargetAsset);
+    NewNode->InitializeFromAsset(*TargetAsset); // Important: Bind to new tree
+
+    // 2. If it is a Composite, we must Deep Copy its children references
+    if (UBTCompositeNode* SourceComp = Cast<UBTCompositeNode>(SourceNode))
+    {
+        UBTCompositeNode* NewComp = Cast<UBTCompositeNode>(NewNode);
+        
+        // The DuplicateObject call copied the "Children" array struct, 
+        // effectively copying the POINTERS to the OLD nodes. We must overwrite them.
+        
+        for (int32 i = 0; i < NewComp->Children.Num(); i++)
+        {
+            FBTCompositeChild& NewLink = NewComp->Children[i];
+            
+            // Get the OLD child (currently pointed to)
+            UBTNode* OldChild = NewLink.ChildComposite ? (UBTNode*)NewLink.ChildComposite : (UBTNode*)NewLink.ChildTask;
+            
+            if (OldChild)
+            {
+                // RECURSIVE CALL: Create a fresh copy of the child
+                UBTNode* NewChild = DuplicateNodeRecursive(OldChild, TargetAsset);
+                
+                // REASSIGN the link to the NEW child
+                if (UBTCompositeNode* C = Cast<UBTCompositeNode>(NewChild))
+                {
+                    NewLink.ChildComposite = C;
+                    NewLink.ChildTask = nullptr;
+                }
+                else if (UBTTaskNode* T = Cast<UBTTaskNode>(NewChild))
+                {
+                    NewLink.ChildTask = T;
+                    NewLink.ChildComposite = nullptr;
+                }
+            }
+
+            // 3. DUPLICATE DECORATORS (Attached to the link)
+            TArray<UBTDecorator*> NewDecos;
+            for (UBTDecorator* OldDeco : NewLink.Decorators)
+            {
+                if (OldDeco)
+                {
+                     UBTDecorator* NewDeco = DuplicateObject<UBTDecorator>(OldDeco, TargetAsset);
+                     NewDeco->InitializeFromAsset(*TargetAsset);
+                     NewDecos.Add(NewDeco);
+                }
+            }
+            NewLink.Decorators = NewDecos;
+        }
+        
+        // 4. DUPLICATE SERVICES (Attached to the Composite)
+        TArray<UBTService*> NewServices;
+        for (UBTService* OldService : SourceComp->Services)
+        {
+             if (OldService)
+             {
+                 UBTService* NewS = DuplicateObject<UBTService>(OldService, TargetAsset);
+                 NewS->InitializeFromAsset(*TargetAsset);
+                 NewServices.Add(NewS);
+             }
+        }
+        NewComp->Services = NewServices;
+    }
+    
+    return NewNode;
 }

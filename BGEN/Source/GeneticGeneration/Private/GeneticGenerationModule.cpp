@@ -46,7 +46,7 @@ void FGeneticGenerationModule::StartupModule()
 
     // 6. Initialize State
     CurrentEpoch = 0;
-    TotalEpochs = 100; // Set desired amount
+    TotalEpochs = 1000; // Set desired amount
     bIsRunningGeneticLoop = true;
 
     // 7. KICKSTART THE LOOP

@@ -194,13 +194,13 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn, FString Genome
     for (int32 i = 0; i < AmountToSpawn; i++)
     {
         // 2. Spawn Logic
-        FVector Loc = (EnemySpawnPositions.IsValidIndex(i)) ? EnemySpawnPositions[i] : FVector(i * 150.0f, 0.0f, 210.0f);
+        FVector Loc = (EnemySpawnPositions.IsValidIndex(i)) ? EnemySpawnPositions[i] : FVector(i * 150.0f, 1500.0f, 210.0f);
         ACharacter* Enemy = TargetWorld->SpawnActor<ACharacter>(EnemyClass, Loc, FRotator::ZeroRotator);
         ACustomAIController* AI = TargetWorld->SpawnActor<ACustomAIController>(ControllerClass, Loc, FRotator::ZeroRotator);
 
         if (!Enemy || !AI) continue;
 
-        // Attach Fitness
+        // Attach Fitness Tracker
         UGeneticFitnessTracker* FitnessComp = NewObject<UGeneticFitnessTracker>(Enemy);
         FitnessComp->RegisterComponent();
         Enemy->AddInstanceComponent(FitnessComp);
@@ -221,29 +221,41 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn, FString Genome
 
             if (UGeneticSelectionLibrary::IsValidResult(ParentA))
             {
+                // LOAD PARENT A
                 UCustomBehaviourTree* WrapperA = NewObject<UCustomBehaviourTree>(this);
-                WrapperA->LoadBehaviorTree(ParentA.BehaviorTreePath);
-                
-                // Crossover
-                if (FMath::FRand() < 0.7f) 
+                if (WrapperA->LoadBehaviorTree(ParentA.BehaviorTreePath))
                 {
-                    UCustomBehaviourTree* WrapperB = NewObject<UCustomBehaviourTree>(this);
-                    if(WrapperB->LoadBehaviorTree(ParentB.BehaviorTreePath))
+                    // *** CAPTURE PARENT A STRUCTURE (For Log) ***
+                    History.ParentA_Path = ParentA.BehaviorTreePath;
+                    History.ParentA_Structure = WrapperA->GetTreeAsString();
+                    
+                    // Crossover Logic (70% Chance)
+                    bool bCrossoverSuccess = false;
+                    if (UGeneticSelectionLibrary::IsValidResult(ParentB) && FMath::FRand() < 0.7f) 
                     {
-                         FString Log;
-                         ChildWrapper = WrapperA->PerformCrossover(WrapperB, Log);
-                         History.CrossoverLog = Log;
+                        // LOAD PARENT B
+                        UCustomBehaviourTree* WrapperB = NewObject<UCustomBehaviourTree>(this);
+                        if(WrapperB->LoadBehaviorTree(ParentB.BehaviorTreePath))
+                        {
+                             // *** CAPTURE PARENT B STRUCTURE (For Log) ***
+                             History.ParentB_Path = ParentB.BehaviorTreePath;
+                             History.ParentB_Structure = WrapperB->GetTreeAsString();
+
+                             FString Log;
+                             ChildWrapper = WrapperA->PerformCrossover(WrapperB, Log);
+                             History.CrossoverLog = Log;
+                             bCrossoverSuccess = true;
+                        }
+                    }
+                    
+                    // Fallback: Clone Parent A if Crossover failed or skipped
+                    if (!bCrossoverSuccess)
+                    {
+                        ChildWrapper = NewObject<UCustomBehaviourTree>(this);
+                        ChildWrapper->InitFromTreeInstance(WrapperA->GetBTAsset());
+                        History.CrossoverLog = TEXT("Clone (No Crossover)");
                     }
                 }
-                
-                // Clone if Crossover didn't happen
-                if (!ChildWrapper)
-                {
-                    ChildWrapper = NewObject<UCustomBehaviourTree>(this);
-                    ChildWrapper->InitFromTreeInstance(WrapperA->GetBTAsset());
-                    History.CrossoverLog = TEXT("Clone");
-                }
-                History.ParentA_Path = ParentA.BehaviorTreePath;
             }
         }
 
@@ -256,6 +268,7 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn, FString Genome
                 bIsSeed = true;
                 History.SelectionMethod = TEXT("Seed (Gen 0)");
                 History.ParentA_Path = GenomePath;
+                History.ParentA_Structure = ChildWrapper->GetTreeAsString(); // Capture Seed Structure
             }
             else
             {
@@ -275,13 +288,14 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn, FString Genome
                 // Mutate 5 times to generate a complex tree immediately
                 for(int k=0; k<5; k++)
                 {
-                    MLog += UGeneticMutationLibrary::MutateTree(ChildWrapper, 1.0f) + " | ";
+                    FString StepLog = UGeneticMutationLibrary::MutateTree(ChildWrapper, 1.0f);
+                    if (!StepLog.IsEmpty()) MLog += StepLog + " | ";
                 }
                 History.MutationLog = TEXT("BOOTSTRAP: ") + MLog;
             }
             else
             {
-                // Standard Evolution
+                // Standard Evolution (40% Chance)
                 History.MutationLog = UGeneticMutationLibrary::MutateTree(ChildWrapper, 0.40f);
             }
 

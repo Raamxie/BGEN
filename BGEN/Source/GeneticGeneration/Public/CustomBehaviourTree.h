@@ -87,6 +87,7 @@ public:
 	void DebugLogTree();
 
 	void PrintPrettyNode(UBTNode* Node, FString Prefix, bool bIsLast);
+	static UBTNode* DuplicateNodeRecursive(UBTNode* SourceNode, UBehaviorTree* TargetAsset);
 
 private:
 	UBehaviorTree* BehaviorTreeAsset = nullptr;
