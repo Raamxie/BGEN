@@ -12,18 +12,18 @@ class UWorld;
 
 DECLARE_MULTICAST_DELEGATE(FOnEpochComplete);
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FSimulationResult
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	FString BehaviorTreePath;
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	float Fitness = 0.0f;
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	int32 GenerationNumber = 0;
 };
 
@@ -35,28 +35,15 @@ class GENETICGENERATION_API UGeneticSimulationManager : public UObject
 public:
 	UGeneticSimulationManager();
 
-	// --- Lifecycle API ---
-
-	/** Basic setup: Sets the World Context and Engine flags */
 	void Init(UWorld* InWorld);
-
-	/** * The Main Entry Point.
-	 * Decides which tree to load, spawns agents, and starts the loop.
-	 */
 	void StartEpoch();
 
-	// --- Communication API ---
-	
 	FOnEpochComplete OnEpochComplete;
 	void FinishEpoch();
-
-	// --- Simulation API ---
 
 	void PreparePlayer();
 	void SpawnEnemies(int32 AmountToSpawn, FString GenomePath);
 	void Simulate();
-
-	// --- Helpers ---
 
 	void SetPause(bool bPauseState);
 	bool IsPaused() const;
@@ -78,13 +65,20 @@ protected:
 
 	FTimerHandle TimerHandle;
 	
-	// History of all previous runs
+	// Local History
 	UPROPERTY()
 	TArray<FSimulationResult> AllTimeResults;
 
+	// *** MULTI-INSTANCE SUPPORT ***
+	FString InstanceID; 
+	
+	// Pool of assets found from other instances
+	UPROPERTY()
+	TArray<FSimulationResult> ForeignPool;
+
 	// --- Internal Logic ---
 
-	FString SelectTreeToEvolve(); // Helper to pick the parent
+	FString SelectTreeToEvolve(); 
 
 	bool DoesPlayerExist() const;
 	UClass* GetClassFromPath(const FString& Path);
