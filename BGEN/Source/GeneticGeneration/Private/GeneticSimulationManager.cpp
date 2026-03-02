@@ -2,6 +2,7 @@
 #include "GeneticGenerationModule.h"
 #include "CustomAIController.h"
 #include "CustomBehaviourTree.h"
+#include "GeneticExchangeLibrary.h"
 #include "GeneticFitnessTracker.h"
 #include "PlayerUnleashedBase.h"
 #include "Kismet/GameplayStatics.h"
@@ -21,7 +22,7 @@ UGeneticSimulationManager::UGeneticSimulationManager()
 
 void UGeneticSimulationManager::Init(UWorld* InWorld)
 {
-    TargetWorld = InWorld;
+	TargetWorld = InWorld;
 	
 	if (GEngine)
 	{
@@ -29,104 +30,106 @@ void UGeneticSimulationManager::Init(UWorld* InWorld)
 		GEngine->bUseFixedFrameRate = true; 
 		GEngine->FixedFrameRate = 60.0f;    
 	}
-}	
+
+	// 1. SETUP IDENTITY
+	// Check if ID is passed via command line (e.g. -InstanceID=1)
+	FString CmdID;
+	if (FParse::Value(FCommandLine::Get(), TEXT("InstanceID="), CmdID))
+	{
+		InstanceID = TEXT("Island_") + CmdID;
+	}
+	else
+	{
+		// Fallback to random if running locally/testing
+		InstanceID = TEXT("Island_") + FGuid::NewGuid().ToString().Left(4);
+	}
+	UE_LOG(LogGeneticGeneration, Warning, TEXT("MANAGER: Initialized as %s"), *InstanceID);
+}
 
 void UGeneticSimulationManager::StartEpoch()
 {
 	UE_LOG(LogGeneticGeneration, Display, TEXT("--------------------------------------------------"));
 	UE_LOG(LogGeneticGeneration, Display, TEXT("MANAGER: Starting Generation %d"), GenerationCount);
 
-    if (!TargetWorld)
-    {
-        UE_LOG(LogGeneticGeneration, Error, TEXT("MANAGER: Cannot start epoch - TargetWorld is null!"));
-        return;
-    }
+	if (!TargetWorld) return;
 
-	if (GenerationCount == 1)
+	// Cleanup
+	if (TimerHandle.IsValid()) TargetWorld->GetTimerManager().ClearTimer(TimerHandle);
+	EnemySpawnPositions.Empty(); 
+	
+	// *** 2. EXCHANGE STEP: LOOK FOR NEW FOREIGN ASSETS ***
+	// Scan the shared folder
+	TArray<FSimulationResult> NewForeigners = UGeneticExchangeLibrary::ScanForForeignGenomes(InstanceID);
+	
+	if (NewForeigners.Num() > 0)
 	{
-		FString HistoryLogPath = FPaths::ProjectLogDir() / TEXT("EvolutionHistory.txt");
-        
-		// Delete the file if it exists, so we start fresh for this session
-		if (FPaths::FileExists(HistoryLogPath))
+		// Add to our foreign pool
+		ForeignPool.Append(NewForeigners);
+		
+		// Clean up pool if too large (keep best 100)
+		if (ForeignPool.Num() > 100)
 		{
-			IFileManager::Get().Delete(*HistoryLogPath);
-			UE_LOG(LogGeneticGeneration, Warning, TEXT("Manager: Cleared old Evolution History log."));
+			ForeignPool.Sort([](const FSimulationResult& A, const FSimulationResult& B) {
+				return A.Fitness > B.Fitness; 
+			});
+			ForeignPool.SetNum(100);
 		}
 	}
-	
-	// 1. Cleanup from previous runs (Safety)
-	if (TimerHandle.IsValid())
-    {
-        TargetWorld->GetTimerManager().ClearTimer(TimerHandle);
-    }
-	EnemySpawnPositions.Empty(); 
-    
-	// 2. DECIDE: Pick the "Parent" Tree
-	FString SeedPath = TEXT("/Game/Actors/EnemyUnleashed/Test");
-	
-	// 3. EXECUTE: Setup the arena
+
+	// Setup Arena
 	SetPause(true);
 	PreparePlayer();
 	
-    // 4. SPAWN: Pass the chosen gene to the spawner
+	// Pass seed path (only used if no history exists)
+	FString SeedPath = TEXT("/Game/Actors/EnemyUnleashed/Test");
 	SpawnEnemies(1, SeedPath); 
 	
-    // 5. RUN
 	Simulate();
 }
 
 FString UGeneticSimulationManager::SelectTreeToEvolve()
 {
-	// 1. First Run Case: No history yet
-	if (AllTimeResults.Num() == 0)
+	// 1. Create a "Mega Pool" of Local History + Foreign Discoveries
+	TArray<FSimulationResult> MegaPool = AllTimeResults;
+	MegaPool.Append(ForeignPool);
+
+	if (MegaPool.Num() == 0)
 	{
-		UE_LOG(LogGeneticGeneration, Warning, TEXT("Selection: First run. Loading default tree."));
 		return TEXT("/Game/Actors/EnemyUnleashed/Test"); 
 	}
 
-	// 2. Step 1: Filter for "Successful" Agents (Fitness > 0)
-	TArray<FSimulationResult> PositiveCandidates;
-	for (const FSimulationResult& Result : AllTimeResults)
+	// 2. Filter valid
+	TArray<FSimulationResult> Candidates;
+	for (const FSimulationResult& Result : MegaPool)
 	{
-		if (Result.Fitness > 0.0f)
+		if (Result.Fitness > 0.0f && !Result.BehaviorTreePath.IsEmpty())
 		{
-			PositiveCandidates.Add(Result);
+			Candidates.Add(Result);
 		}
 	}
 
-	// 3. Step 2: Decision
-	if (PositiveCandidates.Num() > 0)
+	if (Candidates.Num() > 0)
 	{
-		// Scenario A: We have at least one successful ancestor. Pick one randomly.
-		int32 RandIndex = FMath::RandRange(0, PositiveCandidates.Num() - 1);
-		const FSimulationResult& Winner = PositiveCandidates[RandIndex];
-        
-		UE_LOG(LogGeneticGeneration, Display, TEXT("Selection: Picked successful ancestor from Gen %d (Fitness: %.2f)"), Winner.GenerationNumber, Winner.Fitness);
+		// 3. Tournament Selection on the mixed pool
+		FSimulationResult Winner = UGeneticSelectionLibrary::TournamentSelection(Candidates, 3);
+		
+		// Logging source
+		if (Winner.BehaviorTreePath.Contains("Exchange"))
+		{
+			UE_LOG(LogGeneticGeneration, Display, TEXT("Selection: Crossbreeding with FOREIGN genome: %s"), *Winner.BehaviorTreePath);
+		}
+		else
+		{
+			UE_LOG(LogGeneticGeneration, Display, TEXT("Selection: Local ancestor chosen: %s"), *Winner.BehaviorTreePath);
+		}
+
 		return Winner.BehaviorTreePath;
 	}
 	else
 	{
-		// Scenario B: No one has succeeded yet. Pick ANY previous attempt to mutate further.
-		int32 RandIndex = FMath::RandRange(0, AllTimeResults.Num() - 1);
-		const FSimulationResult& RandomPick = AllTimeResults[RandIndex];
-
-		UE_LOG(LogGeneticGeneration, Warning, TEXT("Selection: No positive fitness found. Picking random ancestor from Gen %d."), RandomPick.GenerationNumber);
-		return RandomPick.BehaviorTreePath;
-	}
-}
-
-
-UWorld* UGeneticSimulationManager::GetWorld() const
-{
-    return TargetWorld;
-}
-
-void UGeneticSimulationManager::FinishEpoch()
-{
-	UE_LOG(LogGeneticGeneration, Log, TEXT("Manager: Epoch Finished. Notifying Module..."));
-	if (OnEpochComplete.IsBound())
-	{
-		OnEpochComplete.Broadcast();
+		// Fallback
+		int32 RandIndex = FMath::RandRange(0, MegaPool.Num() - 1);
+		return MegaPool[RandIndex].BehaviorTreePath;
 	}
 }
 
@@ -342,20 +345,6 @@ void UGeneticSimulationManager::Simulate()
 	SetPause(false);
 }
 
-// ... [Include TimerCallback, StopSimulation (With fix), PlayerDiedListener etc] ...
-
-void UGeneticSimulationManager::TimerCallback()
-{
-	UE_LOG(LogGeneticGeneration, Warning, TEXT("DEBUG: TIMEOUT! Simulation time limit reached."));
-	StopSimulation(); 
-}
-
-void UGeneticSimulationManager::PlayerDiedListener()
-{
-	UE_LOG(LogGeneticGeneration, Display, TEXT("DEBUG: EVENT: Player Died! Goal condition met."));
-	StopSimulation(); 
-}
-
 void UGeneticSimulationManager::StopSimulation()
 {
 	if (TargetWorld && TimerHandle.IsValid())
@@ -364,7 +353,11 @@ void UGeneticSimulationManager::StopSimulation()
 	}
 	SetPause(true);
 
-	UE_LOG(LogGeneticGeneration, Log, TEXT("Manager: Stopping Simulation. Processing %d Agents..."), ActiveAgents.Num());
+	// Track the best agent of THIS generation to export it
+	UCustomBehaviourTree* BestWrapperOfGen = nullptr;
+	float BestFitnessOfGen = -1.0f;
+
+	UE_LOG(LogGeneticGeneration, Log, TEXT("Manager: Stopping Simulation. Processing Agents..."));
 
 	for (auto& Pair : ActiveAgents)
 	{
@@ -373,62 +366,63 @@ void UGeneticSimulationManager::StopSimulation()
 
 		if (IsValid(Agent) && TreeWrapper)
 		{
-			// 1. Calculate Fitness
+			// 1. Calc Fitness
 			float FitnessScore = 0.0f;
 			if (UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>())
 			{
 				FitnessScore = Tracker->CalculateFitness();
 			}
 
-			// 2. Save Asset for next generation
-			FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/Gen%d_Agent_%d"), GenerationCount, 1);
+			// 2. Save Standard Local Asset (For history/logging)
+			// e.g. /Game/BehaviourTrees/Generated/GenX_AgentY
+			FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/Gen%d_Agent_%d"), GenerationCount, FMath::Rand());
 			FString FinalAssetPath = TreeWrapper->SaveAsNewAsset(SaveName, true);
-            
-			// 3. Record Result
+			
+			// 3. Track Best
+			if (FitnessScore > BestFitnessOfGen)
+			{
+				BestFitnessOfGen = FitnessScore;
+				BestWrapperOfGen = TreeWrapper;
+			}
+
+			// 4. Record Result Locally
 			FSimulationResult RunResult;
 			RunResult.BehaviorTreePath = FinalAssetPath;
 			RunResult.Fitness = FitnessScore;
 			RunResult.GenerationNumber = GenerationCount;
 
 			AllTimeResults.Add(RunResult);
-
-			// 4. LOG TO FILE (This creates EvolutionHistory.txt)
 			TreeWrapper->AppendTreeToLogFile(TEXT("EvolutionHistory.txt"), GenerationCount, FitnessScore);
-            
+			
 			// Cleanup
 			if (AController* C = Agent->GetController()) C->Destroy();
 			Agent->Destroy();
 		}
 	}
-    
-	// Clear list for next run
+
+	// *** 5. EXPORT PHASE: Share Best Agent with the Swarm ***
+	if (BestWrapperOfGen && BestFitnessOfGen > 10.0f) // Only export if it's decent
+	{
+		// Generate the specific Exchange path: /Game/GeneticExchange/Ex_Island1_G5_F100_GUID
+		FString ExportPath = UGeneticExchangeLibrary::GenerateExchangePackagePath(InstanceID, GenerationCount, BestFitnessOfGen);
+		
+		// Save duplicate to the exchange folder
+		BestWrapperOfGen->SaveAsNewAsset(ExportPath, true);
+		
+		UE_LOG(LogGeneticGeneration, Log, TEXT("EXCHANGE: Exported best agent to %s"), *ExportPath);
+	}
+	
 	ActiveAgents.Empty();
-    
 	GenerationCount++;
 	FinishEpoch();
 }
 
-void UGeneticSimulationManager::SetPause(bool bPauseState)
-{
-    if (TargetWorld) UGameplayStatics::SetGamePaused(TargetWorld, bPauseState);
-}
-
-bool UGeneticSimulationManager::DoesPlayerExist() const
-{
-    return UGameplayStatics::GetPlayerCharacter(TargetWorld, 0) != nullptr;
-}
-
-UClass* UGeneticSimulationManager::GetClassFromPath(const FString& Path)
-{
-    return StaticLoadClass(UObject::StaticClass(), nullptr, *Path);
-}
-
-UObject* UGeneticSimulationManager::LoadObjectFromPath(const FString& Path)
-{
-    return StaticLoadObject(UObject::StaticClass(), nullptr, *Path);
-}
-
-bool UGeneticSimulationManager::IsPaused() const
-{
-    return UGameplayStatics::IsGamePaused(TargetWorld);
-}
+UWorld* UGeneticSimulationManager::GetWorld() const { return TargetWorld; }
+void UGeneticSimulationManager::FinishEpoch() { if (OnEpochComplete.IsBound()) OnEpochComplete.Broadcast(); }
+void UGeneticSimulationManager::SetPause(bool bPauseState) { if (TargetWorld) UGameplayStatics::SetGamePaused(TargetWorld, bPauseState); }
+bool UGeneticSimulationManager::IsPaused() const { return UGameplayStatics::IsGamePaused(TargetWorld); }
+bool UGeneticSimulationManager::DoesPlayerExist() const { return UGameplayStatics::GetPlayerCharacter(TargetWorld, 0) != nullptr; }
+UClass* UGeneticSimulationManager::GetClassFromPath(const FString& Path) { return StaticLoadClass(UObject::StaticClass(), nullptr, *Path); }
+UObject* UGeneticSimulationManager::LoadObjectFromPath(const FString& Path) { return StaticLoadObject(UObject::StaticClass(), nullptr, *Path); }
+void UGeneticSimulationManager::TimerCallback() { UE_LOG(LogGeneticGeneration, Warning, TEXT("TIMEOUT")); StopSimulation(); }
+void UGeneticSimulationManager::PlayerDiedListener() { UE_LOG(LogGeneticGeneration, Display, TEXT("PLAYER DIED")); StopSimulation(); }
