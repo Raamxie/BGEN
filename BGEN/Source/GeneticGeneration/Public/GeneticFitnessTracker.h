@@ -7,8 +7,6 @@
 #include "PlayerUnleashedBase.h"
 #include "GeneticFitnessTracker.generated.h"
 
-
-
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class GENETICGENERATION_API UGeneticFitnessTracker : public UActorComponent
 {
@@ -16,48 +14,58 @@ class GENETICGENERATION_API UGeneticFitnessTracker : public UActorComponent
 
 public:	
 	UGeneticFitnessTracker();
-	
-	// Change the signature to accept the target
+
 	void BeginTracking(AActor* InTargetPlayer);
-	// --- Configuration (Designer Tweaks these) ---
-	
-	// Points awarded per unit of damage dealt to the Player
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness")
-	float DamageDealtWeight = 1.0f;
-
-	// Points awarded per second survived
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness")
-	float SurvivalTimeWeight = 0.5f;
-
-	// Penalty for taking damage (keep positive, we subtract it)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness")
-	float DamageTakenPenalty = 0.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness")
-	float EfficiencyWeight = 0.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness")
-	float SurvivalWeight = 0.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness")
-	float PlayerKillBonus = 0.0f;
-
-	bool bDamagedPlayer = false;
-	// --- Runtime API ---
-
-	// Starts the timer and binds events
-	void BeginTracking();
-
-	// Returns the final calculated fitness
 	float CalculateFitness();
 
-	// Callable by Designer's BT Tasks (e.g., "Successfully Hid behind cover" -> Reward 50)
 	UFUNCTION(BlueprintCallable, Category = "Genetic Fitness")
 	void AddCustomReward(float Amount);
 
-protected:
+	// --- Configuration: General ---
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|General")
+	float BaseFitnessScore = 500.0f; // Gives a buffer so early generations don't hit 0
 
-	void BeginPlay() override;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|General")
+	float SurvivalTimeWeight = 0.5f;
+
+	// --- Configuration: Combat ---
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Combat")
+	float DamageDealtWeight = 1.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Combat")
+	float SuccessfulAttackBonus = 10.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Combat")
+	float DamageTakenPenalty = 1.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Combat")
+	float PlayerKillBonus = 500.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Combat")
+	float PacifistPenalty = 100.0f;
+
+	// --- Configuration: Movement ---
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Movement")
+	float DistanceMovedWeight = 0.05f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Movement")
+	float MinimumExpectedDistance = 500.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Movement")
+	float IdlePenalty = 150.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Movement")
+	float ProximityBonusWeight = 0.1f;
+
+	// --- Configuration: Structure ---
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Structure")
+	int32 MinimumTreeNodes = 3;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Structure")
+	float SmallTreePenalty = 200.0f;
+
+protected:
+	virtual void BeginPlay() override;
 
 	UFUNCTION()
 	void OnOwnerTakeDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser);
@@ -69,14 +77,23 @@ protected:
 	void OnPlayerDied();
 
 private:
+	UFUNCTION()
+	void RecordMovementRoutine();
+
+	int32 GetTreeSize() const;
+
 	float AccumulatedReward = 0.0f;
+	float AccumulatedDamageTaken = 0.0f;
+	float AccumulatedDistance = 0.0f;
+
 	double StartTime = 0.0f;
 	bool bTrackingActive = false;
 	bool bPlayerWasKilled = false;
+	bool bDamagedPlayer = false;
 
-	// Cache the player reference to detect when we hurt them
+	FVector LastRecordedLocation;
+	FTimerHandle MovementTimerHandle;
+
 	UPROPERTY()
 	AActor* TargetPlayer = nullptr;
-
-		
 };

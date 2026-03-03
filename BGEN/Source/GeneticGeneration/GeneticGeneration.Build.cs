@@ -18,7 +18,8 @@ public class GeneticGeneration : ModuleRules
 			"InputCore",
 			"Json",
 			"JsonUtilities",
-			"AssetRegistry"
+			"AssetRegistry",
+			"NavigationSystem"
 		});
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{

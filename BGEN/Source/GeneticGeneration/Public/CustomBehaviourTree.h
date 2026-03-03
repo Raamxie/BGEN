@@ -89,6 +89,12 @@ public:
 	void PrintPrettyNode(UBTNode* Node, FString Prefix, bool bIsLast);
 	static UBTNode* DuplicateNodeRecursive(UBTNode* SourceNode, UBehaviorTree* TargetAsset);
 
+	
+	FString GetTreeStructureForHash();
+	
+	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
+	FString GetTreeHash();
+
 private:
 	UBehaviorTree* BehaviorTreeAsset = nullptr;
 	

@@ -1,9 +1,11 @@
 #include "GeneticFitnessTracker.h"
-
 #include "GeneticGenerationModule.h"
 #include "GameFramework/Character.h"
 #include "Kismet/GameplayStatics.h"
-
+#include "CustomAIController.h"
+#include "CustomBehaviourTree.h"
+#include "Engine/World.h"
+#include "TimerManager.h"
 
 UGeneticFitnessTracker::UGeneticFitnessTracker()
 {
@@ -13,55 +15,56 @@ UGeneticFitnessTracker::UGeneticFitnessTracker()
 void UGeneticFitnessTracker::BeginPlay()
 {
 	Super::BeginPlay();
-	// We wait for explicit BeginTracking from the Manager to avoid recording setup time
 }
-
-// GeneticGeneration/Private/GeneticFitnessTracker.cpp
 
 void UGeneticFitnessTracker::BeginTracking(AActor* InTargetPlayer)
 {
-	UE_LOG(LogGeneticGeneration, Log, TEXT("Begin Tracking initiated."));
-
 	AActor* Owner = GetOwner();
 	if (!Owner) return;
 
-	// 1. Bind Owner Damage
-	Owner->OnTakeAnyDamage.RemoveDynamic(this, &UGeneticFitnessTracker::OnOwnerTakeDamage); // Safety remove
+	Owner->OnTakeAnyDamage.RemoveDynamic(this, &UGeneticFitnessTracker::OnOwnerTakeDamage);
 	Owner->OnTakeAnyDamage.AddDynamic(this, &UGeneticFitnessTracker::OnOwnerTakeDamage);
 
-	// 2. Use the passed Target Player (Dependency Injection)
-	TargetPlayer = InTargetPlayer; // Store in the member variable defined in .h
+	TargetPlayer = InTargetPlayer;
 
 	APlayerUnleashedBase* PlayerUnleashed = Cast<APlayerUnleashedBase>(TargetPlayer);
-
 	if (PlayerUnleashed)
 	{
-		UE_LOG(LogGeneticGeneration, Log, TEXT("Tracker: Bound to Player %s"), *PlayerUnleashed->GetName());
-
-		// Bind Death
 		PlayerUnleashed->OnPlayerEvent.RemoveDynamic(this, &UGeneticFitnessTracker::OnPlayerDied);
 		PlayerUnleashed->OnPlayerEvent.AddDynamic(this, &UGeneticFitnessTracker::OnPlayerDied);
 
-		// Bind Damage
 		PlayerUnleashed->OnTakeAnyDamage.RemoveDynamic(this, &UGeneticFitnessTracker::OnPlayerTakeDamage);
 		PlayerUnleashed->OnTakeAnyDamage.AddDynamic(this, &UGeneticFitnessTracker::OnPlayerTakeDamage);
 	}
-	else
-	{
-		UE_LOG(LogGeneticGeneration, Error, TEXT("Tracker: TargetPlayer is NULL or Invalid Cast!"));
-	}
 
-	// 3. Reset State
+	LastRecordedLocation = Owner->GetActorLocation();
+	GetWorld()->GetTimerManager().SetTimer(MovementTimerHandle, this, &UGeneticFitnessTracker::RecordMovementRoutine, 0.5f, true);
+
 	StartTime = GetWorld()->GetTimeSeconds();
 	bTrackingActive = true;
 	bPlayerWasKilled = false;
+	bDamagedPlayer = false;
 	AccumulatedReward = 0.0f;
+	AccumulatedDamageTaken = 0.0f;
+	AccumulatedDistance = 0.0f;
 }
 
+void UGeneticFitnessTracker::RecordMovementRoutine()
+{
+	if (!bTrackingActive) return;
+
+	AActor* Owner = GetOwner();
+	if (Owner)
+	{
+		FVector CurrentLocation = Owner->GetActorLocation();
+		AccumulatedDistance += FVector::Dist2D(LastRecordedLocation, CurrentLocation);
+		LastRecordedLocation = CurrentLocation;
+	}
+}
 void UGeneticFitnessTracker::OnOwnerTakeDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser)
 {
 	if (!bTrackingActive) return;
-	AccumulatedReward -= (Damage * DamageTakenPenalty);
+	AccumulatedDamageTaken += Damage;
 }
 
 void UGeneticFitnessTracker::OnPlayerTakeDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser)
@@ -70,58 +73,81 @@ void UGeneticFitnessTracker::OnPlayerTakeDamage(AActor* DamagedActor, float Dama
 
 	if (DamageCauser == GetOwner() || InstigatedBy == GetOwner()->GetInstigatorController())
 	{
-		AccumulatedReward += (Damage * DamageDealtWeight);
+		AccumulatedReward += (Damage * DamageDealtWeight) + SuccessfulAttackBonus;
 		bDamagedPlayer = true;
 	}
-	
 }
 
 void UGeneticFitnessTracker::OnPlayerDied()
 {
 	if (!bTrackingActive) return;
-
-	// Mark success so CalculateFitness knows we won
 	bPlayerWasKilled = true;
-    
-	// Optional: Log it
-	UE_LOG(LogTemp, Display, TEXT("Tracker: Enemy %s witnessed Player Death!"), *GetOwner()->GetName());
 }
 
 void UGeneticFitnessTracker::AddCustomReward(float Amount)
 {
-	if (bTrackingActive)
+	if (bTrackingActive) AccumulatedReward += Amount;
+}
+
+int32 UGeneticFitnessTracker::GetTreeSize() const
+{
+	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	if (OwnerPawn)
 	{
-		AccumulatedReward += Amount;
+		if (ACustomAIController* AI = Cast<ACustomAIController>(OwnerPawn->GetController()))
+		{
+			if (AI->RuntimeBehaviourWrapper && AI->RuntimeBehaviourWrapper->GetBTAsset())
+			{
+				TArray<UBTCompositeNode*> Composites;
+				TArray<UBTTaskNode*> Tasks;
+				AI->RuntimeBehaviourWrapper->CollectNodes(AI->RuntimeBehaviourWrapper->GetBTAsset()->RootNode, Composites, Tasks);
+				return Composites.Num() + Tasks.Num();
+			}
+		}
 	}
+	return 0; // Will trigger penalty if wrapper is missing or tree is empty
 }
 
 float UGeneticFitnessTracker::CalculateFitness()
 {
-	if (!bTrackingActive && AccumulatedReward == 0.0f) return 0.0f;
+	if (!bTrackingActive && AccumulatedReward == 0.0f) return 1.0f;
 
-	if (!bDamagedPlayer)
-	{
-		return -50.0f;
-	}
+	GetWorld()->GetTimerManager().ClearTimer(MovementTimerHandle);
 
 	double CurrentTime = GetWorld()->GetTimeSeconds();
 	float TimeAlive = (float)(CurrentTime - StartTime);
 
-	// BASE SCORE: Damage Dealt + Time Alive
-	float FinalScore = AccumulatedReward + (TimeAlive * SurvivalTimeWeight);
+	// 1. BASE REWARDS (Include BaseFitnessScore buffer)
+	float FinalScore = BaseFitnessScore + AccumulatedReward;
+	FinalScore += (TimeAlive * SurvivalTimeWeight);
+	FinalScore += (AccumulatedDistance * DistanceMovedWeight);
 
-	// VICTORY BONUS
-	if (bPlayerWasKilled)
+	if (TargetPlayer && GetOwner())
 	{
-		// 1. Flat Bonus for the kill
-		FinalScore += PlayerKillBonus;
-
-		// 2. Efficiency Bonus: The faster we killed, the better
-		// (Assuming 30.0f is max simulation time)
-		float TimeRemaining = FMath::Max(0.0f, 30.0f - TimeAlive);
-		FinalScore += (TimeRemaining * 50.0f); // 50 pts per second saved
+		float FinalDistanceToPlayer = FVector::Dist(TargetPlayer->GetActorLocation(), GetOwner()->GetActorLocation());
+		float ProximityScore = FMath::Max(0.0f, 2000.0f - FinalDistanceToPlayer); 
+		FinalScore += (ProximityScore * ProximityBonusWeight);
 	}
 
-	UE_LOG(LogTemp, Display, TEXT("Enemy Fitness: %f"), FinalScore);
-	return FMath::Max(0.0f, FinalScore);
+	// 2. PENALTIES
+	FinalScore -= (AccumulatedDamageTaken * DamageTakenPenalty);
+
+	if (!bDamagedPlayer) FinalScore -= PacifistPenalty;
+	if (AccumulatedDistance < MinimumExpectedDistance) FinalScore -= IdlePenalty;
+
+	int32 TreeSize = GetTreeSize();
+	if (TreeSize < MinimumTreeNodes) FinalScore -= SmallTreePenalty;
+
+	// 3. VICTORY CONDITIONS
+	if (bPlayerWasKilled)
+	{
+		FinalScore += PlayerKillBonus;
+		float TimeRemaining = FMath::Max(0.0f, 30.0f - TimeAlive);
+		FinalScore += (TimeRemaining * 50.0f); 
+	}
+
+	UE_LOG(LogGeneticGeneration, Display, TEXT("Enemy Fitness: %f (Dist: %.1f | TreeSize: %d)"), FinalScore, AccumulatedDistance, TreeSize);
+	
+	// Ensure we NEVER return 0 or negative so the Manager doesn't throw the score out
+	return FMath::Max(1.0f, FinalScore);
 }

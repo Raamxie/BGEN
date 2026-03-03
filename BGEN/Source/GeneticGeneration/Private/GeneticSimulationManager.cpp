@@ -15,6 +15,7 @@
 #include "HAL/PlatformFilemanager.h"
 #include "GeneticSelectionLibrary.h"
 #include "GeneticMutationLibrary.h"
+#include "NavigationSystem.h"
 
 UGeneticSimulationManager::UGeneticSimulationManager()
 {
@@ -78,6 +79,13 @@ void UGeneticSimulationManager::StartEpoch()
 
 	// Setup Arena
 	SetPause(true);
+
+	if (UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(TargetWorld))
+	{
+		UE_LOG(LogGeneticGeneration, Log, TEXT("Forcing Synchronous NavMesh Build..."));
+		NavSys->Build();
+	}
+	
 	PreparePlayer();
 	
 	// Pass seed path (only used if no history exists)
@@ -194,12 +202,38 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn, FString Genome
 
     UE_LOG(LogGeneticGeneration, Log, TEXT("--- SPAWNING GENERATION %d (%d Agents) ---"), GenerationCount, AmountToSpawn);
 
+	FVector SpawnLocation = FVector::ZeroVector;
+	FRotator SpawnRotation = FRotator::ZeroRotator;
+	AActor* SpawnPoint = nullptr;
+
+	// OPTION 1: Find by Blueprint Class Path (Replace with your actual path, remember the _C at the end!)
+	UClass* SpawnPointClass = GetClassFromPath("/Game/Actors/EnemyUnleashed/EnemySpawn.EnemySpawn_C");
+	if (SpawnPointClass)
+	{
+		SpawnPoint = UGameplayStatics::GetActorOfClass(TargetWorld, SpawnPointClass);
+	}
+
+	if (SpawnPoint)
+	{
+		SpawnLocation = SpawnPoint->GetActorLocation();
+		SpawnRotation = SpawnPoint->GetActorRotation();
+	}
+	else
+	{
+		UE_LOG(LogGeneticGeneration, Warning, TEXT("SpawnEnemies: Could not find BP_EnemySpawn in the world! Using fallback."));
+	}
+
     for (int32 i = 0; i < AmountToSpawn; i++)
     {
         // 2. Spawn Logic
-        FVector Loc = (EnemySpawnPositions.IsValidIndex(i)) ? EnemySpawnPositions[i] : FVector(i * 150.0f, 1500.0f, 210.0f);
-        ACharacter* Enemy = TargetWorld->SpawnActor<ACharacter>(EnemyClass, Loc, FRotator::ZeroRotator);
-        ACustomAIController* AI = TargetWorld->SpawnActor<ACustomAIController>(ControllerClass, Loc, FRotator::ZeroRotator);
+    	FVector Loc = SpawnPoint ? SpawnLocation : ((EnemySpawnPositions.IsValidIndex(i)) ? EnemySpawnPositions[i] : FVector(i * 150.0f, 1500.0f, 210.0f));
+    	FRotator Rot = SpawnPoint ? SpawnRotation : FRotator::ZeroRotator;
+
+    	FActorSpawnParameters SpawnParams;
+    	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+    	
+    	ACharacter* Enemy = TargetWorld->SpawnActor<ACharacter>(EnemyClass, Loc, Rot, SpawnParams);
+    	ACustomAIController* AI = TargetWorld->SpawnActor<ACustomAIController>(ControllerClass, Loc, Rot, SpawnParams);
 
         if (!Enemy || !AI) continue;
 
@@ -280,31 +314,74 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn, FString Genome
             }
         }
 
-        // 4. MUTATION & ASSIGNMENT
+       // 4. MUTATION & ASSIGNMENT
         if (ChildWrapper && ChildWrapper->GetBTAsset())
         {
             FString MLog;
+            bool bUniqueFound = false;
+            int32 MaxRetries = 20; // Failsafe to prevent infinite engine hangs
 
-            // BOOTSTRAP: If Seed (Gen 0), Force Heavy Mutation to create diversity
-            if (bIsSeed)
+            // Keep trying to mutate until we find a tree we haven't evaluated yet
+            for (int32 Attempt = 0; Attempt < MaxRetries; ++Attempt)
             {
-                // Mutate 5 times to generate a complex tree immediately
-                for(int k=0; k<5; k++)
+                // BOOTSTRAP: If Seed (Gen 0) on the very FIRST attempt
+                if (bIsSeed && Attempt == 0)
                 {
-                    FString StepLog = UGeneticMutationLibrary::MutateTree(ChildWrapper, 1.0f);
-                    if (!StepLog.IsEmpty()) MLog += StepLog + " | ";
+                    // Mutate 5 times to generate a complex tree immediately
+                    for(int k=0; k<5; k++)
+                    {
+                        FString StepLog = UGeneticMutationLibrary::MutateTree(ChildWrapper, 1.0f);
+                        if (!StepLog.IsEmpty()) MLog += StepLog + " | ";
+                    }
+                    History.MutationLog = TEXT("BOOTSTRAP: ") + MLog;
                 }
-                History.MutationLog = TEXT("BOOTSTRAP: ") + MLog;
+                else
+                {
+                    // If it's a retry, we FORCE a mutation (1.0f) so it doesn't get stuck checking the same tree.
+                    // If it's the first standard attempt, use the normal 40% chance.
+                    float MutRate = (Attempt == 0) ? 0.40f : 1.0f;
+                    FString StepLog = UGeneticMutationLibrary::MutateTree(ChildWrapper, MutRate);
+                    
+                    if (Attempt == 0)
+                    {
+                        History.MutationLog = StepLog.IsEmpty() ? TEXT("No Mutation") : StepLog;
+                    }
+                    else if (!StepLog.IsEmpty())
+                    {
+                        // Append retry logs so we can see the path it took to become unique
+                        History.MutationLog += FString::Printf(TEXT(" -> [Retry %d] %s"), Attempt, *StepLog);
+                    }
+                }
+
+                // --- DUPLICATE HASH CHECK ---
+                FString NewTreeHash = ChildWrapper->GetTreeHash();
+                FString ExistingAssetPath;
+                float KnownFitness = UGeneticExchangeLibrary::CheckIfTreeAlreadyEvaluated(NewTreeHash, ExistingAssetPath);
+
+                if (KnownFitness < 0.0f)
+                {
+                    // We found a completely unique, unevaluated tree! Break the loop.
+                    bUniqueFound = true;
+                    break; 
+                }
+                
             }
-            else
+
+            // If we maxed out our retries and STILL didn't find a unique tree, destroy it to save CPU
+            if (!bUniqueFound)
             {
-                // Standard Evolution (40% Chance)
-                History.MutationLog = UGeneticMutationLibrary::MutateTree(ChildWrapper, 0.40f);
+                UE_LOG(LogGeneticGeneration, Error, TEXT("Agent %d failed to generate a unique tree after %d attempts! Skipping..."), i, MaxRetries);
+                if (AI) AI->Destroy(); 
+                if (Enemy) Enemy->Destroy(); 
+                continue; // Skip adding to ActiveAgents!
             }
+            // ----------------------------------
 
             // Save History & Assign
             ChildWrapper->EvolutionData = History;
             AI->AssignTree(ChildWrapper->GetBTAsset(), BBAsset);
+
+        	AI->RuntimeBehaviourWrapper = ChildWrapper;
             
             // 5. CRITICAL: Add to Tracking List
             ActiveAgents.Add(Enemy, ChildWrapper);
@@ -353,8 +430,6 @@ void UGeneticSimulationManager::StopSimulation()
 	}
 	SetPause(true);
 
-	// Track the best agent of THIS generation to export it
-	UCustomBehaviourTree* BestWrapperOfGen = nullptr;
 	float BestFitnessOfGen = -1.0f;
 
 	UE_LOG(LogGeneticGeneration, Log, TEXT("Manager: Stopping Simulation. Processing Agents..."));
@@ -373,16 +448,18 @@ void UGeneticSimulationManager::StopSimulation()
 				FitnessScore = Tracker->CalculateFitness();
 			}
 
-			// 2. Save Standard Local Asset (For history/logging)
-			// e.g. /Game/BehaviourTrees/Generated/GenX_AgentY
-			FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/Gen%d_Agent_%d"), GenerationCount, FMath::Rand());
+			// 2. Save using Hash instead of Random ID
+			FString TreeHash = TreeWrapper->GetTreeHash();
+			int32 FitInt = FMath::RoundToInt(FitnessScore);
+            
+			// Format: Tree_{Hash}_F{Fitness}
+			FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/Tree_%s_F%d"), *TreeHash, FitInt);
 			FString FinalAssetPath = TreeWrapper->SaveAsNewAsset(SaveName, true);
 			
-			// 3. Track Best
+			// 3. Track Best (Useful for local console logging if needed)
 			if (FitnessScore > BestFitnessOfGen)
 			{
 				BestFitnessOfGen = FitnessScore;
-				BestWrapperOfGen = TreeWrapper;
 			}
 
 			// 4. Record Result Locally
@@ -400,18 +477,6 @@ void UGeneticSimulationManager::StopSimulation()
 		}
 	}
 
-	// *** 5. EXPORT PHASE: Share Best Agent with the Swarm ***
-	if (BestWrapperOfGen && BestFitnessOfGen > 10.0f) // Only export if it's decent
-	{
-		// Generate the specific Exchange path: /Game/GeneticExchange/Ex_Island1_G5_F100_GUID
-		FString ExportPath = UGeneticExchangeLibrary::GenerateExchangePackagePath(InstanceID, GenerationCount, BestFitnessOfGen);
-		
-		// Save duplicate to the exchange folder
-		BestWrapperOfGen->SaveAsNewAsset(ExportPath, true);
-		
-		UE_LOG(LogGeneticGeneration, Log, TEXT("EXCHANGE: Exported best agent to %s"), *ExportPath);
-	}
-	
 	ActiveAgents.Empty();
 	GenerationCount++;
 	FinishEpoch();

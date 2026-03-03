@@ -78,3 +78,40 @@ FString UGeneticExchangeLibrary::GenerateExchangePackagePath(const FString& Inst
 	
 	return FString::Printf(TEXT("/Game/GeneticExchange/%s"), *Name);
 }
+
+
+float UGeneticExchangeLibrary::CheckIfTreeAlreadyEvaluated(const FString& TreeHash, FString& OutFoundPath)
+{
+	FString ContentDir = FPaths::ProjectContentDir();
+	FString GeneratedDir = ContentDir / TEXT("BehaviourTrees/Generated");
+
+	TArray<FString> FoundFiles;
+	IFileManager::Get().FindFiles(FoundFiles, *GeneratedDir, TEXT(".uasset"));
+
+	for (const FString& Filename : FoundFiles)
+	{
+		// Example: Tree_9f86d081884c7d659a2feaa0c55ad015_F125.uasset
+		if (Filename.Contains(TreeHash))
+		{
+			FString PureName = FPaths::GetBaseFilename(Filename);
+			TArray<FString> Parts;
+			PureName.ParseIntoArray(Parts, TEXT("_"), true);
+
+			// Extract fitness
+			for (const FString& Part : Parts)
+			{
+				if (Part.StartsWith(TEXT("F")))
+				{
+					FString FitStr = Part.RightChop(1); // Remove the 'F'
+					if (FitStr.IsNumeric())
+					{
+						OutFoundPath = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/%s"), *PureName);
+						return FCString::Atof(*FitStr);
+					}
+				}
+			}
+		}
+	}
+
+	return -1.0f; // Not found
+}
