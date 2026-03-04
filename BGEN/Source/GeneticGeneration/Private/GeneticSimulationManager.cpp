@@ -16,6 +16,9 @@
 #include "GeneticSelectionLibrary.h"
 #include "GeneticMutationLibrary.h"
 #include "NavigationSystem.h"
+#include "HttpModule.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Interfaces/IHttpResponse.h"
 
 UGeneticSimulationManager::UGeneticSimulationManager()
 {
@@ -378,6 +381,7 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn, FString Genome
             // ----------------------------------
 
             // Save History & Assign
+        	ChildWrapper->DebugLogTree();
             ChildWrapper->EvolutionData = History;
             AI->AssignTree(ChildWrapper->GetBTAsset(), BBAsset);
 
@@ -448,15 +452,27 @@ void UGeneticSimulationManager::StopSimulation()
 				FitnessScore = Tracker->CalculateFitness();
 			}
 
-			// 2. Save using Hash instead of Random ID
+			// 2. Save using Hash
 			FString TreeHash = TreeWrapper->GetTreeHash();
 			int32 FitInt = FMath::RoundToInt(FitnessScore);
             
 			// Format: Tree_{Hash}_F{Fitness}
 			FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/Tree_%s_F%d"), *TreeHash, FitInt);
 			FString FinalAssetPath = TreeWrapper->SaveAsNewAsset(SaveName, true);
+
+			// --- NEW: SUBMIT RESULT TO CENTRAL SERVER ---
+			TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
+			Request->SetURL(TEXT("http://127.0.0.1:8080/api/submit"));
+			Request->SetVerb("POST");
+			Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+
+			// Create JSON payload
+			FString Payload = FString::Printf(TEXT("{\"hash\":\"%s\", \"fitness\":%f}"), *TreeHash, FitnessScore);
+			Request->SetContentAsString(Payload);
+			Request->ProcessRequest();
+			// --------------------------------------------
 			
-			// 3. Track Best (Useful for local console logging if needed)
+			// 3. Track Best
 			if (FitnessScore > BestFitnessOfGen)
 			{
 				BestFitnessOfGen = FitnessScore;

@@ -9,32 +9,13 @@ FSimulationResult UGeneticSelectionLibrary::TournamentSelection(const TArray<FSi
 		return FSimulationResult(); 
 	}
 
-	// SAFETY CHECK 2: Population smaller than tournament
-	if (Population.Num() <= TournamentSize)
+	// Just return the absolute best one
+	FSimulationResult Best = Population[0];
+	for (const auto& Res : Population)
 	{
-		// Just return the absolute best one
-		FSimulationResult Best = Population[0];
-		for (const auto& Res : Population)
-		{
-			if (Res.Fitness > Best.Fitness) Best = Res;
-		}
-		return Best;
+		if (Res.Fitness > Best.Fitness) Best = Res;
 	}
-
-	// TOURNAMENT LOOP
-	FSimulationResult BestContender = Population[FMath::RandRange(0, Population.Num() - 1)];
-
-	for (int32 i = 0; i < TournamentSize - 1; i++)
-	{
-		const FSimulationResult& Challenger = Population[FMath::RandRange(0, Population.Num() - 1)];
-		// We look for strict improvement
-		if (Challenger.Fitness > BestContender.Fitness)
-		{
-			BestContender = Challenger;
-		}
-	}
-    
-	return BestContender;
+	return Best;
 }
 
 bool UGeneticSelectionLibrary::IsValidResult(const FSimulationResult& Result)

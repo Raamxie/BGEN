@@ -16,6 +16,6 @@ public class BGENEditorTarget : TargetRules
 
 	private void RegisterModulesCreatedByRider()
 	{
-		ExtraModuleNames.AddRange(new string[] { "BehaviourTreeGraph" });
+		ExtraModuleNames.AddRange(new string[] { "BehaviourTreeGraph", "GeneticServer" });
 	}
 }

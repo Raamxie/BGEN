@@ -25,6 +25,17 @@ goto CollectArgs
 :DoneArgs
 
 echo =================================================
+echo        LAUNCHING GENETIC CENTRAL SERVER
+echo =================================================
+:: 1. Launch the Server Commandlet asynchronously
+start "Genetic Central Server" "%EDITOR%" "%PROJECT%" -run=GeneticServer -log
+
+:: 2. Give the server a few seconds to boot up and bind to port 8080 
+:: before the swarm starts hammering it with HTTP requests.
+echo Waiting 3 seconds for the server to initialize...
+timeout /t 3 >nul
+
+echo =================================================
 echo        LAUNCHING GENETIC SWARM
 echo        Instances: %COUNT%
 echo        Switches: %ARGS%
@@ -35,9 +46,9 @@ for /L %%i in (1,1,%COUNT%) do (
     echo [%%i/%COUNT%] Spawning Island %%i...
     
     :: Launch the instance with the passed arguments
-    start "" "%EDITOR%" "%PROJECT%" -InstanceID=%%i %ARGS%
+    start "Swarm_Island_%%i" "%EDITOR%" "%PROJECT%" -InstanceID=%%i %ARGS%
     
-    :: Wait 1 second between launches
+    :: Wait 1 second between launches to prevent CPU choking during boot
     timeout /t 1 >nul
 )
 

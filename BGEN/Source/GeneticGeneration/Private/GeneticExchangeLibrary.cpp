@@ -3,6 +3,11 @@
 #include "HAL/PlatformFileManager.h"
 #include "Misc/PackageName.h"
 #include "Misc/Guid.h"
+#include "HttpModule.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Interfaces/IHttpResponse.h"
+#include "Serialization/JsonSerializer.h"
+#include "HttpManager.h"
 
 // Format: Ex_{InstanceID}_G{Gen}_F{Fit}_{GUID}
 // Example: Ex_Island1_G5_F1250_A8B2...
@@ -82,33 +87,30 @@ FString UGeneticExchangeLibrary::GenerateExchangePackagePath(const FString& Inst
 
 float UGeneticExchangeLibrary::CheckIfTreeAlreadyEvaluated(const FString& TreeHash, FString& OutFoundPath)
 {
-	FString ContentDir = FPaths::ProjectContentDir();
-	FString GeneratedDir = ContentDir / TEXT("BehaviourTrees/Generated");
+	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
+	Request->SetURL(FString::Printf(TEXT("http://127.0.0.1:8080/api/check?hash=%s"), *TreeHash));
+	Request->SetVerb("GET");
+	Request->ProcessRequest();
 
-	TArray<FString> FoundFiles;
-	IFileManager::Get().FindFiles(FoundFiles, *GeneratedDir, TEXT(".uasset"));
-
-	for (const FString& Filename : FoundFiles)
+	// Synchronous wait (Safe here because we are offline training and need the result immediately)
+	while (Request->GetStatus() == EHttpRequestStatus::Processing)
 	{
-		// Example: Tree_9f86d081884c7d659a2feaa0c55ad015_F125.uasset
-		if (Filename.Contains(TreeHash))
-		{
-			FString PureName = FPaths::GetBaseFilename(Filename);
-			TArray<FString> Parts;
-			PureName.ParseIntoArray(Parts, TEXT("_"), true);
+		FPlatformProcess::Sleep(0.01f);
+		FHttpModule::Get().GetHttpManager().Tick(0.0f);
+	}
 
-			// Extract fitness
-			for (const FString& Part : Parts)
+	if (Request->GetStatus() == EHttpRequestStatus::Succeeded && Request->GetResponse().IsValid())
+	{
+		TSharedPtr<FJsonObject> JsonObject;
+		TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Request->GetResponse()->GetContentAsString());
+		
+		if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
+		{
+			float Fitness = JsonObject->GetNumberField(TEXT("fitness"));
+			if (Fitness >= 0.0f) // -1.0 means the server hasn't seen it yet
 			{
-				if (Part.StartsWith(TEXT("F")))
-				{
-					FString FitStr = Part.RightChop(1); // Remove the 'F'
-					if (FitStr.IsNumeric())
-					{
-						OutFoundPath = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/%s"), *PureName);
-						return FCString::Atof(*FitStr);
-					}
-				}
+				OutFoundPath = TEXT("ServerFound"); // Dummy string indicating we shouldn't test it
+				return Fitness;
 			}
 		}
 	}
