@@ -34,7 +34,7 @@ public class GeneticGeneration : ModuleRules
 			"EditorScriptingUtilities",
 			"Slate",
 			"SlateCore",
-			"BehaviorTreeEditor"      // Fixes FBehaviorTreeEditorUtils
+			"BehaviorTreeEditor", "BGEN" // Fixes FBehaviorTreeEditorUtils
 		});
 		
 		if (Target.bBuildEditor == true)

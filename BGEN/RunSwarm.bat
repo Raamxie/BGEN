@@ -3,6 +3,8 @@ setlocal enabledelayedexpansion
 
 :: --- HARDCODED PATHS ---
 set "EDITOR=C:\Program Files\Epic Games\UE_5.6\Engine\Binaries\Win64\UnrealEditor.exe"
+:: NEW: Point specifically to the command-line version for the Master Server
+set "EDITOR_CMD=C:\Program Files\Epic Games\UE_5.6\Engine\Binaries\Win64\UnrealEditor-Cmd.exe"
 set "PROJECT=C:\Users\Raamxie\Documents\Unreal Projects\BGEN\BGEN\BGEN.uproject"
 
 :: --- PARAMETER PARSING ---
@@ -27,8 +29,9 @@ goto CollectArgs
 echo =================================================
 echo        LAUNCHING GENETIC CENTRAL SERVER
 echo =================================================
-:: 1. Launch the Server Commandlet asynchronously
-start "Genetic Central Server" "%EDITOR%" "%PROJECT%" -run=GeneticServer -log
+:: 1. Launch the Server Commandlet asynchronously using the CMD executable.
+:: Added lightweight flags to completely disable rendering, audio, and background shader compiling.
+start "Genetic Central Server" "%EDITOR_CMD%" "%PROJECT%" -run=GeneticServer -NoUI -NoSound -NullRHI -NoShaderCompile -NoTextureStreaming -nosplash -FORCELOGFLUSH -log
 
 :: 2. Give the server a few seconds to boot up and bind to port 8080 
 :: before the swarm starts hammering it with HTTP requests.
@@ -45,7 +48,7 @@ echo =================================================
 for /L %%i in (1,1,%COUNT%) do (
     echo [%%i/%COUNT%] Spawning Island %%i...
     
-    :: Launch the instance with the passed arguments
+    :: Launch the instance with the passed arguments (Workers use standard Editor)
     start "Swarm_Island_%%i" "%EDITOR%" "%PROJECT%" -InstanceID=%%i %ARGS%
     
     :: Wait 1 second between launches to prevent CPU choking during boot

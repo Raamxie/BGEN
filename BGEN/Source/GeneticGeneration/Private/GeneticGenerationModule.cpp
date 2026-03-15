@@ -10,6 +10,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 #include "GeneticSimulationManager.h"
+#include "WorkerNetworkSubsystem.h"
 #include "BehaviourTreeGraph/Public/BehaviourTreeGraphModule.h"
 #include "Containers/Ticker.h"
 #include "Misc/OutputDeviceFile.h"
@@ -112,13 +113,26 @@ void FGeneticGenerationModule::RunSimulation(UWorld* World)
 {
 	if (!ActiveManager) return;
 
-	UE_LOG(LogGeneticGeneration, Log, TEXT("--- EPOCH %d INITIATED ---"), CurrentEpoch);
+	UE_LOG(LogGeneticGeneration, Log, TEXT("--- WORKER: MAP LOADED, REQUESTING JOB ---"));
 
 	// 1. Hand over the new World Context
 	ActiveManager->Init(World);
 
-	// 2. Activate the Manager (It will handle selection, spawning, and logic)
-	ActiveManager->StartEpoch();
+	// 2. Ask the Master for a job
+	if (UGameInstance* GameInstance = World->GetGameInstance())
+	{
+		if (UWorkerNetworkSubsystem* NetSubsystem = GameInstance->GetSubsystem<UWorkerNetworkSubsystem>())
+		{
+			// Unbind any old delegates to prevent double-firing after map reloads
+			NetSubsystem->OnJobReceived.RemoveAll(ActiveManager);
+			
+			// Bind the Manager's StartEpoch function to fire when the job arrives
+			NetSubsystem->OnJobReceived.AddDynamic(ActiveManager, &UGeneticSimulationManager::StartEpochWithJob);
+			
+			// Send the HTTP GET
+			NetSubsystem->RequestJobFromMaster();
+		}
+	}
 }
 
 void FGeneticGenerationModule::OnEpochFinished()

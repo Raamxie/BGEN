@@ -48,6 +48,9 @@ public:
 	void SetPause(bool bPauseState);
 	bool IsPaused() const;
 
+	UFUNCTION()
+	void StartEpochWithJob(FString AssignedAssetPath);
+	
 	virtual UWorld* GetWorld() const override;
 
 	UPROPERTY(VisibleAnywhere, Category = "Genetic Data")
@@ -83,14 +86,12 @@ protected:
 	bool DoesPlayerExist() const;
 	UClass* GetClassFromPath(const FString& Path);
 	UObject* LoadObjectFromPath(const FString& Path);
-
-	UFUNCTION()
-	void TimerCallback();
 	
-	UFUNCTION()
-	void PlayerDiedListener();
+	void HandleSimulationEvent(ESimulationEvent EventType);
 	
 	void StopSimulation();
+
+
 
 	UPROPERTY()
 	TMap<APawn*, UCustomBehaviourTree*> ActiveAgents;

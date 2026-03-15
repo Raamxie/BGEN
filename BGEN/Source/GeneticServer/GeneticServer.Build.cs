@@ -11,14 +11,15 @@ public class GeneticServer : ModuleRules
 		{
 			"Core",
 			"CoreUObject",
-			"Engine"
+			"Engine",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"HttpServer", // Required for the built-in HTTP Server
 			"Json",
-			"JsonUtilities"
+			"JsonUtilities",
+			"GeneticGeneration"
 		});
 	}
 }
