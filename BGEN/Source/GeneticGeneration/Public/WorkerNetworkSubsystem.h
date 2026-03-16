@@ -32,4 +32,6 @@ public:
 private:
 	void OnJobRequestComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bConnectedSuccessfully);
 	void OnSubmitComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bConnectedSuccessfully);
+	bool bIsPolling = false;
+	FTimerHandle PollingTimerHandle;
 };

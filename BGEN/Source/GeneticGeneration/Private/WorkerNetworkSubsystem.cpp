@@ -1,7 +1,11 @@
 ﻿#include "WorkerNetworkSubsystem.h"
+
+#include "GeneticGenerationModule.h"
 #include "HttpModule.h"
 #include "Interfaces/IHttpResponse.h"
 #include "Serialization/JsonSerializer.h"
+#include "Engine/GameInstance.h"
+#include "TimerManager.h"
 
 void UWorkerNetworkSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -11,6 +15,18 @@ void UWorkerNetworkSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 void UWorkerNetworkSubsystem::RequestJobFromMaster()
 {
+	// 1. THE KILL SWITCH: If we already have a job assigned, refuse to poll! 
+	// This immediately stops any "ghost timers" that fire while in the Main map.
+	if (!CurrentJobAssetPath.IsEmpty()) 
+	{
+		return; 
+	}
+
+	if (bIsPolling) return; 
+	bIsPolling = true;
+
+	UE_LOG(LogTemp, Display, TEXT("WORKER: Sending polling request to Master Server for a new job..."));
+
 	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
 	Request->SetURL(TEXT("http://127.0.0.1:8080/api/request_job"));
 	Request->SetVerb("GET");
@@ -20,6 +36,9 @@ void UWorkerNetworkSubsystem::RequestJobFromMaster()
 
 void UWorkerNetworkSubsystem::OnJobRequestComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bConnectedSuccessfully)
 {
+	bIsPolling = false; 
+	bool bGotJob = false;
+
 	if (bConnectedSuccessfully && Response.IsValid() && Response->GetResponseCode() == 200)
 	{
 		TSharedPtr<FJsonObject> JsonObject;
@@ -31,15 +50,25 @@ void UWorkerNetworkSubsystem::OnJobRequestComplete(FHttpRequestPtr Request, FHtt
 			if (Status == TEXT("success"))
 			{
 				CurrentJobAssetPath = JsonObject->GetStringField(TEXT("asset_path"));
-				OnJobReceived.Broadcast(CurrentJobAssetPath);
-			}
-			else
-			{
-				// Standby: Master has no jobs. Wait 1 second and ask again.
-				FTimerHandle RetryTimer;
-				GetWorld()->GetTimerManager().SetTimer(RetryTimer, this, &UWorkerNetworkSubsystem::RequestJobFromMaster, 1.0f, false);
+				UE_LOG(LogTemp, Warning, TEXT("WORKER: Job Received! Instructing Module to load Main Map..."));
+
+				// 2. EXPLICITLY KILL THE TIMER just to be safe
+				GetGameInstance()->GetTimerManager().ClearTimer(PollingTimerHandle);
+
+				FGeneticGenerationModule& GenModule = FModuleManager::GetModuleChecked<FGeneticGenerationModule>("GeneticGeneration");
+				GenModule.LoadSimulationMap();
+
+				bGotJob = true; 
 			}
 		}
+	}
+
+	if (!bGotJob)
+	{
+		UE_LOG(LogTemp, Log, TEXT("WORKER: No job available or Server offline. Polling again in 2 seconds..."));
+		
+		// 3. Track the timer handle
+		GetGameInstance()->GetTimerManager().SetTimer(PollingTimerHandle, this, &UWorkerNetworkSubsystem::RequestJobFromMaster, 2.0f, false);
 	}
 }
 
@@ -58,6 +87,5 @@ void UWorkerNetworkSubsystem::SubmitFitness(const FString& AssetPath, float Fitn
 
 void UWorkerNetworkSubsystem::OnSubmitComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bConnectedSuccessfully)
 {
-	// Result submitted. We are done!
 	CurrentJobAssetPath = TEXT("");
 }

@@ -38,7 +38,6 @@ void UGeneticSimulationManager::Init(UWorld* InWorld)
 	}
 
 	// 1. SETUP IDENTITY
-	// Check if ID is passed via command line (e.g. -InstanceID=1)
 	FString CmdID;
 	if (FParse::Value(FCommandLine::Get(), TEXT("InstanceID="), CmdID))
 	{
@@ -46,10 +45,13 @@ void UGeneticSimulationManager::Init(UWorld* InWorld)
 	}
 	else
 	{
-		// Fallback to random if running locally/testing
 		InstanceID = TEXT("Island_") + FGuid::NewGuid().ToString().Left(4);
 	}
 	UE_LOG(LogGeneticGeneration, Warning, TEXT("MANAGER: Initialized as %s"), *InstanceID);
+
+	// 2. IMMEDIATELY FREEZE THE WORLD
+	// Ensure the game does not start running/ticking while we poll the Master Server.
+	SetPause(true); 
 }
 
 FString UGeneticSimulationManager::SelectTreeToEvolve()

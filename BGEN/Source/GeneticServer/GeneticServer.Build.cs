@@ -16,7 +16,7 @@ public class GeneticServer : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-			"HttpServer", // Required for the built-in HTTP Server
+			"HTTPServer", // Required for the built-in HTTP Server
 			"Json",
 			"JsonUtilities",
 			"GeneticGeneration"

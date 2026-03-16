@@ -31,7 +31,7 @@ echo        LAUNCHING GENETIC CENTRAL SERVER
 echo =================================================
 :: 1. Launch the Server Commandlet asynchronously using the CMD executable.
 :: Added lightweight flags to completely disable rendering, audio, and background shader compiling.
-start "Genetic Central Server" "%EDITOR_CMD%" "%PROJECT%" -run=GeneticServer -NoUI -NoSound -NullRHI -NoShaderCompile -NoTextureStreaming -nosplash -FORCELOGFLUSH -log
+start "Genetic Central Server" "%EDITOR_CMD%" "%PROJECT%" -run=GeneticServer -NoUI -NoSound -NullRHI -NoShaderCompile -NoTextureStreaming -AllowCommandletRendering=false -nosplash -FORCELOGFLUSH -log
 
 :: 2. Give the server a few seconds to boot up and bind to port 8080 
 :: before the swarm starts hammering it with HTTP requests.

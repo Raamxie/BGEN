@@ -4,7 +4,9 @@
 #include "CustomBehaviourTree.h"
 #include "UObject/NoExportTypes.h"
 #include "Engine/EngineTypes.h"
+#include "SimulationEventManager.h"
 #include "GeneticSimulationManager.generated.h"
+
 
 // Forward declarations
 class UBehaviorTree;
@@ -81,6 +83,11 @@ protected:
 
 	// --- Internal Logic ---
 
+	void TimerCallback();
+
+	UFUNCTION()
+	void PlayerDiedListener();
+	
 	FString SelectTreeToEvolve(); 
 
 	bool DoesPlayerExist() const;
