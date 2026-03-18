@@ -42,7 +42,7 @@ public:
 	float PlayerKillBonus = 500.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Combat")
-	float PacifistPenalty = 100.0f;
+	float PacifistPenalty = 600.0f;
 
 	// --- Configuration: Movement ---
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Movement")
@@ -63,6 +63,13 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Structure")
 	float SmallTreePenalty = 200.0f;
+
+	// NEW: Bloat Control
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Structure")
+	int32 MaximumTreeNodes = 15;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Structure")
+	float BigTreePenalty = 900.0f;
 
 protected:
 	virtual void BeginPlay() override;

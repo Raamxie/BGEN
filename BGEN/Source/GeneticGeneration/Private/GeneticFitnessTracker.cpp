@@ -136,7 +136,18 @@ float UGeneticFitnessTracker::CalculateFitness()
 	if (AccumulatedDistance < MinimumExpectedDistance) FinalScore -= IdlePenalty;
 
 	int32 TreeSize = GetTreeSize();
-	if (TreeSize < MinimumTreeNodes) FinalScore -= SmallTreePenalty;
+	if (TreeSize < MinimumTreeNodes) 
+	{
+		FinalScore -= SmallTreePenalty;
+	}
+	else if (TreeSize > MaximumTreeNodes) 
+	{
+		// NEW: Apply penalty for bloated trees
+		FinalScore -= BigTreePenalty;
+		
+		// Optional Alternative: You could also do a scaling penalty so it gets worse the larger it gets
+		// FinalScore -= ((TreeSize - MaximumTreeNodes) * 50.0f); 
+	}
 
 	// 3. VICTORY CONDITIONS
 	if (bPlayerWasKilled)
