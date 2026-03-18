@@ -768,3 +768,31 @@ FString UCustomBehaviourTree::GetTreeHash()
 	// 2. Hash it
 	return FMD5::HashAnsiString(*TreeStructure);
 }
+
+
+TArray<UBehaviorTree*> UCustomBehaviourTree::GetAvailableTaskTrees(const FString& Path)
+{
+	TArray<UBehaviorTree*> ResultTrees;
+
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+
+	FARFilter Filter;
+	Filter.PackagePaths.Add(*Path);
+	Filter.bRecursivePaths = true;
+	// Look specifically for UBehaviorTree assets instead of Blueprints
+	Filter.ClassPaths.Add(UBehaviorTree::StaticClass()->GetClassPathName());
+
+	TArray<FAssetData> AssetList;
+	AssetRegistryModule.Get().GetAssets(Filter, AssetList);
+
+	for (const FAssetData& Asset : AssetList)
+	{
+		if (UBehaviorTree* BT = Cast<UBehaviorTree>(Asset.GetAsset()))
+		{
+			ResultTrees.Add(BT);
+		}
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("Found %d valid Subtrees in %s"), ResultTrees.Num(), *Path);
+	return ResultTrees;
+}

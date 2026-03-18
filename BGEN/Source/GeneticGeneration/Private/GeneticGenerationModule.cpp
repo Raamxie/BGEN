@@ -61,6 +61,7 @@ void FGeneticGenerationModule::StartupModule()
     {
         FCoreDelegates::OnPostEngineInit.AddRaw(this, &FGeneticGenerationModule::OnEngineInitComplete);
     }
+	
 }
 
 IMPLEMENT_MODULE(FGeneticGenerationModule, GeneticGeneration)
@@ -111,46 +112,34 @@ void FGeneticGenerationModule::OnWorldInitialized(UWorld* world, const UWorld::I
 
 	FString MapName = world->GetName();
 
-	// Use .Contains() to bypass the "UEDPIE_0_" prefix added by the Editor
 	if (MapName.Contains(TEXT("EmptyWaiting")))
 	{
-		UE_LOG(LogGeneticGeneration, Log, TEXT("Entered EmptyWaiting Map. Requesting Job..."));
+		UE_LOG(LogGeneticGeneration, Log, TEXT("Entered EmptyWaiting Map. Requesting Job from Server..."));
         
-		// Save CPU by dropping FPS. No need to freeze the world, the empty map takes 0 resources!
 		if (GEngine) GEngine->SetMaxFPS(5.0f);
 
 		if (UGameInstance* GI = world->GetGameInstance())
 		{
 			if (UWorkerNetworkSubsystem* NetSub = GI->GetSubsystem<UWorkerNetworkSubsystem>())
 			{
+				// 1. Give Manager the current world context
+				if (ActiveManager) ActiveManager->Init(world);
+
+				// 2. Bind the manager to transition the map the moment the job arrives
+				NetSub->OnJobReceived.RemoveAll(ActiveManager);
+				NetSub->OnJobReceived.AddDynamic(ActiveManager, &UGeneticSimulationManager::TransitionToMainMap);
+				
+				// 3. Ask the server
 				NetSub->RequestJobFromMaster();
 			}
 		}
 	}
 	else if (MapName.Contains(TEXT("Main")))
 	{
-		// Restore FPS for the simulation
 		if (GEngine) GEngine->SetMaxFPS(0.0f); 
 
-		bool bHasValidJob = false;
-		if (UGameInstance* GI = world->GetGameInstance())
-		{
-			if (UWorkerNetworkSubsystem* NetSub = GI->GetSubsystem<UWorkerNetworkSubsystem>())
-			{
-				bHasValidJob = !NetSub->CurrentJobAssetPath.IsEmpty();
-			}
-		}
-
-		if (bHasValidJob)
-		{
-			UE_LOG(LogGeneticGeneration, Log, TEXT("Entered Main Map. Starting Simulation..."));
-			RunSimulation(world);
-		}
-		else
-		{
-			UE_LOG(LogGeneticGeneration, Warning, TEXT("Entered Main Map without a job! Redirecting to EmptyWaiting..."));
-			LoadEmptyWaitingMap();
-		}
+		UE_LOG(LogGeneticGeneration, Log, TEXT("Entered Main Map. Starting Simulation Instantly..."));
+		RunSimulation(world);
 	}
 }
 
@@ -158,24 +147,26 @@ void FGeneticGenerationModule::RunSimulation(UWorld* World)
 {
 	if (!ActiveManager) return;
 
-	UE_LOG(LogGeneticGeneration, Log, TEXT("--- WORKER: MAP LOADED, REQUESTING JOB ---"));
-
-	// 1. Hand over the new World Context
+	// 1. Hand over the new Main World Context
 	ActiveManager->Init(World);
 
-	// 2. Ask the Master for a job
+	// 2. Grab the job we downloaded while in the waiting room
 	if (UGameInstance* GameInstance = World->GetGameInstance())
 	{
 		if (UWorkerNetworkSubsystem* NetSubsystem = GameInstance->GetSubsystem<UWorkerNetworkSubsystem>())
 		{
-			// Unbind any old delegates to prevent double-firing after map reloads
-			NetSubsystem->OnJobReceived.RemoveAll(ActiveManager);
-			
-			// Bind the Manager's StartEpoch function to fire when the job arrives
-			NetSubsystem->OnJobReceived.AddDynamic(ActiveManager, &UGeneticSimulationManager::StartEpochWithJob);
-			
-			// Send the HTTP GET
-			NetSubsystem->RequestJobFromMaster();
+			if (!NetSubsystem->CurrentJobAssetPath.IsEmpty())
+			{
+				UE_LOG(LogGeneticGeneration, Warning, TEXT("WORKER: Spawning assigned AI: %s"), *NetSubsystem->CurrentJobAssetPath);
+				
+				// 3. Start immediately! No network delay, no imposter AI.
+				ActiveManager->StartEpochWithJob(NetSubsystem->CurrentJobAssetPath);
+			}
+			else
+			{
+				UE_LOG(LogGeneticGeneration, Error, TEXT("WORKER: Loaded Main map but had no job! Retreating..."));
+				LoadEmptyWaitingMap();
+			}
 		}
 	}
 }

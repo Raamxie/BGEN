@@ -67,6 +67,7 @@ public:
 	
 	TArray<UClass*> GetAvailableTaskClasses(const FString& Path);
 	TArray<UClass*> GetAvailableDecoratorClasses(const FString& Path);
+	TArray<UBehaviorTree*> GetAvailableTaskTrees(const FString& Path);
 	
 	// Helper to collect nodes for mutation library
 	void CollectNodes(UBTNode* Node, TArray<UBTCompositeNode*>& OutComposites, TArray<UBTTaskNode*>& OutTasks);

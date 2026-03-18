@@ -233,30 +233,52 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn, FString Genome
 
 void UGeneticSimulationManager::Simulate()
 {
-	if (!TargetWorld || ActiveAgents.Num() == 0)
-	{
-		StopSimulation(); 
-		return;
-	}
+    UE_LOG(LogTemp, Warning, TEXT("MANAGER DIAGNOSTIC: Simulate() started. Active Agents: %d"), ActiveAgents.Num());
 
-	// 1. Bind to the Event Manager Subsystem
-	USimulationEventManager* EventManager = TargetWorld->GetSubsystem<USimulationEventManager>();
-	if (EventManager)
-	{
-		// Clear previous binds just in case
-		EventManager->OnSimulationEvent.RemoveAll(this);
-		EventManager->OnSimulationEvent.AddUObject(this, &UGeneticSimulationManager::HandleSimulationEvent);
-	}
+    if (!TargetWorld || ActiveAgents.Num() == 0)
+    {
+       UE_LOG(LogTemp, Error, TEXT("MANAGER DIAGNOSTIC: Simulate() aborted! ActiveAgents is empty or TargetWorld is null."));
+       StopSimulation(); 
+       return;
+    }
 
-	// ... [Keep your existing AI running and Tracker Setup code here] ...
+    // 1. Bind to the Event Manager Subsystem
+    USimulationEventManager* EventManager = TargetWorld->GetSubsystem<USimulationEventManager>();
+    if (EventManager)
+    {
+       EventManager->OnSimulationEvent.RemoveAll(this);
+       EventManager->OnSimulationEvent.AddUObject(this, &UGeneticSimulationManager::HandleSimulationEvent);
+       
+       UE_LOG(LogTemp, Warning, TEXT("MANAGER DIAGNOSTIC: SUCCESSFULLY BOUND DELEGATE to World: %s"), *TargetWorld->GetName());
+    }
+    else
+    {
+       UE_LOG(LogTemp, Error, TEXT("MANAGER DIAGNOSTIC: EventManager is NULL! Could not bind."));
+    }
 
-	// Use a standard lambda timer to report timeout to the central system instead of a direct callback
-	TargetWorld->GetTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateLambda([this, EventManager]()
-	{
-		if (EventManager) EventManager->ReportEvent(ESimulationEvent::Timeout);
-	}), 30.0f, false);
+    // 2. Initialize Trackers and Start AI Execution
+    for (const auto& Pair : ActiveAgents)
+    {
+        APawn* Agent = Pair.Key;
+        if (IsValid(Agent))
+        {
+            // A. Start Fitness Tracking
+            // We pass in the ActivePlayer so the tracker can measure proximity and damage events.
+            if (UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>())
+            {
+                Tracker->BeginTracking(ActivePlayer);
+            }
 
-	SetPause(false);
+            // B. Run the Behavior Tree
+            // The tree was assigned in SpawnEnemies, but it must be explicitly started here.
+            if (ACustomAIController* AIController = Cast<ACustomAIController>(Agent->GetController()))
+            {
+                AIController->RunAssignedTree();
+            }
+        }
+    }
+
+    SetPause(false);
 }
 
 void UGeneticSimulationManager::StopSimulation()
@@ -366,6 +388,17 @@ void UGeneticSimulationManager::HandleSimulationEvent(ESimulationEvent EventType
             
 	default:
 		break;
+	}
+}
+
+void UGeneticSimulationManager::TransitionToMainMap(FString JobPath)
+{
+	UE_LOG(LogGeneticGeneration, Warning, TEXT("WORKER: Job received from server! Loading Main Map..."));
+	
+	if (TargetWorld)
+	{
+		// Map transition triggers the engine to load Main and destroy EmptyWaiting
+		UGameplayStatics::OpenLevel(TargetWorld, FName("Main"));
 	}
 }
 

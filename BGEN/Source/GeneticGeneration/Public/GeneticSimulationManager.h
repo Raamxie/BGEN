@@ -58,6 +58,9 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Genetic Data")
 	int32 GenerationCount = 1;
 
+	UFUNCTION()
+	void TransitionToMainMap(FString JobPath);
+
 protected:
 	UPROPERTY()
 	UWorld* TargetWorld;
@@ -97,6 +100,7 @@ protected:
 	void HandleSimulationEvent(ESimulationEvent EventType);
 	
 	void StopSimulation();
+
 
 
 

@@ -36,10 +36,16 @@ void USimulationEventManager::ReportPlayerDeath()
 
 void USimulationEventManager::ReportEvent(ESimulationEvent EventType)
 {
-	UE_LOG(LogGeneticGeneration, Warning, TEXT("Simulation Event Triggered: %d"), static_cast<int32>(EventType));
+	FString WorldName = GetWorld() ? GetWorld()->GetName() : TEXT("Unknown");
+	UE_LOG(LogGeneticGeneration, Warning, TEXT("EVENT DIAGNOSTIC: ReportEvent called (%d) inside World: %s"), static_cast<int32>(EventType), *WorldName);
 
 	if (OnSimulationEvent.IsBound())
 	{
+		UE_LOG(LogGeneticGeneration, Warning, TEXT("EVENT DIAGNOSTIC: Delegate IS BOUND! Broadcasting now..."));
 		OnSimulationEvent.Broadcast(EventType);
+	}
+	else
+	{
+		UE_LOG(LogGeneticGeneration, Error, TEXT("EVENT DIAGNOSTIC: Delegate IS NOT BOUND! No one is listening."));
 	}
 }
