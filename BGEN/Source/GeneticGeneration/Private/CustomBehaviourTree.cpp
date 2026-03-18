@@ -1,5 +1,6 @@
 #include "CustomBehaviourTree.h"
 #include "Misc/PackageName.h"
+#include "Misc/SecureHash.h"
 #include "UObject/Package.h"
 #include "UObject/SavePackage.h"
 #include "AssetRegistry/AssetRegistryModule.h"
@@ -713,4 +714,85 @@ UBTNode* UCustomBehaviourTree::DuplicateNodeRecursive(UBTNode* SourceNode, UBeha
     }
     
     return NewNode;
+}
+
+
+FString UCustomBehaviourTree::GetTreeStructureForHash()
+{
+	if (!BehaviorTreeAsset || !BehaviorTreeAsset->RootNode) return TEXT("INVALID_TREE");
+
+	TStringBuilder<2048> SB;
+
+	// Lambda for recursive flat traversal
+	auto RecursiveBuild = [&](auto&& Self, UBTNode* Node) -> void
+	{
+		if (!Node) return;
+		
+		// Append the base node name
+		SB.Append(GetCleanNodeName(Node));
+		SB.Append(TEXT("|")); // Use a simple delimiter
+
+		if (UBTCompositeNode* Comp = Cast<UBTCompositeNode>(Node))
+		{
+			// Append Services
+			for (UBTService* Service : Comp->Services)
+			{
+				if (Service) SB.Appendf(TEXT("Srv:%s|"), *GetCleanNodeName(Service));
+			}
+
+			// Append Children & Decorators
+			for (int32 i = 0; i < Comp->Children.Num(); i++)
+			{
+				FBTCompositeChild& Link = Comp->Children[i];
+				
+				for (UBTDecorator* Deco : Link.Decorators)
+				{
+					if (Deco) SB.Appendf(TEXT("Dec:%s|"), *GetCleanNodeName(Deco));
+				}
+
+				UBTNode* Child = Link.ChildComposite ? (UBTNode*)Link.ChildComposite : (UBTNode*)Link.ChildTask;
+				Self(Self, Child); // Recurse
+			}
+		}
+	};
+
+	RecursiveBuild(RecursiveBuild, BehaviorTreeAsset->RootNode);
+	return SB.ToString();
+}
+
+FString UCustomBehaviourTree::GetTreeHash()
+{
+	// 1. Get the pure structural representation
+	FString TreeStructure = GetTreeStructureForHash();
+	
+	// 2. Hash it
+	return FMD5::HashAnsiString(*TreeStructure);
+}
+
+
+TArray<UBehaviorTree*> UCustomBehaviourTree::GetAvailableTaskTrees(const FString& Path)
+{
+	TArray<UBehaviorTree*> ResultTrees;
+
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+
+	FARFilter Filter;
+	Filter.PackagePaths.Add(*Path);
+	Filter.bRecursivePaths = true;
+	// Look specifically for UBehaviorTree assets instead of Blueprints
+	Filter.ClassPaths.Add(UBehaviorTree::StaticClass()->GetClassPathName());
+
+	TArray<FAssetData> AssetList;
+	AssetRegistryModule.Get().GetAssets(Filter, AssetList);
+
+	for (const FAssetData& Asset : AssetList)
+	{
+		if (UBehaviorTree* BT = Cast<UBehaviorTree>(Asset.GetAsset()))
+		{
+			ResultTrees.Add(BT);
+		}
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("Found %d valid Subtrees in %s"), ResultTrees.Num(), *Path);
+	return ResultTrees;
 }

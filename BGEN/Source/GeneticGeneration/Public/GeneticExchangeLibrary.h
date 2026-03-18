@@ -18,4 +18,7 @@ public:
 
 	/** Generates a unique package name containing metadata for saving */
 	static FString GenerateExchangePackagePath(const FString& InstanceId, int32 Generation, float Fitness);
+
+	/** Checks the Generated folder for an existing evaluated tree. Returns Fitness if found, or -1.0f if new. */
+	static float CheckIfTreeAlreadyEvaluated(const FString& TreeHash, FString& OutFoundPath);
 };

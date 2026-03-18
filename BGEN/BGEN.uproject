@@ -26,7 +26,12 @@
 			"Name": "BehaviourTreeGraph",
 			"Type": "Editor",
 			"LoadingPhase": "Default"
-		}
+		},
+      {
+        "Name": "GeneticServer",
+        "Type": "Runtime",
+        "LoadingPhase": "Default"
+      }
 	],
 	"Plugins": [
 		{

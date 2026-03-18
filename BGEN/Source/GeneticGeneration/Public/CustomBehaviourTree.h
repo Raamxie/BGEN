@@ -67,6 +67,7 @@ public:
 	
 	TArray<UClass*> GetAvailableTaskClasses(const FString& Path);
 	TArray<UClass*> GetAvailableDecoratorClasses(const FString& Path);
+	TArray<UBehaviorTree*> GetAvailableTaskTrees(const FString& Path);
 	
 	// Helper to collect nodes for mutation library
 	void CollectNodes(UBTNode* Node, TArray<UBTCompositeNode*>& OutComposites, TArray<UBTTaskNode*>& OutTasks);
@@ -88,6 +89,12 @@ public:
 
 	void PrintPrettyNode(UBTNode* Node, FString Prefix, bool bIsLast);
 	static UBTNode* DuplicateNodeRecursive(UBTNode* SourceNode, UBehaviorTree* TargetAsset);
+
+	
+	FString GetTreeStructureForHash();
+	
+	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
+	FString GetTreeHash();
 
 private:
 	UBehaviorTree* BehaviorTreeAsset = nullptr;

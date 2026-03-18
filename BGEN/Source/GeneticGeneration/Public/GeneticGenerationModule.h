@@ -12,6 +12,9 @@ public:
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 
+	void LoadSimulationMap();
+	void LoadEmptyWaitingMap();
+
 private:
 	// Event Callbacks
 	void OnWorldInitialized(UWorld* world, const UWorld::InitializationValues IVS);
@@ -20,7 +23,6 @@ private:
 
 	// Logic
 	void RunSimulation(UWorld* World);
-	void LoadSimulationMap();
 
 	// State
 	UPROPERTY()

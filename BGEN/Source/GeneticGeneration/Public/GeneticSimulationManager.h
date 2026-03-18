@@ -4,7 +4,9 @@
 #include "CustomBehaviourTree.h"
 #include "UObject/NoExportTypes.h"
 #include "Engine/EngineTypes.h"
+#include "SimulationEventManager.h"
 #include "GeneticSimulationManager.generated.h"
+
 
 // Forward declarations
 class UBehaviorTree;
@@ -48,10 +50,16 @@ public:
 	void SetPause(bool bPauseState);
 	bool IsPaused() const;
 
+	UFUNCTION()
+	void StartEpochWithJob(FString AssignedAssetPath);
+	
 	virtual UWorld* GetWorld() const override;
 
 	UPROPERTY(VisibleAnywhere, Category = "Genetic Data")
 	int32 GenerationCount = 1;
+
+	UFUNCTION()
+	void TransitionToMainMap(FString JobPath);
 
 protected:
 	UPROPERTY()
@@ -78,19 +86,23 @@ protected:
 
 	// --- Internal Logic ---
 
+	void TimerCallback();
+
+	UFUNCTION()
+	void PlayerDiedListener();
+	
 	FString SelectTreeToEvolve(); 
 
 	bool DoesPlayerExist() const;
 	UClass* GetClassFromPath(const FString& Path);
 	UObject* LoadObjectFromPath(const FString& Path);
-
-	UFUNCTION()
-	void TimerCallback();
 	
-	UFUNCTION()
-	void PlayerDiedListener();
+	void HandleSimulationEvent(ESimulationEvent EventType);
 	
 	void StopSimulation();
+
+
+
 
 	UPROPERTY()
 	TMap<APawn*, UCustomBehaviourTree*> ActiveAgents;

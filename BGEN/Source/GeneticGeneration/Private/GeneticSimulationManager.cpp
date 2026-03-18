@@ -15,6 +15,12 @@
 #include "HAL/PlatformFilemanager.h"
 #include "GeneticSelectionLibrary.h"
 #include "GeneticMutationLibrary.h"
+#include "NavigationSystem.h"
+#include "HttpModule.h"
+#include "SimulationEventManager.h"
+#include "WorkerNetworkSubsystem.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Interfaces/IHttpResponse.h"
 
 UGeneticSimulationManager::UGeneticSimulationManager()
 {
@@ -32,7 +38,6 @@ void UGeneticSimulationManager::Init(UWorld* InWorld)
 	}
 
 	// 1. SETUP IDENTITY
-	// Check if ID is passed via command line (e.g. -InstanceID=1)
 	FString CmdID;
 	if (FParse::Value(FCommandLine::Get(), TEXT("InstanceID="), CmdID))
 	{
@@ -40,51 +45,13 @@ void UGeneticSimulationManager::Init(UWorld* InWorld)
 	}
 	else
 	{
-		// Fallback to random if running locally/testing
 		InstanceID = TEXT("Island_") + FGuid::NewGuid().ToString().Left(4);
 	}
 	UE_LOG(LogGeneticGeneration, Warning, TEXT("MANAGER: Initialized as %s"), *InstanceID);
-}
 
-void UGeneticSimulationManager::StartEpoch()
-{
-	UE_LOG(LogGeneticGeneration, Display, TEXT("--------------------------------------------------"));
-	UE_LOG(LogGeneticGeneration, Display, TEXT("MANAGER: Starting Generation %d"), GenerationCount);
-
-	if (!TargetWorld) return;
-
-	// Cleanup
-	if (TimerHandle.IsValid()) TargetWorld->GetTimerManager().ClearTimer(TimerHandle);
-	EnemySpawnPositions.Empty(); 
-	
-	// *** 2. EXCHANGE STEP: LOOK FOR NEW FOREIGN ASSETS ***
-	// Scan the shared folder
-	TArray<FSimulationResult> NewForeigners = UGeneticExchangeLibrary::ScanForForeignGenomes(InstanceID);
-	
-	if (NewForeigners.Num() > 0)
-	{
-		// Add to our foreign pool
-		ForeignPool.Append(NewForeigners);
-		
-		// Clean up pool if too large (keep best 100)
-		if (ForeignPool.Num() > 100)
-		{
-			ForeignPool.Sort([](const FSimulationResult& A, const FSimulationResult& B) {
-				return A.Fitness > B.Fitness; 
-			});
-			ForeignPool.SetNum(100);
-		}
-	}
-
-	// Setup Arena
-	SetPause(true);
-	PreparePlayer();
-	
-	// Pass seed path (only used if no history exists)
-	FString SeedPath = TEXT("/Game/Actors/EnemyUnleashed/Test");
-	SpawnEnemies(1, SeedPath); 
-	
-	Simulate();
+	// 2. IMMEDIATELY FREEZE THE WORLD
+	// Ensure the game does not start running/ticking while we poll the Master Server.
+	SetPause(true); 
 }
 
 FString UGeneticSimulationManager::SelectTreeToEvolve()
@@ -188,161 +155,130 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn, FString Genome
 
     if (!EnemyClass || !ControllerClass || !BBAsset) 
     {
-        UE_LOG(LogGeneticGeneration, Error, TEXT("SpawnEnemies: Missing Assets!"));
+        UE_LOG(LogGeneticGeneration, Error, TEXT("SpawnEnemies: Missing Core Assets!"));
         return;
     }
 
-    UE_LOG(LogGeneticGeneration, Log, TEXT("--- SPAWNING GENERATION %d (%d Agents) ---"), GenerationCount, AmountToSpawn);
+    UE_LOG(LogGeneticGeneration, Log, TEXT("--- WORKER: SPAWNING JOB (%d Agents) ---"), AmountToSpawn);
+
+	FVector SpawnLocation = FVector::ZeroVector;
+	FRotator SpawnRotation = FRotator::ZeroRotator;
+	AActor* SpawnPoint = nullptr;
+
+	// Locate the Spawn Point
+	UClass* SpawnPointClass = GetClassFromPath("/Game/Actors/EnemyUnleashed/EnemySpawn.EnemySpawn_C");
+	if (SpawnPointClass)
+	{
+		SpawnPoint = UGameplayStatics::GetActorOfClass(TargetWorld, SpawnPointClass);
+	}
+
+	if (SpawnPoint)
+	{
+		SpawnLocation = SpawnPoint->GetActorLocation();
+		SpawnRotation = SpawnPoint->GetActorRotation();
+	}
+	else
+	{
+		UE_LOG(LogGeneticGeneration, Warning, TEXT("SpawnEnemies: Could not find BP_EnemySpawn in the world! Using fallback loc."));
+	}
 
     for (int32 i = 0; i < AmountToSpawn; i++)
     {
-        // 2. Spawn Logic
-        FVector Loc = (EnemySpawnPositions.IsValidIndex(i)) ? EnemySpawnPositions[i] : FVector(i * 150.0f, 1500.0f, 210.0f);
-        ACharacter* Enemy = TargetWorld->SpawnActor<ACharacter>(EnemyClass, Loc, FRotator::ZeroRotator);
-        ACustomAIController* AI = TargetWorld->SpawnActor<ACustomAIController>(ControllerClass, Loc, FRotator::ZeroRotator);
+        // 2. Spawn the Character and Controller
+    	FVector Loc = SpawnPoint ? SpawnLocation : ((EnemySpawnPositions.IsValidIndex(i)) ? EnemySpawnPositions[i] : FVector(i * 150.0f, 1500.0f, 210.0f));
+    	FRotator Rot = SpawnPoint ? SpawnRotation : FRotator::ZeroRotator;
+
+    	FActorSpawnParameters SpawnParams;
+    	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+    	
+    	ACharacter* Enemy = TargetWorld->SpawnActor<ACharacter>(EnemyClass, Loc, Rot, SpawnParams);
+    	ACustomAIController* AI = TargetWorld->SpawnActor<ACustomAIController>(ControllerClass, Loc, Rot, SpawnParams);
 
         if (!Enemy || !AI) continue;
 
-        // Attach Fitness Tracker
+        // Attach the Fitness Tracker dynamically
         UGeneticFitnessTracker* FitnessComp = NewObject<UGeneticFitnessTracker>(Enemy);
         FitnessComp->RegisterComponent();
         Enemy->AddInstanceComponent(FitnessComp);
         
         AI->Possess(Enemy);
 
-        // 3. GENOME LOGIC
-        UCustomBehaviourTree* ChildWrapper = nullptr;
-        FEvolutionHistory History;
-        bool bIsSeed = false;
-
-        // A. EVOLUTION (History Exists)
-        if (AllTimeResults.Num() > 0)
+        // 3. GENOME LOGIC - DUMB WORKER MODE
+        // Instead of crossbreeding, we simply instantiate our wrapper and load the path given by the Master.
+        // We use 'this' (the Manager) as the Outer to ensure the wrapper isn't garbage collected mid-simulation.
+        UCustomBehaviourTree* AssignedWrapper = NewObject<UCustomBehaviourTree>(this);
+        
+        if (!AssignedWrapper->LoadBehaviorTree(GenomePath))
         {
-            History.SelectionMethod = TEXT("Tournament");
-            FSimulationResult ParentA = UGeneticSelectionLibrary::TournamentSelection(AllTimeResults, 3);
-            FSimulationResult ParentB = UGeneticSelectionLibrary::TournamentSelection(AllTimeResults, 3);
-
-            if (UGeneticSelectionLibrary::IsValidResult(ParentA))
-            {
-                // LOAD PARENT A
-                UCustomBehaviourTree* WrapperA = NewObject<UCustomBehaviourTree>(this);
-                if (WrapperA->LoadBehaviorTree(ParentA.BehaviorTreePath))
-                {
-                    // *** CAPTURE PARENT A STRUCTURE (For Log) ***
-                    History.ParentA_Path = ParentA.BehaviorTreePath;
-                    History.ParentA_Structure = WrapperA->GetTreeAsString();
-                    
-                    // Crossover Logic (70% Chance)
-                    bool bCrossoverSuccess = false;
-                    if (UGeneticSelectionLibrary::IsValidResult(ParentB) && FMath::FRand() < 0.7f) 
-                    {
-                        // LOAD PARENT B
-                        UCustomBehaviourTree* WrapperB = NewObject<UCustomBehaviourTree>(this);
-                        if(WrapperB->LoadBehaviorTree(ParentB.BehaviorTreePath))
-                        {
-                             // *** CAPTURE PARENT B STRUCTURE (For Log) ***
-                             History.ParentB_Path = ParentB.BehaviorTreePath;
-                             History.ParentB_Structure = WrapperB->GetTreeAsString();
-
-                             FString Log;
-                             ChildWrapper = WrapperA->PerformCrossover(WrapperB, Log);
-                             History.CrossoverLog = Log;
-                             bCrossoverSuccess = true;
-                        }
-                    }
-                    
-                    // Fallback: Clone Parent A if Crossover failed or skipped
-                    if (!bCrossoverSuccess)
-                    {
-                        ChildWrapper = NewObject<UCustomBehaviourTree>(this);
-                        ChildWrapper->InitFromTreeInstance(WrapperA->GetBTAsset());
-                        History.CrossoverLog = TEXT("Clone (No Crossover)");
-                    }
-                }
-            }
+            UE_LOG(LogGeneticGeneration, Error, TEXT("WORKER FATAL: Failed to load assigned tree: %s"), *GenomePath);
+            AI->Destroy(); 
+            Enemy->Destroy(); 
+            continue;
         }
 
-        // B. SEED FALLBACK (First Run or Selection Failed)
-        if (!ChildWrapper)
+       // 4. ASSIGNMENT TO AI
+        if (AssignedWrapper->GetBTAsset())
         {
-            ChildWrapper = NewObject<UCustomBehaviourTree>(this);
-            if(ChildWrapper->LoadBehaviorTree(GenomePath))
-            {
-                bIsSeed = true;
-                History.SelectionMethod = TEXT("Seed (Gen 0)");
-                History.ParentA_Path = GenomePath;
-                History.ParentA_Structure = ChildWrapper->GetTreeAsString(); // Capture Seed Structure
-            }
-            else
-            {
-                UE_LOG(LogGeneticGeneration, Error, TEXT("Failed to load Seed: %s"), *GenomePath);
-                AI->Destroy(); Enemy->Destroy(); continue;
-            }
-        }
-
-        // 4. MUTATION & ASSIGNMENT
-        if (ChildWrapper && ChildWrapper->GetBTAsset())
-        {
-            FString MLog;
-
-            // BOOTSTRAP: If Seed (Gen 0), Force Heavy Mutation to create diversity
-            if (bIsSeed)
-            {
-                // Mutate 5 times to generate a complex tree immediately
-                for(int k=0; k<5; k++)
-                {
-                    FString StepLog = UGeneticMutationLibrary::MutateTree(ChildWrapper, 1.0f);
-                    if (!StepLog.IsEmpty()) MLog += StepLog + " | ";
-                }
-                History.MutationLog = TEXT("BOOTSTRAP: ") + MLog;
-            }
-            else
-            {
-                // Standard Evolution (40% Chance)
-                History.MutationLog = UGeneticMutationLibrary::MutateTree(ChildWrapper, 0.40f);
-            }
-
-            // Save History & Assign
-            ChildWrapper->EvolutionData = History;
-            AI->AssignTree(ChildWrapper->GetBTAsset(), BBAsset);
+            // Inject the tree into the controller
+            AI->AssignTree(AssignedWrapper->GetBTAsset(), BBAsset);
+        	AI->RuntimeBehaviourWrapper = AssignedWrapper;
             
-            // 5. CRITICAL: Add to Tracking List
-            ActiveAgents.Add(Enemy, ChildWrapper);
+            // Track the agent so StopSimulation() can evaluate it
+            ActiveAgents.Add(Enemy, AssignedWrapper);
             
-            UE_LOG(LogGeneticGeneration, Log, TEXT("Agent %d Spawned & Registered. Tree: %s"), i, *ChildWrapper->GetBTAsset()->GetName());
+            UE_LOG(LogGeneticGeneration, Log, TEXT("Worker successfully bound agent %d to Tree: %s"), i, *AssignedWrapper->GetBTAsset()->GetName());
         }
     }
 }
 
 void UGeneticSimulationManager::Simulate()
 {
-	if (!TargetWorld || ActiveAgents.Num() == 0)
-	{
-		StopSimulation(); 
-		return;
-	}
+    UE_LOG(LogTemp, Warning, TEXT("MANAGER DIAGNOSTIC: Simulate() started. Active Agents: %d"), ActiveAgents.Num());
 
-	// Pass the cached ActivePlayer to every agent
-	for (auto& Pair : ActiveAgents)
-	{
-		APawn* Agent = Pair.Key;
-		if (IsValid(Agent))
-		{
-			if (ACustomAIController* AI = Cast<ACustomAIController>(Agent->GetController()))
-			{
-				AI->RunAssignedTree();
-			}
-			if (UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>())
-			{
-				// PASS THE PLAYER HERE
-				Tracker->BeginTracking(ActivePlayer);
-			}
-		}
-	}
+    if (!TargetWorld || ActiveAgents.Num() == 0)
+    {
+       UE_LOG(LogTemp, Error, TEXT("MANAGER DIAGNOSTIC: Simulate() aborted! ActiveAgents is empty or TargetWorld is null."));
+       StopSimulation(); 
+       return;
+    }
 
-	// UGameplayStatics::SetGlobalTimeDilation(TargetWorld, 4.0f);
-	TargetWorld->GetTimerManager().SetTimer(TimerHandle, this, &UGeneticSimulationManager::TimerCallback, 30.0f, false);
-	SetPause(false);
+    // 1. Bind to the Event Manager Subsystem
+    USimulationEventManager* EventManager = TargetWorld->GetSubsystem<USimulationEventManager>();
+    if (EventManager)
+    {
+       EventManager->OnSimulationEvent.RemoveAll(this);
+       EventManager->OnSimulationEvent.AddUObject(this, &UGeneticSimulationManager::HandleSimulationEvent);
+       
+       UE_LOG(LogTemp, Warning, TEXT("MANAGER DIAGNOSTIC: SUCCESSFULLY BOUND DELEGATE to World: %s"), *TargetWorld->GetName());
+    }
+    else
+    {
+       UE_LOG(LogTemp, Error, TEXT("MANAGER DIAGNOSTIC: EventManager is NULL! Could not bind."));
+    }
+
+    // 2. Initialize Trackers and Start AI Execution
+    for (const auto& Pair : ActiveAgents)
+    {
+        APawn* Agent = Pair.Key;
+        if (IsValid(Agent))
+        {
+            // A. Start Fitness Tracking
+            // We pass in the ActivePlayer so the tracker can measure proximity and damage events.
+            if (UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>())
+            {
+                Tracker->BeginTracking(ActivePlayer);
+            }
+
+            // B. Run the Behavior Tree
+            // The tree was assigned in SpawnEnemies, but it must be explicitly started here.
+            if (ACustomAIController* AIController = Cast<ACustomAIController>(Agent->GetController()))
+            {
+                AIController->RunAssignedTree();
+            }
+        }
+    }
+
+    SetPause(false);
 }
 
 void UGeneticSimulationManager::StopSimulation()
@@ -353,68 +289,117 @@ void UGeneticSimulationManager::StopSimulation()
 	}
 	SetPause(true);
 
-	// Track the best agent of THIS generation to export it
-	UCustomBehaviourTree* BestWrapperOfGen = nullptr;
-	float BestFitnessOfGen = -1.0f;
+	UE_LOG(LogGeneticGeneration, Log, TEXT("WORKER: Stopping Simulation. Calculating Fitness..."));
 
-	UE_LOG(LogGeneticGeneration, Log, TEXT("Manager: Stopping Simulation. Processing Agents..."));
+	float FinalFitnessScore = 1.0f; 
 
+	// 1. Calculate Fitness & Destroy Agents
 	for (auto& Pair : ActiveAgents)
 	{
 		APawn* Agent = Pair.Key;
-		UCustomBehaviourTree* TreeWrapper = Pair.Value;
-
-		if (IsValid(Agent) && TreeWrapper)
+		if (IsValid(Agent))
 		{
-			// 1. Calc Fitness
-			float FitnessScore = 0.0f;
 			if (UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>())
 			{
-				FitnessScore = Tracker->CalculateFitness();
+				FinalFitnessScore = Tracker->CalculateFitness();
 			}
-
-			// 2. Save Standard Local Asset (For history/logging)
-			// e.g. /Game/BehaviourTrees/Generated/GenX_AgentY
-			FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/Gen%d_Agent_%d"), GenerationCount, FMath::Rand());
-			FString FinalAssetPath = TreeWrapper->SaveAsNewAsset(SaveName, true);
 			
-			// 3. Track Best
-			if (FitnessScore > BestFitnessOfGen)
-			{
-				BestFitnessOfGen = FitnessScore;
-				BestWrapperOfGen = TreeWrapper;
-			}
-
-			// 4. Record Result Locally
-			FSimulationResult RunResult;
-			RunResult.BehaviorTreePath = FinalAssetPath;
-			RunResult.Fitness = FitnessScore;
-			RunResult.GenerationNumber = GenerationCount;
-
-			AllTimeResults.Add(RunResult);
-			TreeWrapper->AppendTreeToLogFile(TEXT("EvolutionHistory.txt"), GenerationCount, FitnessScore);
-			
-			// Cleanup
 			if (AController* C = Agent->GetController()) C->Destroy();
 			Agent->Destroy();
 		}
 	}
-
-	// *** 5. EXPORT PHASE: Share Best Agent with the Swarm ***
-	if (BestWrapperOfGen && BestFitnessOfGen > 10.0f) // Only export if it's decent
-	{
-		// Generate the specific Exchange path: /Game/GeneticExchange/Ex_Island1_G5_F100_GUID
-		FString ExportPath = UGeneticExchangeLibrary::GenerateExchangePackagePath(InstanceID, GenerationCount, BestFitnessOfGen);
-		
-		// Save duplicate to the exchange folder
-		BestWrapperOfGen->SaveAsNewAsset(ExportPath, true);
-		
-		UE_LOG(LogGeneticGeneration, Log, TEXT("EXCHANGE: Exported best agent to %s"), *ExportPath);
-	}
-	
 	ActiveAgents.Empty();
-	GenerationCount++;
-	FinishEpoch();
+
+	// 2. Submit Result and Reboot
+	if (TargetWorld)
+	{
+		UGameInstance* GameInstance = TargetWorld->GetGameInstance();
+		if (GameInstance)
+		{
+			UWorkerNetworkSubsystem* NetSubsystem = GameInstance->GetSubsystem<UWorkerNetworkSubsystem>();
+			if (NetSubsystem)
+			{
+				UE_LOG(LogGeneticGeneration, Log, TEXT("WORKER: Submitting Fitness %.2f for %s"), FinalFitnessScore, *NetSubsystem->CurrentJobAssetPath);
+				NetSubsystem->SubmitFitness(NetSubsystem->CurrentJobAssetPath, FinalFitnessScore);
+			}
+		}
+
+		// 3. WIPE MEMORY: Reload the Main Map
+		UE_LOG(LogGeneticGeneration, Warning, TEXT("WORKER: Map Evaluation Complete. Rebooting Main Map..."));
+        
+		// Using the short name is usually safer in UE5, but if it fails, use "/Game/Scenes/Main/Main"
+		UGameplayStatics::OpenLevel(TargetWorld, FName("Main")); 
+	}
+}
+
+void UGeneticSimulationManager::StartEpochWithJob(FString AssignedAssetPath)
+{
+	// The Master has assigned us a tree! We can now run the standard setup.
+	UE_LOG(LogGeneticGeneration, Display, TEXT("WORKER: Job Received! Starting Simulation for %s"), *AssignedAssetPath);
+
+	if (!TargetWorld) return;
+
+	if (TimerHandle.IsValid()) TargetWorld->GetTimerManager().ClearTimer(TimerHandle);
+	EnemySpawnPositions.Empty(); 
+
+	SetPause(true);
+
+	if (UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(TargetWorld))
+	{
+		NavSys->Build();
+	}
+    
+	PreparePlayer();
+    
+	// Pass the exact path from the Master directly into the spawner
+	SpawnEnemies(1, AssignedAssetPath); 
+    
+	Simulate();
+}
+
+void UGeneticSimulationManager::HandleSimulationEvent(ESimulationEvent EventType)
+{
+	switch (EventType)
+	{
+	case ESimulationEvent::NoFoodLeft:
+		UE_LOG(LogGeneticGeneration, Warning, TEXT("Stopping Simulation: Starvation."));
+		StopSimulation();
+		break;
+
+	case ESimulationEvent::NoWaterLeft:
+		UE_LOG(LogGeneticGeneration, Warning, TEXT("Stopping Simulation: Dehydration."));
+		StopSimulation();
+		break;
+
+	case ESimulationEvent::SettlementComplete:
+		UE_LOG(LogGeneticGeneration, Warning, TEXT("Stopping Simulation: Settlement Completed Successfully!"));
+		StopSimulation();
+		break;
+
+	case ESimulationEvent::PlayerDied:
+		UE_LOG(LogGeneticGeneration, Warning, TEXT("Stopping Simulation: Player was killed."));
+		StopSimulation();
+		break;
+
+	case ESimulationEvent::Timeout:
+		UE_LOG(LogGeneticGeneration, Warning, TEXT("Stopping Simulation: Time limit reached."));
+		StopSimulation();
+		break;
+            
+	default:
+		break;
+	}
+}
+
+void UGeneticSimulationManager::TransitionToMainMap(FString JobPath)
+{
+	UE_LOG(LogGeneticGeneration, Warning, TEXT("WORKER: Job received from server! Loading Main Map..."));
+	
+	if (TargetWorld)
+	{
+		// Map transition triggers the engine to load Main and destroy EmptyWaiting
+		UGameplayStatics::OpenLevel(TargetWorld, FName("Main"));
+	}
 }
 
 UWorld* UGeneticSimulationManager::GetWorld() const { return TargetWorld; }

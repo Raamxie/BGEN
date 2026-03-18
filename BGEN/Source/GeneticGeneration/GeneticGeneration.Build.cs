@@ -18,7 +18,9 @@ public class GeneticGeneration : ModuleRules
 			"InputCore",
 			"Json",
 			"JsonUtilities",
-			"AssetRegistry"
+			"AssetRegistry",
+			"NavigationSystem",
+			"HTTP"
 		});
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
@@ -32,7 +34,7 @@ public class GeneticGeneration : ModuleRules
 			"EditorScriptingUtilities",
 			"Slate",
 			"SlateCore",
-			"BehaviorTreeEditor"      // Fixes FBehaviorTreeEditorUtils
+			"BehaviorTreeEditor", "BGEN" // Fixes FBehaviorTreeEditorUtils
 		});
 		
 		if (Target.bBuildEditor == true)
