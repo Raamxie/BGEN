@@ -37,9 +37,11 @@ FString UGeneticMutationLibrary::MutateTree(UCustomBehaviourTree* Wrapper, float
 
 FString UGeneticMutationLibrary::AddNewTask(UCustomBehaviourTree* Wrapper)
 {
-    // 1. Fetch both pools
-    TArray<UClass*> TaskClasses = Wrapper->GetAvailableTaskClasses("/Game/BehaviourTrees");
-    TArray<UBehaviorTree*> Subtrees = Wrapper->GetAvailableTaskTrees("/Game/BehaviourTrees/TaskTrees");
+    // 1. Fetch both pools using the updated path
+    TArray<UClass*> TaskClasses = Wrapper->GetAvailableTaskClasses("/Game/BehaviourTrees/EnemyTasks");
+    
+    // Note: Assuming subtrees also moved, adjust if they are still at "/Game/BehaviourTrees/TaskTrees"
+    TArray<UBehaviorTree*> Subtrees = Wrapper->GetAvailableTaskTrees("/Game/BehaviourTrees/EnemyTasks/TaskTrees");
     
     int32 TotalChoices = TaskClasses.Num() + Subtrees.Num();
     if (TotalChoices == 0) return TEXT("Failed: No Tasks or Subtrees Found");
@@ -126,9 +128,11 @@ FString UGeneticMutationLibrary::SwapTask(UCustomBehaviourTree* Wrapper)
     UBTCompositeNode* Parent = Victim->GetParentNode();
     if (!Parent) return TEXT("Failed: Orphan Task");
 
-    // 1. Fetch both pools
-    TArray<UClass*> TaskClasses = Wrapper->GetAvailableTaskClasses("/Game/BehaviourTrees");
-    TArray<UBehaviorTree*> Subtrees = Wrapper->GetAvailableTaskTrees("/Game/BehaviourTrees/TaskTrees");
+    // 1. Fetch both pools using the updated path
+    TArray<UClass*> TaskClasses = Wrapper->GetAvailableTaskClasses("/Game/BehaviourTrees/EnemyTasks");
+    
+    // Note: Assuming subtrees also moved, adjust if they are still at "/Game/BehaviourTrees/TaskTrees"
+    TArray<UBehaviorTree*> Subtrees = Wrapper->GetAvailableTaskTrees("/Game/BehaviourTrees/EnemyTasks/TaskTrees");
     
     int32 TotalChoices = TaskClasses.Num() + Subtrees.Num();
     if (TotalChoices == 0) return TEXT("Failed: No Classes or Subtrees");

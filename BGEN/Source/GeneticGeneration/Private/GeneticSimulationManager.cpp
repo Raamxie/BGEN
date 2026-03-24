@@ -289,28 +289,51 @@ void UGeneticSimulationManager::StopSimulation()
 	}
 	SetPause(true);
 
-	UE_LOG(LogGeneticGeneration, Log, TEXT("WORKER: Stopping Simulation. Calculating Fitness..."));
+	UE_LOG(LogGeneticGeneration, Log, TEXT("WORKER: Stopping Simulation. Gathering Metrics..."));
 
 	float FinalFitnessScore = 1.0f; 
+	float Dist = 0.0f, DmgTaken = 0.0f,DmgDealt = 0.0f, Rew = 0.0f, TimeAlive = 0.0f, Util = 0.0f;
+	int32 Size = 0;
+	bool bKilled = false;
+	FString TreeStr = TEXT("No Tree Found");
 
-	// 1. Calculate Fitness & Destroy Agents
+	// 1. Calculate Fitness, Extract Metrics AND Destroy Agents!
 	for (auto& Pair : ActiveAgents)
 	{
 		APawn* Agent = Pair.Key;
 		if (IsValid(Agent))
 		{
+			// Extract all metrics from the tracker
 			if (UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>())
 			{
 				FinalFitnessScore = Tracker->CalculateFitness();
+				Dist = Tracker->GetAccumulatedDistance();
+				DmgTaken = Tracker->GetAccumulatedDamageTaken();
+				DmgDealt = Tracker->GetAccumulatedDamageDealt();
+				Rew = Tracker->GetAccumulatedReward();
+				TimeAlive = Tracker->GetTimeAlive();
+				Size = Tracker->GetTreeSize();
+				Util = Tracker->GetTreeUtilizationPercentage();
+				bKilled = Tracker->GetPlayerWasKilled();
 			}
 			
-			if (AController* C = Agent->GetController()) C->Destroy();
+			// Extract the tree string and destroy the Controller
+			if (ACustomAIController* C = Cast<ACustomAIController>(Agent->GetController()))
+			{
+				if (C->RuntimeBehaviourWrapper)
+				{
+					TreeStr = C->RuntimeBehaviourWrapper->GetTreeAsString();
+				}
+				C->Destroy();
+			}
+			
+			// Destroy the Agent so it stops ticking/running completely
 			Agent->Destroy();
 		}
 	}
 	ActiveAgents.Empty();
 
-	// 2. Submit Result and Reboot
+	// 2. Submit Result to Server
 	if (TargetWorld)
 	{
 		UGameInstance* GameInstance = TargetWorld->GetGameInstance();
@@ -319,19 +342,18 @@ void UGeneticSimulationManager::StopSimulation()
 			UWorkerNetworkSubsystem* NetSubsystem = GameInstance->GetSubsystem<UWorkerNetworkSubsystem>();
 			if (NetSubsystem)
 			{
-				UE_LOG(LogGeneticGeneration, Log, TEXT("WORKER: Submitting Fitness %.2f for %s"), FinalFitnessScore, *NetSubsystem->CurrentJobAssetPath);
-				NetSubsystem->SubmitFitness(NetSubsystem->CurrentJobAssetPath, FinalFitnessScore);
+				UE_LOG(LogGeneticGeneration, Log, TEXT("WORKER: Submitting Job %d (Fitness: %.2f). Waiting for Server..."), NetSubsystem->CurrentJobID, FinalFitnessScore);
+				
+				NetSubsystem->SubmitFitness(
+					NetSubsystem->CurrentJobAssetPath, 
+					NetSubsystem->CurrentJobID, 
+					FinalFitnessScore, 
+					Dist, DmgTaken, DmgDealt, Rew, TimeAlive, Size, Util, bKilled, TreeStr
+				);
 			}
 		}
-
-		// 3. WIPE MEMORY: Reload the Main Map
-		UE_LOG(LogGeneticGeneration, Warning, TEXT("WORKER: Map Evaluation Complete. Rebooting Main Map..."));
-        
-		// Using the short name is usually safer in UE5, but if it fails, use "/Game/Scenes/Main/Main"
-		UGameplayStatics::OpenLevel(TargetWorld, FName("Main")); 
 	}
 }
-
 void UGeneticSimulationManager::StartEpochWithJob(FString AssignedAssetPath)
 {
 	// The Master has assigned us a tree! We can now run the standard setup.

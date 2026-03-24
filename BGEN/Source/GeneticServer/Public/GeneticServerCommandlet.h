@@ -12,24 +12,22 @@ class UGeneticServerCommandlet : public UCommandlet
 
 public:
 	UGeneticServerCommandlet();
-
 	virtual int32 Main(const FString& Params) override;
 
 private:
 	// -- Networking / Job State --
 	TArray<FString> JobQueue;
 	FString GetNextJob();
+	
+	// NEW: Sequential ID for jobs
+	int32 NextJobID = 1;
 
 	// -- Evolution State --
 	int32 PopulationSize = 10;
 	int32 CurrentGeneration = 0;
 	
-	// Tracks results just for the current generation to know when to evolve
 	TArray<FSimulationResult> CurrentEpochResults;
-	
-	// Tracks all results for selection
 	TArray<FSimulationResult> AllTimeResults;
 
-	// Core Genetic Loop
 	void GenerateNextEpoch();
 };

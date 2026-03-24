@@ -24,7 +24,7 @@ UGeneticServerCommandlet::UGeneticServerCommandlet()
     LogToConsole = true;
     
     // Default population size. You can expose this to a config file later.
-    PopulationSize = 10;
+    PopulationSize = 6;
     CurrentGeneration = 0;
 }
 
@@ -47,7 +47,10 @@ void UGeneticServerCommandlet::GenerateNextEpoch()
 
     FString SeedPath = TEXT("/Game/Actors/EnemyUnleashed/Test"); // Your base tree
 
-    for (int32 i = 0; i < PopulationSize; i++)
+    int32 JobsSuccessfullyQueued = 0;
+
+    // Use a while loop to guarantee we ALWAYS generate 'PopulationSize' valid jobs
+    while (JobsSuccessfullyQueued < PopulationSize)
     {
         UCustomBehaviourTree* ChildWrapper = nullptr;
 
@@ -90,22 +93,16 @@ void UGeneticServerCommandlet::GenerateNextEpoch()
             if(!ChildWrapper->LoadBehaviorTree(SeedPath))
             {
                 UE_LOG(LogGeneticServer, Error, TEXT("Failed to load Seed: %s"), *SeedPath);
-                continue;
+                // Restart the while-loop iteration without incrementing the counter
+                continue; 
             }
         }
 
         // C. MUTATION
         if (ChildWrapper && ChildWrapper->GetBTAsset())
         {
-            // If Gen 0, mutate aggressively (1.0f) to build out the trees. Otherwise standard 40% chance.
-            float MutRate = (CurrentGeneration == 0) ? 1.0f : 0.40f;
-            int32 MutateTimes = (CurrentGeneration == 0) ? 5 : 1; 
-
-            for(int k=0; k < MutateTimes; k++)
-            {
-                UGeneticMutationLibrary::MutateTree(ChildWrapper, MutRate);
-            }
-
+            UGeneticMutationLibrary::MutateTree(ChildWrapper, 0.4);
+            
             // D. SAVE TO DISK & QUEUE JOB
             FString TreeHash = ChildWrapper->GetTreeHash();
             
@@ -115,10 +112,18 @@ void UGeneticServerCommandlet::GenerateNextEpoch()
             // SaveAsNewAsset writes the .uasset to the disk
             FString FinalAssetPath = ChildWrapper->SaveAsNewAsset(SaveName, true);
 
+            // ONLY increment and add if the path actually exists
             if (!FinalAssetPath.IsEmpty())
             {
                 JobQueue.Add(FinalAssetPath);
-                UE_LOG(LogGeneticServer, Log, TEXT("Queued Job %d: %s"), i, *FinalAssetPath);
+                UE_LOG(LogGeneticServer, Log, TEXT("Queued Job %d: %s"), JobsSuccessfullyQueued, *FinalAssetPath);
+                
+                // Job successfully created and queued, increment the counter!
+                JobsSuccessfullyQueued++;
+            }
+            else
+            {
+                UE_LOG(LogGeneticServer, Error, TEXT("Failed to save generated tree! Retrying..."));
             }
         }
     }
@@ -160,11 +165,14 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
             {
                 JsonResponse->SetStringField(TEXT("status"), TEXT("success"));
                 JsonResponse->SetStringField(TEXT("asset_path"), AssignedAssetPath);
-                UE_LOG(LogGeneticServer, Log, TEXT("Assigned job to worker: %s"), *AssignedAssetPath);
+                
+                // Assign and increment the Job ID
+                JsonResponse->SetNumberField(TEXT("job_id"), NextJobID++);
+                
+                UE_LOG(LogGeneticServer, Log, TEXT("Assigned job %d to worker: %s"), NextJobID - 1, *AssignedAssetPath);
             }
             else
             {
-                // Queue empty, tell worker to wait/standby
                 JsonResponse->SetStringField(TEXT("status"), TEXT("standby"));
             }
 
@@ -187,22 +195,56 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
 
             if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
             {
+                // 1. Extract Light Data for the Struct
                 FString AssetPath = JsonObject->GetStringField(TEXT("asset_path"));
                 float FitnessValue = JsonObject->GetNumberField(TEXT("fitness"));
-                
-                // Record Result
+                int32 CurrentGenForLog = CurrentGeneration - 1; 
+
                 FSimulationResult Res;
                 Res.BehaviorTreePath = AssetPath;
                 Res.Fitness = FitnessValue;
-                Res.GenerationNumber = CurrentGeneration - 1; // Since we incremented at the end of generation
+                Res.GenerationNumber = CurrentGenForLog; 
 
                 CurrentEpochResults.Add(Res);
                 AllTimeResults.Add(Res);
 
-                UE_LOG(LogGeneticServer, Warning, TEXT("MASTER: Worker finished %s | Fitness: %.2f | Progress: %d/%d"), 
-                    *AssetPath, FitnessValue, CurrentEpochResults.Num(), PopulationSize);
+                // 2. Extract Extended Metrics for the CSV
+                int32 JobID = JsonObject->GetIntegerField(TEXT("job_id"));
+                float Dist = JsonObject->GetNumberField(TEXT("distance"));
+                float DmgTaken = JsonObject->GetNumberField(TEXT("damage_taken"));
+            	float DmgDealt = JsonObject->GetNumberField(TEXT("damage_dealt"));
+                float Rew = JsonObject->GetNumberField(TEXT("reward"));
+                float TimeAlive = JsonObject->GetNumberField(TEXT("time_alive"));
+                int32 TreeSize = JsonObject->GetIntegerField(TEXT("tree_size"));
+                float Util = JsonObject->GetNumberField(TEXT("utilization"));
+                bool bKilled = JsonObject->GetBoolField(TEXT("player_killed"));
+                FString TreeStr = JsonObject->GetStringField(TEXT("tree_string"));
 
-                // CHECK EPOCH COMPLETION
+                UE_LOG(LogGeneticServer, Warning, TEXT("MASTER: Worker finished Job %d | Fitness: %.2f | Progress: %d/%d"), 
+                    JobID, FitnessValue, CurrentEpochResults.Num(), PopulationSize);
+
+                // 3. Write to CSV
+                FString CSVPath = FPaths::ProjectLogDir() / TEXT("GeneticMasterResults.csv");
+                bool bFileExists = FPlatformFileManager::Get().GetPlatformFile().FileExists(*CSVPath);
+                FString CSVLine;
+
+                // Write Header if creating file for the first time
+                if (!bFileExists)
+                {
+                    CSVLine += TEXT("JobID,Generation,Fitness,Distance,DamageTaken,DamageDealt,Reward,TimeAlive,TreeSize,Utilization,PlayerKilled,AssetPath,TreeStructure\n");
+                }
+
+                // CSV Escaping: Replace internal quotes with double-quotes to not break the formatting
+                FString EscapedTree = TreeStr.Replace(TEXT("\""), TEXT("\"\""));
+
+                // Note: The tree is wrapped in standard quotes "%s" at the end of the line
+                CSVLine += FString::Printf(TEXT("%d,%d,%f,%f,%f,%f,%f,%f,%d,%f,%s,%s,\"%s\"\n"),
+                    JobID, CurrentGenForLog, FitnessValue, Dist, DmgTaken,DmgDealt, Rew, TimeAlive, TreeSize, Util, 
+                    bKilled ? TEXT("TRUE") : TEXT("FALSE"), *AssetPath, *EscapedTree);
+
+                FFileHelper::SaveStringToFile(CSVLine, *CSVPath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_Append);
+
+                // 4. CHECK EPOCH COMPLETION
                 if (CurrentEpochResults.Num() >= PopulationSize)
                 {
                     GenerateNextEpoch(); 

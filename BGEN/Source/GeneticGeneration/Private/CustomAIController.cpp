@@ -45,6 +45,7 @@ void ACustomAIController::RunAssignedTree()
     }
 
     RunBehaviorTree(AssignedTree);
+	UE_LOG(LogTemp, Log, TEXT("Running behaviour tree"));
 }
 
 

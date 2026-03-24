@@ -8,6 +8,9 @@
 #include "AIController.h"
 #include "GeneticFitnessTracker.generated.h"
 
+// Forward declaration to prevent circular dependency
+class ACustomAIController;
+
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class GENETICGENERATION_API UGeneticFitnessTracker : public UActorComponent
 {
@@ -27,6 +30,7 @@ public:
 	float GetAccumulatedDistance() const { return AccumulatedDistance; }
 	float GetAccumulatedDamageTaken() const { return AccumulatedDamageTaken; }
 	float GetAccumulatedReward() const { return AccumulatedReward; }
+	float GetAccumulatedDamageDealt() const { return AccumulatedDamageDealt; }
 	float GetTimeAlive() const;
 
 	// --- NEW: Tree Utilization Tracking ---
@@ -96,6 +100,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Structure")
 	float BigTreePenalty = 200.0f;
 
+	UFUNCTION(BlueprintCallable, Category = "Genetic Fitness")
+	bool GetPlayerWasKilled() const { return bPlayerWasKilled; }
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -114,6 +121,7 @@ private:
 
 	float AccumulatedReward = 0.0f;
 	float AccumulatedDamageTaken = 0.0f;
+	float AccumulatedDamageDealt = 0.0f;
 	float AccumulatedDistance = 0.0f;
 
 	double StartTime = 0.0f;
@@ -126,6 +134,10 @@ private:
 
 	UPROPERTY()
 	AActor* TargetPlayer = nullptr;
+
+	// NEW: Cache the AI Controller so we can read the tree even if unpossessed
+	UPROPERTY()
+	ACustomAIController* CachedAIController = nullptr;
 
 	// Tracks the unique names of tasks that have been executed
 	UPROPERTY()
