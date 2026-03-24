@@ -47,6 +47,40 @@ void UGeneticFitnessTracker::BeginTracking(AActor* InTargetPlayer)
 	AccumulatedReward = 0.0f;
 	AccumulatedDamageTaken = 0.0f;
 	AccumulatedDistance = 0.0f;
+    
+	// Clear the set for a fresh run
+	ExecutedTasks.Empty();
+}
+
+void UGeneticFitnessTracker::RecordNodeExecution(const FString& NodeIdentifier)
+{
+	if (bTrackingActive)
+	{
+		ExecutedTasks.Add(NodeIdentifier);
+	}
+}
+
+void UGeneticFitnessTracker::ReportTaskExecuted(AAIController* AIController, const FString& TaskName)
+{
+	if (!AIController) return;
+
+	APawn* ControlledPawn = AIController->GetPawn();
+	if (ControlledPawn)
+	{
+		if (UGeneticFitnessTracker* Tracker = ControlledPawn->FindComponentByClass<UGeneticFitnessTracker>())
+		{
+			Tracker->RecordNodeExecution(TaskName);
+		}
+	}
+}
+
+float UGeneticFitnessTracker::GetTreeUtilizationPercentage() const
+{
+	int32 TotalSize = GetTreeSize();
+	if (TotalSize == 0) return 0.0f;
+
+	// Divides unique tasks executed by the total size of the tree (Composites + Tasks)
+	return (float)ExecutedTasks.Num() / (float)TotalSize;
 }
 
 void UGeneticFitnessTracker::RecordMovementRoutine()
@@ -61,6 +95,7 @@ void UGeneticFitnessTracker::RecordMovementRoutine()
 		LastRecordedLocation = CurrentLocation;
 	}
 }
+
 void UGeneticFitnessTracker::OnOwnerTakeDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser)
 {
 	if (!bTrackingActive) return;
@@ -142,12 +177,11 @@ float UGeneticFitnessTracker::CalculateFitness()
 	}
 	else if (TreeSize > MaximumTreeNodes) 
 	{
-		// NEW: Apply penalty for bloated trees
 		FinalScore -= BigTreePenalty;
-		
-		// Optional Alternative: You could also do a scaling penalty so it gets worse the larger it gets
-		// FinalScore -= ((TreeSize - MaximumTreeNodes) * 50.0f); 
 	}
+
+	// Optional: You can now apply an "Unused Node Penalty" here using GetTreeUtilizationPercentage()
+	// Example: FinalScore *= FMath::Clamp(GetTreeUtilizationPercentage() + 0.5f, 0.1f, 1.0f);
 
 	// 3. VICTORY CONDITIONS
 	if (bPlayerWasKilled)
@@ -157,8 +191,17 @@ float UGeneticFitnessTracker::CalculateFitness()
 		FinalScore += (TimeRemaining * 50.0f); 
 	}
 
-	UE_LOG(LogGeneticGeneration, Display, TEXT("Enemy Fitness: %f (Dist: %.1f | TreeSize: %d)"), FinalScore, AccumulatedDistance, TreeSize);
+	UE_LOG(LogGeneticGeneration, Display, TEXT("Enemy Fitness: %f (Dist: %.1f | TreeSize: %d | Utilization: %.2f%%)"), FinalScore, AccumulatedDistance, TreeSize, GetTreeUtilizationPercentage() * 100.0f);
 	
 	// Ensure we NEVER return 0 or negative so the Manager doesn't throw the score out
 	return FMath::Max(1.0f, FinalScore);
+}
+
+float UGeneticFitnessTracker::GetTimeAlive() const
+{
+	if (GetWorld() && StartTime > 0.0f)
+	{
+		return GetWorld()->GetTimeSeconds() - StartTime;
+	}
+	return 0.0f;
 }

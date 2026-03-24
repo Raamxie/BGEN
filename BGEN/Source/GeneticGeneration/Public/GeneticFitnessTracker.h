@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "PlayerUnleashedBase.h"
+#include "AIController.h"
 #include "GeneticFitnessTracker.generated.h"
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -21,9 +22,34 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Genetic Fitness")
 	void AddCustomReward(float Amount);
 
+	// --- Exposing Stats for Server Logs ---
+	int32 GetTreeSize() const;
+	float GetAccumulatedDistance() const { return AccumulatedDistance; }
+	float GetAccumulatedDamageTaken() const { return AccumulatedDamageTaken; }
+	float GetAccumulatedReward() const { return AccumulatedReward; }
+	float GetTimeAlive() const;
+
+	// --- NEW: Tree Utilization Tracking ---
+
+	/** Adds a node identifier to the set of executed tasks */
+	UFUNCTION(BlueprintCallable, Category = "Genetic Fitness")
+	void RecordNodeExecution(const FString& NodeIdentifier);
+
+	/** Static helper to easily report execution from inside a Blueprint BTTask */
+	UFUNCTION(BlueprintCallable, Category = "Genetic Fitness", meta = (DisplayName = "Report Task Executed"))
+	static void ReportTaskExecuted(AAIController* AIController, const FString& TaskName);
+
+	/** Returns the ratio of executed unique tasks against the total size of the tree */
+	UFUNCTION(BlueprintCallable, Category = "Genetic Fitness")
+	float GetTreeUtilizationPercentage() const;
+
+	/** Returns the exact count of unique tasks that ran */
+	UFUNCTION(BlueprintCallable, Category = "Genetic Fitness")
+	int32 GetExecutedTasksCount() const { return ExecutedTasks.Num(); }
+
 	// --- Configuration: General ---
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|General")
-	float BaseFitnessScore = 500.0f; // Gives a buffer so early generations don't hit 0
+	float BaseFitnessScore = 500.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|General")
 	float SurvivalTimeWeight = 0.5f;
@@ -42,7 +68,7 @@ public:
 	float PlayerKillBonus = 500.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Combat")
-	float PacifistPenalty = 600.0f;
+	float PacifistPenalty = 100.0f;
 
 	// --- Configuration: Movement ---
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Movement")
@@ -64,12 +90,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Structure")
 	float SmallTreePenalty = 200.0f;
 
-	// NEW: Bloat Control
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Structure")
 	int32 MaximumTreeNodes = 15;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Structure")
-	float BigTreePenalty = 900.0f;
+	float BigTreePenalty = 200.0f;
 
 protected:
 	virtual void BeginPlay() override;
@@ -87,8 +112,6 @@ private:
 	UFUNCTION()
 	void RecordMovementRoutine();
 
-	int32 GetTreeSize() const;
-
 	float AccumulatedReward = 0.0f;
 	float AccumulatedDamageTaken = 0.0f;
 	float AccumulatedDistance = 0.0f;
@@ -103,4 +126,8 @@ private:
 
 	UPROPERTY()
 	AActor* TargetPlayer = nullptr;
+
+	// Tracks the unique names of tasks that have been executed
+	UPROPERTY()
+	TSet<FString> ExecutedTasks;
 };

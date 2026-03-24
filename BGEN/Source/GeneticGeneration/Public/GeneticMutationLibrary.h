@@ -23,4 +23,7 @@ private:
 	static FString AddNewComposite(UCustomBehaviourTree* Wrapper);
 	static FString SwapTask(UCustomBehaviourTree* Wrapper);
 	static FString ShuffleChildren(UCustomBehaviourTree* Wrapper);
+	
+	// NEW: Prune strategy to combat bloat
+	static FString DeleteNode(UCustomBehaviourTree* Wrapper); 
 };
