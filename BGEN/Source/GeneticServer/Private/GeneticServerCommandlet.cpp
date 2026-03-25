@@ -12,19 +12,18 @@
 #include "CustomBehaviourTree.h"
 #include "GeneticSelectionLibrary.h"
 #include "GeneticMutationLibrary.h"
+#include "BehaviorTree/BehaviorTree.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGeneticServer, Log, All);
 
 UGeneticServerCommandlet::UGeneticServerCommandlet()
 {
-    // These flags tell the engine NOT to load worlds or standard game features
     IsClient = false;
     IsEditor = true;
     IsServer = false;
     LogToConsole = true;
     
-    // Default population size. You can expose this to a config file later.
-    PopulationSize = 10;
+    PopulationSize = 6;
     CurrentGeneration = 0;
 }
 
@@ -39,6 +38,32 @@ FString UGeneticServerCommandlet::GetNextJob()
     return TEXT(""); // Queue is empty
 }
 
+void UGeneticServerCommandlet::CheckForTimeouts()
+{
+    double CurrentTime = FPlatformTime::Seconds();
+    TArray<int32> TimedOutJobIDs;
+
+    // 1. Identify jobs that have exceeded the timeout limit
+    for (const auto& Pair : ActiveJobs)
+    {
+        if (CurrentTime - Pair.Value.DispatchTime > JobTimeoutSeconds)
+        {
+            TimedOutJobIDs.Add(Pair.Key);
+        }
+    }
+
+    // 2. Requeue them and remove from Active tracking
+    for (int32 ID : TimedOutJobIDs)
+    {
+        FDispatchedJob JobToRequeue = ActiveJobs[ID];
+        ActiveJobs.Remove(ID);
+
+        JobQueue.Add(JobToRequeue.AssetPath);
+        UE_LOG(LogGeneticServer, Error, TEXT("TIMEOUT: Job %d timed out after %.1f seconds! Re-adding %s to JobQueue."), 
+            ID, JobTimeoutSeconds, *JobToRequeue.AssetPath);
+    }
+}
+
 void UGeneticServerCommandlet::GenerateNextEpoch()
 {
     UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
@@ -47,7 +72,21 @@ void UGeneticServerCommandlet::GenerateNextEpoch()
 
     FString SeedPath = TEXT("/Game/Actors/EnemyUnleashed/Test"); // Your base tree
 
-    for (int32 i = 0; i < PopulationSize; i++)
+    // 1. LOAD THE TEMPLATE ONCE OUTSIDE THE LOOP
+    UCustomBehaviourTree* BaseSeedTemplate = NewObject<UCustomBehaviourTree>();
+    if (!BaseSeedTemplate->LoadBehaviorTree(SeedPath))
+    {
+        UE_LOG(LogGeneticServer, Error, TEXT("CRITICAL: Failed to load Base Seed Tree at %s"), *SeedPath);
+        return; 
+    }
+
+    // Cache the original hash so we know what a "pure" unmutated tree looks like
+    FString BaseHash = BaseSeedTemplate->GetTreeHash();
+
+    int32 JobsSuccessfullyQueued = 0;
+    ActiveJobs.Empty(); 
+
+    while (JobsSuccessfullyQueued < PopulationSize)
     {
         UCustomBehaviourTree* ChildWrapper = nullptr;
 
@@ -62,7 +101,6 @@ void UGeneticServerCommandlet::GenerateNextEpoch()
                 UCustomBehaviourTree* WrapperA = NewObject<UCustomBehaviourTree>();
                 if (WrapperA->LoadBehaviorTree(ParentA.BehaviorTreePath))
                 {
-                    // 70% Crossover Chance
                     if (UGeneticSelectionLibrary::IsValidResult(ParentB) && FMath::FRand() < 0.7f) 
                     {
                         UCustomBehaviourTree* WrapperB = NewObject<UCustomBehaviourTree>();
@@ -73,7 +111,6 @@ void UGeneticServerCommandlet::GenerateNextEpoch()
                         }
                     }
                     
-                    // Fallback to clone if crossover skipped/failed
                     if (!ChildWrapper)
                     {
                         ChildWrapper = NewObject<UCustomBehaviourTree>();
@@ -87,43 +124,59 @@ void UGeneticServerCommandlet::GenerateNextEpoch()
         if (!ChildWrapper)
         {
             ChildWrapper = NewObject<UCustomBehaviourTree>();
-            if(!ChildWrapper->LoadBehaviorTree(SeedPath))
-            {
-                UE_LOG(LogGeneticServer, Error, TEXT("Failed to load Seed: %s"), *SeedPath);
-                continue;
-            }
+            
+            UBehaviorTree* SourceBT = BaseSeedTemplate->GetBTAsset();
+            UBehaviorTree* DeepClone = DuplicateObject<UBehaviorTree>(SourceBT, GetTransientPackage());
+            ChildWrapper->InitFromTreeInstance(DeepClone);
         }
 
         // C. MUTATION
         if (ChildWrapper && ChildWrapper->GetBTAsset())
         {
-            // If Gen 0, mutate aggressively (1.0f) to build out the trees. Otherwise standard 40% chance.
-            float MutRate = (CurrentGeneration == 0) ? 1.0f : 0.40f;
-            int32 MutateTimes = (CurrentGeneration == 0) ? 5 : 1; 
-
-            for(int k=0; k < MutateTimes; k++)
+            // === NEW LOGIC: GUARANTEED GEN 0 MUTATION ===
+            if (CurrentGeneration == 0)
             {
-                UGeneticMutationLibrary::MutateTree(ChildWrapper, MutRate);
-            }
+                int32 Failsafe = 0;
+                
+                // Keep trying to mutate until the hash changes from the BaseHash
+                // (Using a failsafe of 10 loops so the server doesn't freeze if the tree is mathematically un-mutable)
+                while (ChildWrapper->GetTreeHash() == BaseHash && Failsafe < 10)
+                {
+                    // Pass 1.0 to guarantee a 100% chance of mutation attempt
+                    UGeneticMutationLibrary::MutateTree(ChildWrapper, 1.0f);
+                    Failsafe++;
+                }
 
+                if (Failsafe >= 10)
+                {
+                    UE_LOG(LogGeneticServer, Warning, TEXT("Failed to structurally mutate Gen 0 seed after 10 attempts! Moving on."));
+                }
+            }
+            else
+            {
+                // Standard 40% chance for Generation 1 and beyond
+                UGeneticMutationLibrary::MutateTree(ChildWrapper, 0.4f);
+            }
+            
             // D. SAVE TO DISK & QUEUE JOB
             FString TreeHash = ChildWrapper->GetTreeHash();
             
-            // Save using Generation and Hash
-            FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/G%d_Tree_%s"), CurrentGeneration, *TreeHash);
-            
-            // SaveAsNewAsset writes the .uasset to the disk
+            FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/G%d_Index%d_%s"), CurrentGeneration, JobsSuccessfullyQueued, *TreeHash);
             FString FinalAssetPath = ChildWrapper->SaveAsNewAsset(SaveName, true);
 
             if (!FinalAssetPath.IsEmpty())
             {
                 JobQueue.Add(FinalAssetPath);
-                UE_LOG(LogGeneticServer, Log, TEXT("Queued Job %d: %s"), i, *FinalAssetPath);
+                UE_LOG(LogGeneticServer, Warning, TEXT("Queued Job %d: %s"), JobsSuccessfullyQueued, *FinalAssetPath);
+                JobsSuccessfullyQueued++;
+            }
+            else
+            {
+                UE_LOG(LogGeneticServer, Error, TEXT("Failed to save generated tree! Retrying..."));
             }
         }
     }
 
-    // Cleanup for next epoch
     CurrentEpochResults.Empty();
     CurrentGeneration++;
 }
@@ -134,7 +187,6 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
     UE_LOG(LogGeneticServer, Warning, TEXT(" Starting Headless Genetic Server Commandlet... "));
     UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
 
-    // 1. Initialize HTTP Server
     FModuleManager::LoadModuleChecked<FHttpServerModule>("HttpServer");
     auto& HttpServerModule = FHttpServerModule::Get();
     
@@ -147,8 +199,6 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
         return 1;
     }
 
-    // 2. BIND ROUTES
-    
     // --- ENDPOINT 1 - WORKER REQUESTS JOB ---
     HttpRouter->BindRoute(FHttpPath(TEXT("/api/request_job")), EHttpServerRequestVerbs::VERB_GET, 
         FHttpRequestHandler::CreateLambda([this](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
@@ -158,13 +208,22 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
             TSharedPtr<FJsonObject> JsonResponse = MakeShareable(new FJsonObject());
             if (!AssignedAssetPath.IsEmpty())
             {
+                int32 AssignedJobID = NextJobID++;
+                
                 JsonResponse->SetStringField(TEXT("status"), TEXT("success"));
                 JsonResponse->SetStringField(TEXT("asset_path"), AssignedAssetPath);
-                UE_LOG(LogGeneticServer, Log, TEXT("Assigned job to worker: %s"), *AssignedAssetPath);
+                JsonResponse->SetNumberField(TEXT("job_id"), AssignedJobID);
+                
+                // TRACK THE JOB DISPATCH TIME
+                FDispatchedJob NewJob;
+                NewJob.AssetPath = AssignedAssetPath;
+                NewJob.DispatchTime = FPlatformTime::Seconds();
+                ActiveJobs.Add(AssignedJobID, NewJob);
+
+                UE_LOG(LogGeneticServer, Log, TEXT("Assigned job %d to worker: %s"), AssignedJobID, *AssignedAssetPath);
             }
             else
             {
-                // Queue empty, tell worker to wait/standby
                 JsonResponse->SetStringField(TEXT("status"), TEXT("standby"));
             }
 
@@ -189,18 +248,51 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
             {
                 FString AssetPath = JsonObject->GetStringField(TEXT("asset_path"));
                 float FitnessValue = JsonObject->GetNumberField(TEXT("fitness"));
-                
-                // Record Result
+                int32 CurrentGenForLog = CurrentGeneration - 1; 
+                int32 JobID = JsonObject->GetIntegerField(TEXT("job_id"));
+
+                // UN-TRACK THE JOB (Worker successfully finished it)
+                ActiveJobs.Remove(JobID);
+
                 FSimulationResult Res;
                 Res.BehaviorTreePath = AssetPath;
                 Res.Fitness = FitnessValue;
-                Res.GenerationNumber = CurrentGeneration - 1; // Since we incremented at the end of generation
+                Res.GenerationNumber = CurrentGenForLog; 
 
                 CurrentEpochResults.Add(Res);
                 AllTimeResults.Add(Res);
 
-                UE_LOG(LogGeneticServer, Warning, TEXT("MASTER: Worker finished %s | Fitness: %.2f | Progress: %d/%d"), 
-                    *AssetPath, FitnessValue, CurrentEpochResults.Num(), PopulationSize);
+                // Extended Metrics for the CSV
+                float Dist = JsonObject->GetNumberField(TEXT("distance"));
+                float DmgTaken = JsonObject->GetNumberField(TEXT("damage_taken"));
+            	float DmgDealt = JsonObject->GetNumberField(TEXT("damage_dealt"));
+                float Rew = JsonObject->GetNumberField(TEXT("reward"));
+                float TimeAlive = JsonObject->GetNumberField(TEXT("time_alive"));
+                int32 TreeSize = JsonObject->GetIntegerField(TEXT("tree_size"));
+                float Util = JsonObject->GetNumberField(TEXT("utilization"));
+                bool bKilled = JsonObject->GetBoolField(TEXT("player_killed"));
+                FString TreeStr = JsonObject->GetStringField(TEXT("tree_string"));
+
+                UE_LOG(LogGeneticServer, Warning, TEXT("MASTER: Worker finished Job %d | Fitness: %.2f | Progress: %d/%d"), 
+                    JobID, FitnessValue, CurrentEpochResults.Num(), PopulationSize);
+
+                // Write to CSV
+                FString CSVPath = FPaths::ProjectLogDir() / TEXT("GeneticMasterResults.csv");
+                bool bFileExists = FPlatformFileManager::Get().GetPlatformFile().FileExists(*CSVPath);
+                FString CSVLine;
+
+                if (!bFileExists)
+                {
+                    CSVLine += TEXT("JobID,Generation,Fitness,Distance,DamageTaken,DamageDealt,Reward,TimeAlive,TreeSize,Utilization,PlayerKilled,AssetPath,TreeStructure\n");
+                }
+
+                FString EscapedTree = TreeStr.Replace(TEXT("\""), TEXT("\"\""));
+
+                CSVLine += FString::Printf(TEXT("%d,%d,%f,%f,%f,%f,%f,%f,%d,%f,%s,%s,\"%s\"\n"),
+                    JobID, CurrentGenForLog, FitnessValue, Dist, DmgTaken,DmgDealt, Rew, TimeAlive, TreeSize, Util, 
+                    bKilled ? TEXT("TRUE") : TEXT("FALSE"), *AssetPath, *EscapedTree);
+
+                FFileHelper::SaveStringToFile(CSVLine, *CSVPath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_Append);
 
                 // CHECK EPOCH COMPLETION
                 if (CurrentEpochResults.Num() >= PopulationSize)
@@ -222,6 +314,8 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
 
     // 3. INFINITE LOOP TO KEEP PROCESS ALIVE
     double LastTime = FPlatformTime::Seconds();
+    double LastTimeoutCheckTime = FPlatformTime::Seconds();
+
     while (!IsEngineExitRequested())
     {
         // Sleep for 10ms to prevent 100% CPU usage
@@ -231,12 +325,18 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
         float DeltaTime = CurrentTime - LastTime;
         LastTime = CurrentTime;
 
+        // Check for timed out jobs every 5 seconds
+        if (CurrentTime - LastTimeoutCheckTime > 5.0)
+        {
+            CheckForTimeouts();
+            LastTimeoutCheckTime = CurrentTime;
+        }
+
         // Tick core engine systems required for async HTTP thread callbacks
         FTSTicker::GetCoreTicker().Tick(DeltaTime);
         FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
     }
 
-    // 4. CLEANUP ON SHUTDOWN (Ctrl+C)
     HttpServerModule.StopAllListeners();
     UE_LOG(LogGeneticServer, Warning, TEXT("Genetic Central Server Shutdown."));
 

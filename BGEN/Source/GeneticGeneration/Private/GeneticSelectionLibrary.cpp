@@ -2,20 +2,33 @@
 
 FSimulationResult UGeneticSelectionLibrary::TournamentSelection(const TArray<FSimulationResult>& Population, int32 TournamentSize)
 {
-	// SAFETY CHECK 1: Empty Population
+	// SAFETY CHECK: Empty Population
 	if (Population.Num() == 0) 
 	{
 		UE_LOG(LogTemp, Warning, TEXT("TournamentSelection: Population is empty!"));
 		return FSimulationResult(); 
 	}
 
-	// Just return the absolute best one
-	FSimulationResult Best = Population[0];
-	for (const auto& Res : Population)
+	// SAFETY CHECK: Ensure tournament size isn't larger than the population
+	int32 ActualTournamentSize = FMath::Min(TournamentSize, Population.Num());
+
+	FSimulationResult BestContender;
+	bool bFirstSet = false;
+
+	// Pick N random individuals and find the best among them
+	for (int32 i = 0; i < ActualTournamentSize; i++)
 	{
-		if (Res.Fitness > Best.Fitness) Best = Res;
+		int32 RandomIndex = FMath::RandRange(0, Population.Num() - 1);
+		const FSimulationResult& Contender = Population[RandomIndex];
+
+		if (!bFirstSet || Contender.Fitness > BestContender.Fitness)
+		{
+			BestContender = Contender;
+			bFirstSet = true;
+		}
 	}
-	return Best;
+
+	return BestContender;
 }
 
 bool UGeneticSelectionLibrary::IsValidResult(const FSimulationResult& Result)

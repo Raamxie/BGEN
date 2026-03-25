@@ -15,16 +15,18 @@ class GENETICGENERATION_API UWorkerNetworkSubsystem : public UGameInstanceSubsys
 public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 
-	// Call this from the Bootstrap map
 	UFUNCTION(BlueprintCallable, Category = "Genetic Worker")
 	void RequestJobFromMaster();
 
-	// The Manager uses this to submit results
-	void SubmitFitness(const FString& AssetPath, float Fitness);
+	// UPDATED: Now takes all raw metrics to send to the server
+	void SubmitFitness(const FString& AssetPath, int32 JobID, float Fitness, float Distance, float DamageTaken, float DamageDealt, float Reward, float TimeAlive, int32 TreeSize, float Utilization, bool bPlayerKilled, const FString& TreeString);
 
-	// The current job we are supposed to be simulating
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Genetic Worker")
 	FString CurrentJobAssetPath;
+
+	// NEW: Tracks the Job ID assigned by the Master
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Genetic Worker")
+	int32 CurrentJobID = -1;
 
 	UPROPERTY(BlueprintAssignable, Category = "Genetic Worker")
 	FOnJobReceived OnJobReceived;
