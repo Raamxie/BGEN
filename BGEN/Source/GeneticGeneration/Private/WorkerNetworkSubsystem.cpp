@@ -87,5 +87,18 @@ void UWorkerNetworkSubsystem::SubmitFitness(const FString& AssetPath, float Fitn
 
 void UWorkerNetworkSubsystem::OnSubmitComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bConnectedSuccessfully)
 {
+	if (bConnectedSuccessfully && Response.IsValid())
+	{
+		UE_LOG(LogTemp, Log, TEXT("Submit Complete. Server responded with code: %d"), Response->GetResponseCode());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Submit Failed. Could not connect to the Master server."));
+	}
+
+	// Clear the current job so the worker knows it is free
 	CurrentJobAssetPath = TEXT("");
+
+	// Automatically poll the server for the next job to keep the worker busy
+	RequestJobFromMaster();
 }

@@ -60,7 +60,7 @@ void UGeneticServerCommandlet::GenerateInitialEpoch()
 
     FString SeedPath = TEXT("/Game/Actors/EnemyUnleashed/Test"); // Your base tree
 	
-    UCustomBehaviourTree* SeedLoader = NewObject<UCustomBehaviourTree>();
+    UCustomBehaviourTree* SeedLoader = NewObject<UCustomBehaviourTree>(this);
     if (!SeedLoader->LoadBehaviorTree(SeedPath))
     {
         UE_LOG(LogGeneticServer, Error, TEXT("Failed to load Seed: %s"), *SeedPath);
@@ -69,7 +69,7 @@ void UGeneticServerCommandlet::GenerateInitialEpoch()
 
     for (int32 i = 0; i < PopulationSize; i++)
     {
-        UCustomBehaviourTree* ChildWrapper = NewObject<UCustomBehaviourTree>();
+        UCustomBehaviourTree* ChildWrapper = NewObject<UCustomBehaviourTree>(this);
     	
         ChildWrapper->InitFromTreeInstance(SeedLoader->GetBTAsset());
 
@@ -128,12 +128,12 @@ void UGeneticServerCommandlet::GenerateSubsequentEpoch()
 
         if (UGeneticSelectionLibrary::IsValidResult(ParentA))
         {
-            UCustomBehaviourTree* WrapperA = NewObject<UCustomBehaviourTree>();
+            UCustomBehaviourTree* WrapperA = NewObject<UCustomBehaviourTree>(this);
             if (WrapperA->LoadBehaviorTree(ParentA.BehaviorTreePath))
             {
             	if (UGeneticSelectionLibrary::IsValidResult(ParentB) && FMath::FRand() < CrossoverChance) 
             	{
-            		UCustomBehaviourTree* WrapperB = NewObject<UCustomBehaviourTree>();
+            		UCustomBehaviourTree* WrapperB = NewObject<UCustomBehaviourTree>(this);
             		if (WrapperB->LoadBehaviorTree(ParentB.BehaviorTreePath))
             		{
             			ChildWrapper = WrapperA->PerformCrossover(WrapperB, LogGeneticServer);
@@ -142,7 +142,7 @@ void UGeneticServerCommandlet::GenerateSubsequentEpoch()
             	
                 if (!ChildWrapper)
                 {
-                    ChildWrapper = NewObject<UCustomBehaviourTree>();
+                    ChildWrapper = NewObject<UCustomBehaviourTree>(this);
                     ChildWrapper->InitFromTreeInstance(WrapperA->GetBTAsset());
                 }
             }
@@ -170,9 +170,6 @@ void UGeneticServerCommandlet::GenerateSubsequentEpoch()
         	
             FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/G%d_Tree_%s"), CurrentGeneration, *TreeHash);
             FString FinalAssetPath = ChildWrapper->SaveAsNewAsset(SaveName, true);
-            
-            ChildWrapper->DebugLogTree(LogGeneticServer);
-            UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
 
             if (!FinalAssetPath.IsEmpty())
             {
@@ -181,6 +178,7 @@ void UGeneticServerCommandlet::GenerateSubsequentEpoch()
             }
         }
     	UE_LOG(LogGeneticServer, Warning, TEXT("Mutation Done"));
+    	ChildWrapper->DebugLogTree(LogGeneticServer);
     }
 
     // Cleanup for next epoch

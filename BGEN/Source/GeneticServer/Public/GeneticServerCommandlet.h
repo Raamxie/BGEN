@@ -14,6 +14,8 @@ public:
 	UGeneticServerCommandlet();
 
 	virtual int32 Main(const FString& Params) override;
+	friend class FGeneticServerJobQueueTest;
+	friend class FGeneticServerInitialEpochTest;
 
 private:
 	// -- Networking / Job State --
