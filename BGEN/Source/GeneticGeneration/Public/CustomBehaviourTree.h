@@ -44,13 +44,7 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
 	void InitFromTreeInstance(UBehaviorTree* SourceTree);
-
-	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
-	UCustomBehaviourTree* PerformCrossover(UCustomBehaviourTree* DonorTreeWrapper, FString& OutLog);
-
-	// Updated Logging Function
-	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
-	void AppendTreeToLogFile(const FString& FileName, int32 Generation, float Fitness);
+	
 
 	// Returns the ASCII representation of the tree (reused for logging parents)
 	FString GetTreeAsString();
@@ -81,13 +75,10 @@ public:
 	void GetAllCompositeSlots(UBTNode* Node, TArray<FNodeHandle>& OutSlots);
 	void GetAllSubtrees(UBTNode* Node, TArray<UBTNode*>& OutNodes);
 
-	// Kept for backward compatibility, but we prefer the Library now
-	UFUNCTION(BlueprintCallable, Category = "GeneticGeneration")
-	bool MutateTree_Dynamic(const FString& SearchPath = "/Game/BehaviourTrees/Tasks");
-	
-	void DebugLogTree();
+	UCustomBehaviourTree* PerformCrossover(UCustomBehaviourTree* DonorTreeWrapper, FString& OutLog);
+	void DebugLogTree(FLogCategoryBase& Category);
 
-	void PrintPrettyNode(UBTNode* Node, FString Prefix, bool bIsLast);
+	void PrintPrettyNode(UBTNode* Node, FString Prefix, bool bIsLast, FLogCategoryBase& Category);
 	static UBTNode* DuplicateNodeRecursive(UBTNode* SourceNode, UBehaviorTree* TargetAsset);
 
 	

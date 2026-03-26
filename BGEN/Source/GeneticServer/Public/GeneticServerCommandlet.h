@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Commandlets/Commandlet.h"
-#include "GeneticSimulationManager.h" // Needed for FSimulationResult struct
+#include "GeneticSimulationManager.h" 
 #include "GeneticServerCommandlet.generated.h"
 
 UCLASS()
@@ -24,12 +24,11 @@ private:
 	int32 PopulationSize = 10;
 	int32 CurrentGeneration = 0;
 	
-	// Tracks results just for the current generation to know when to evolve
 	TArray<FSimulationResult> CurrentEpochResults;
-	
-	// Tracks all results for selection
 	TArray<FSimulationResult> AllTimeResults;
 
 	// Core Genetic Loop
 	void GenerateNextEpoch();
+	void GenerateInitialEpoch();
+	void GenerateSubsequentEpoch();
 };

@@ -17,14 +17,12 @@ DEFINE_LOG_CATEGORY_STATIC(LogGeneticServer, Log, All);
 
 UGeneticServerCommandlet::UGeneticServerCommandlet()
 {
-    // These flags tell the engine NOT to load worlds or standard game features
     IsClient = false;
     IsEditor = true;
     IsServer = false;
-    LogToConsole = true;
-    
-    // Default population size. You can expose this to a config file later.
-    PopulationSize = 10;
+    LogToConsole = false;
+	
+    PopulationSize = 2;
     CurrentGeneration = 0;
 }
 
@@ -41,84 +39,137 @@ FString UGeneticServerCommandlet::GetNextJob()
 
 void UGeneticServerCommandlet::GenerateNextEpoch()
 {
+    if (CurrentGeneration == 0)
+    {
+        GenerateInitialEpoch();
+    }
+	GenerateSubsequentEpoch();
+}
+
+void UGeneticServerCommandlet::GenerateInitialEpoch()
+{
+    UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
+    UE_LOG(LogGeneticServer, Warning, TEXT(" MASTER: Generating Initial Epoch %d"), CurrentGeneration);
+    UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
+
+    FString SeedPath = TEXT("/Game/Actors/EnemyUnleashed/Test"); // Your base tree
+	
+    UCustomBehaviourTree* SeedLoader = NewObject<UCustomBehaviourTree>();
+    if (!SeedLoader->LoadBehaviorTree(SeedPath))
+    {
+        UE_LOG(LogGeneticServer, Error, TEXT("Failed to load Seed: %s"), *SeedPath);
+        return;
+    }
+
+    for (int32 i = 0; i < PopulationSize; i++)
+    {
+
+        UCustomBehaviourTree* ChildWrapper = NewObject<UCustomBehaviourTree>();
+    	
+        ChildWrapper->InitFromTreeInstance(SeedLoader->GetBTAsset());
+
+        if (ChildWrapper->GetBTAsset())
+        {
+            for (int k = 0; k < 3; k++)
+            {
+                UGeneticMutationLibrary::MutateTree(ChildWrapper, 1.0f);
+                ChildWrapper->DebugLogTree(LogGeneticServer);
+            }
+        	
+            FString TreeHash = ChildWrapper->GetTreeHash();
+            
+            FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/G%d_Tree_%s"), CurrentGeneration, *TreeHash);
+            FString FinalAssetPath = ChildWrapper->SaveAsNewAsset(SaveName, true);
+
+            if (!FinalAssetPath.IsEmpty())
+            {
+                JobQueue.Add(FinalAssetPath);
+                UE_LOG(LogGeneticServer, Log, TEXT("Queued Initial Job %d: %s"), i, *FinalAssetPath);
+            }
+        }
+    }
+
+	CurrentEpochResults.Empty();
+	CurrentGeneration++;
+}
+
+void UGeneticServerCommandlet::GenerateSubsequentEpoch()
+{
     UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
     UE_LOG(LogGeneticServer, Warning, TEXT(" MASTER: Generating Epoch %d"), CurrentGeneration);
     UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
 
-    FString SeedPath = TEXT("/Game/Actors/EnemyUnleashed/Test"); // Your base tree
+    FString SeedPath = TEXT("/Game/Actors/EnemyUnleashed/Test");
 
     for (int32 i = 0; i < PopulationSize; i++)
     {
         UCustomBehaviourTree* ChildWrapper = nullptr;
+        
+        FSimulationResult ParentA = UGeneticSelectionLibrary::TournamentSelection(AllTimeResults, 3);
+        FSimulationResult ParentB = UGeneticSelectionLibrary::TournamentSelection(AllTimeResults, 3);
 
-        // A. EVOLUTION (Gen > 0)
-        if (CurrentGeneration > 0 && AllTimeResults.Num() > 0)
+        if (UGeneticSelectionLibrary::IsValidResult(ParentA))
         {
-            FSimulationResult ParentA = UGeneticSelectionLibrary::TournamentSelection(AllTimeResults, 3);
-            FSimulationResult ParentB = UGeneticSelectionLibrary::TournamentSelection(AllTimeResults, 3);
-
-            if (UGeneticSelectionLibrary::IsValidResult(ParentA))
+            UCustomBehaviourTree* WrapperA = NewObject<UCustomBehaviourTree>();
+            if (WrapperA->LoadBehaviorTree(ParentA.BehaviorTreePath))
             {
-                UCustomBehaviourTree* WrapperA = NewObject<UCustomBehaviourTree>();
-                if (WrapperA->LoadBehaviorTree(ParentA.BehaviorTreePath))
+                // 70% Crossover Chance
+                if (UGeneticSelectionLibrary::IsValidResult(ParentB) && FMath::FRand() < 0.7f) 
                 {
-                    // 70% Crossover Chance
-                    if (UGeneticSelectionLibrary::IsValidResult(ParentB) && FMath::FRand() < 0.7f) 
+                    UCustomBehaviourTree* WrapperB = NewObject<UCustomBehaviourTree>();
+                    if (WrapperB->LoadBehaviorTree(ParentB.BehaviorTreePath))
                     {
-                        UCustomBehaviourTree* WrapperB = NewObject<UCustomBehaviourTree>();
-                        if(WrapperB->LoadBehaviorTree(ParentB.BehaviorTreePath))
-                        {
-                             FString Log;
-                             ChildWrapper = WrapperA->PerformCrossover(WrapperB, Log);
-                        }
+                         FString Log;
+                         ChildWrapper = WrapperA->PerformCrossover(WrapperB, Log);
                     }
-                    
-                    // Fallback to clone if crossover skipped/failed
-                    if (!ChildWrapper)
-                    {
-                        ChildWrapper = NewObject<UCustomBehaviourTree>();
-                        ChildWrapper->InitFromTreeInstance(WrapperA->GetBTAsset());
-                    }
+                }
+                
+                // Fallback to clone if crossover skipped/failed
+                if (!ChildWrapper)
+                {
+                    ChildWrapper = NewObject<UCustomBehaviourTree>();
+                    ChildWrapper->InitFromTreeInstance(WrapperA->GetBTAsset());
                 }
             }
         }
 
-        // B. SEED FALLBACK (Gen 0 or Selection Failed)
+        // --- NEW SEED FALLBACK ---
+        // If selection completely failed (e.g., Parent A was invalid) or the asset was missing, 
+        // fallback to the Seed to ensure we don't lose an individual in this epoch.
         if (!ChildWrapper)
         {
-            ChildWrapper = NewObject<UCustomBehaviourTree>();
-            if(!ChildWrapper->LoadBehaviorTree(SeedPath))
+            UCustomBehaviourTree* SeedLoader = NewObject<UCustomBehaviourTree>();
+            if (SeedLoader->LoadBehaviorTree(SeedPath))
             {
-                UE_LOG(LogGeneticServer, Error, TEXT("Failed to load Seed: %s"), *SeedPath);
-                continue;
+                ChildWrapper = NewObject<UCustomBehaviourTree>();
+                ChildWrapper->InitFromTreeInstance(SeedLoader->GetBTAsset());
+            }
+            else
+            {
+                UE_LOG(LogGeneticServer, Error, TEXT("CRITICAL: Failed to load fallback Seed: %s"), *SeedPath);
+                continue; // Critical failure, skip this individual
             }
         }
 
         // C. MUTATION
         if (ChildWrapper && ChildWrapper->GetBTAsset())
         {
-            // If Gen 0, mutate aggressively (1.0f) to build out the trees. Otherwise standard 40% chance.
-            float MutRate = (CurrentGeneration == 0) ? 1.0f : 0.40f;
-            int32 MutateTimes = (CurrentGeneration == 0) ? 5 : 1; 
-
-            for(int k=0; k < MutateTimes; k++)
-            {
-                UGeneticMutationLibrary::MutateTree(ChildWrapper, MutRate);
-            }
+            // Standard 40% chance to mutate once for subsequent generations
+            UGeneticMutationLibrary::MutateTree(ChildWrapper, 0.40f);
 
             // D. SAVE TO DISK & QUEUE JOB
             FString TreeHash = ChildWrapper->GetTreeHash();
             
-            // Save using Generation and Hash
             FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/G%d_Tree_%s"), CurrentGeneration, *TreeHash);
-            
-            // SaveAsNewAsset writes the .uasset to the disk
             FString FinalAssetPath = ChildWrapper->SaveAsNewAsset(SaveName, true);
+            
+            ChildWrapper->DebugLogTree(LogGeneticServer);
+            UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
 
             if (!FinalAssetPath.IsEmpty())
             {
                 JobQueue.Add(FinalAssetPath);
-                UE_LOG(LogGeneticServer, Log, TEXT("Queued Job %d: %s"), i, *FinalAssetPath);
+                UE_LOG(LogGeneticServer, Log, TEXT("Queued Evolved Job %d: %s"), i, *FinalAssetPath);
             }
         }
     }
