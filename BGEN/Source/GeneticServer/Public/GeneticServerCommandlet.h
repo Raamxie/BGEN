@@ -21,11 +21,16 @@ private:
 	FString GetNextJob();
 
 	// -- Evolution State --
-	int32 PopulationSize = 10;
-	int32 CurrentGeneration = 0;
+	int32 PopulationSize;
+	int32 CurrentGeneration;
+	int32 InitialMutationCount;
+	float CrossoverChance;
+	float MutationChance;
 	
 	TArray<FSimulationResult> CurrentEpochResults;
 	TArray<FSimulationResult> AllTimeResults;
+	
+	TSet<FString> EvaluatedHashes;
 
 	// Core Genetic Loop
 	void GenerateNextEpoch();

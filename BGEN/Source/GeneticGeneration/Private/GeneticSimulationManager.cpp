@@ -323,12 +323,6 @@ void UGeneticSimulationManager::StopSimulation()
 				NetSubsystem->SubmitFitness(NetSubsystem->CurrentJobAssetPath, FinalFitnessScore);
 			}
 		}
-
-		// 3. WIPE MEMORY: Reload the Main Map
-		UE_LOG(LogGeneticGeneration, Warning, TEXT("WORKER: Map Evaluation Complete. Rebooting Main Map..."));
-        
-		// Using the short name is usually safer in UE5, but if it fails, use "/Game/Scenes/Main/Main"
-		UGameplayStatics::OpenLevel(TargetWorld, FName("Main")); 
 	}
 }
 

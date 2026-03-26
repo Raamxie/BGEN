@@ -177,7 +177,7 @@ TArray<UClass*> UCustomBehaviourTree::GetAvailableTaskClasses(const FString& Pat
 	return ResultClasses;
 }
 
-UCustomBehaviourTree* UCustomBehaviourTree::PerformCrossover(UCustomBehaviourTree* DonorTreeWrapper, FString& OutLog)
+UCustomBehaviourTree* UCustomBehaviourTree::PerformCrossover(UCustomBehaviourTree* DonorTreeWrapper, FLogCategoryBase& Category)
 {
     if (!DonorTreeWrapper || !BehaviorTreeAsset) return nullptr;
 
@@ -185,7 +185,6 @@ UCustomBehaviourTree* UCustomBehaviourTree::PerformCrossover(UCustomBehaviourTre
     UCustomBehaviourTree* ChildWrapper = NewObject<UCustomBehaviourTree>(GetOuter());
     
     // 2. Init as Deep Copy of Self (Parent A)
-    // This now uses the safe recursive copy we wrote above
     ChildWrapper->InitFromTreeInstance(this->BehaviorTreeAsset);
 
     // 3. Find Slots
@@ -202,8 +201,6 @@ UCustomBehaviourTree* UCustomBehaviourTree::PerformCrossover(UCustomBehaviourTre
         UBTNode* DonorNode = DonorSubtrees[FMath::RandRange(0, DonorSubtrees.Num() - 1)];
 
         // *** FIX: USE RECURSIVE DUPLICATION ***
-        // This ensures the subtree we steal from Parent B is fully owned by the Child,
-        // with no lingering pointers to Parent B's package.
         UBTNode* ClonedGene = DuplicateNodeRecursive(DonorNode, ChildWrapper->GetBTAsset());
         
         // Link it up
@@ -224,13 +221,16 @@ UCustomBehaviourTree* UCustomBehaviourTree::PerformCrossover(UCustomBehaviourTre
                 Link.ChildTask = nullptr;
             }
 
-            OutLog = FString::Printf(TEXT("Replaced Node [%s] in Parent A with Donor Subtree [%s] from Parent B at Parent Node [%s]"), 
+            // Directly log to the provided category
+            FMsg::Logf(nullptr, 0, Category.GetCategoryName(), ELogVerbosity::Log, 
+                TEXT("Replaced Node [%s] in Parent A with Donor Subtree [%s] from Parent B at Parent Node [%s]"), 
                 *OldNodeName, *GetCleanNodeName(ClonedGene), *GetCleanNodeName(TargetSlot.Parent));
+                
             return ChildWrapper;
         }
     }
     
-    OutLog = TEXT("Crossover Failed (No valid slots)");
+    FMsg::Logf(nullptr, 0, Category.GetCategoryName(), ELogVerbosity::Warning, TEXT("Crossover Failed (No valid slots)"));
     return ChildWrapper;
 }
 

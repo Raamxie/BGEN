@@ -75,7 +75,7 @@ public:
 	void GetAllCompositeSlots(UBTNode* Node, TArray<FNodeHandle>& OutSlots);
 	void GetAllSubtrees(UBTNode* Node, TArray<UBTNode*>& OutNodes);
 
-	UCustomBehaviourTree* PerformCrossover(UCustomBehaviourTree* DonorTreeWrapper, FString& OutLog);
+	UCustomBehaviourTree* PerformCrossover(UCustomBehaviourTree* DonorTreeWrapper, FLogCategoryBase& Category);
 	void DebugLogTree(FLogCategoryBase& Category);
 
 	void PrintPrettyNode(UBTNode* Node, FString Prefix, bool bIsLast, FLogCategoryBase& Category);

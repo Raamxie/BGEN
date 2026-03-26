@@ -23,7 +23,12 @@ UGeneticServerCommandlet::UGeneticServerCommandlet()
     LogToConsole = false;
 	
     PopulationSize = 2;
+	InitialMutationCount = 3;
     CurrentGeneration = 0;
+	
+	CrossoverChance = 0.7f;
+	MutationChance = 0.5f;
+	
 }
 
 FString UGeneticServerCommandlet::GetNextJob()
@@ -42,6 +47,7 @@ void UGeneticServerCommandlet::GenerateNextEpoch()
     if (CurrentGeneration == 0)
     {
         GenerateInitialEpoch();
+    	return;
     }
 	GenerateSubsequentEpoch();
 }
@@ -63,20 +69,34 @@ void UGeneticServerCommandlet::GenerateInitialEpoch()
 
     for (int32 i = 0; i < PopulationSize; i++)
     {
-
         UCustomBehaviourTree* ChildWrapper = NewObject<UCustomBehaviourTree>();
     	
         ChildWrapper->InitFromTreeInstance(SeedLoader->GetBTAsset());
 
         if (ChildWrapper->GetBTAsset())
         {
-            for (int k = 0; k < 3; k++)
+            for (int k = 0; k < InitialMutationCount; k++)
             {
                 UGeneticMutationLibrary::MutateTree(ChildWrapper, 1.0f);
-                ChildWrapper->DebugLogTree(LogGeneticServer);
             }
         	
             FString TreeHash = ChildWrapper->GetTreeHash();
+        	
+            int32 RetryCount = 0;
+            int32 MaxRetries = 10;
+            
+
+            while (EvaluatedHashes.Contains(TreeHash) && RetryCount < MaxRetries)
+            {
+                UE_LOG(LogGeneticServer, Warning, TEXT("Duplicate Hash Found: %s. Forcing mutation..."), *TreeHash);
+                UGeneticMutationLibrary::MutateTree(ChildWrapper, 1.0f);
+                TreeHash = ChildWrapper->GetTreeHash();
+                RetryCount++;
+            }
+        	
+            EvaluatedHashes.Add(TreeHash);
+            
+            ChildWrapper->DebugLogTree(LogGeneticServer);
             
             FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/G%d_Tree_%s"), CurrentGeneration, *TreeHash);
             FString FinalAssetPath = ChildWrapper->SaveAsNewAsset(SaveName, true);
@@ -99,8 +119,6 @@ void UGeneticServerCommandlet::GenerateSubsequentEpoch()
     UE_LOG(LogGeneticServer, Warning, TEXT(" MASTER: Generating Epoch %d"), CurrentGeneration);
     UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
 
-    FString SeedPath = TEXT("/Game/Actors/EnemyUnleashed/Test");
-
     for (int32 i = 0; i < PopulationSize; i++)
     {
         UCustomBehaviourTree* ChildWrapper = nullptr;
@@ -113,18 +131,15 @@ void UGeneticServerCommandlet::GenerateSubsequentEpoch()
             UCustomBehaviourTree* WrapperA = NewObject<UCustomBehaviourTree>();
             if (WrapperA->LoadBehaviorTree(ParentA.BehaviorTreePath))
             {
-                // 70% Crossover Chance
-                if (UGeneticSelectionLibrary::IsValidResult(ParentB) && FMath::FRand() < 0.7f) 
-                {
-                    UCustomBehaviourTree* WrapperB = NewObject<UCustomBehaviourTree>();
-                    if (WrapperB->LoadBehaviorTree(ParentB.BehaviorTreePath))
-                    {
-                         FString Log;
-                         ChildWrapper = WrapperA->PerformCrossover(WrapperB, Log);
-                    }
-                }
-                
-                // Fallback to clone if crossover skipped/failed
+            	if (UGeneticSelectionLibrary::IsValidResult(ParentB) && FMath::FRand() < CrossoverChance) 
+            	{
+            		UCustomBehaviourTree* WrapperB = NewObject<UCustomBehaviourTree>();
+            		if (WrapperB->LoadBehaviorTree(ParentB.BehaviorTreePath))
+            		{
+            			ChildWrapper = WrapperA->PerformCrossover(WrapperB, LogGeneticServer);
+            		}
+            	}
+            	
                 if (!ChildWrapper)
                 {
                     ChildWrapper = NewObject<UCustomBehaviourTree>();
@@ -132,34 +147,27 @@ void UGeneticServerCommandlet::GenerateSubsequentEpoch()
                 }
             }
         }
-
-        // --- NEW SEED FALLBACK ---
-        // If selection completely failed (e.g., Parent A was invalid) or the asset was missing, 
-        // fallback to the Seed to ensure we don't lose an individual in this epoch.
-        if (!ChildWrapper)
-        {
-            UCustomBehaviourTree* SeedLoader = NewObject<UCustomBehaviourTree>();
-            if (SeedLoader->LoadBehaviorTree(SeedPath))
-            {
-                ChildWrapper = NewObject<UCustomBehaviourTree>();
-                ChildWrapper->InitFromTreeInstance(SeedLoader->GetBTAsset());
-            }
-            else
-            {
-                UE_LOG(LogGeneticServer, Error, TEXT("CRITICAL: Failed to load fallback Seed: %s"), *SeedPath);
-                continue; // Critical failure, skip this individual
-            }
-        }
-
-        // C. MUTATION
+    	UE_LOG(LogGeneticServer, Warning, TEXT("Selection Done"));
         if (ChildWrapper && ChildWrapper->GetBTAsset())
         {
-            // Standard 40% chance to mutate once for subsequent generations
-            UGeneticMutationLibrary::MutateTree(ChildWrapper, 0.40f);
+        	UE_LOG(LogGeneticServer, Warning, TEXT("Got into Mutation"));
+            UGeneticMutationLibrary::MutateTree(ChildWrapper, MutationChance);
 
-            // D. SAVE TO DISK & QUEUE JOB
             FString TreeHash = ChildWrapper->GetTreeHash();
-            
+        	
+            int32 RetryCount = 0;
+            int32 MaxRetries = 10;
+        	
+            while (EvaluatedHashes.Contains(TreeHash) && RetryCount < MaxRetries)
+            {
+                UE_LOG(LogGeneticServer, Warning, TEXT("Duplicate Hash Found: %s. Forcing mutation..."), *TreeHash);
+                UGeneticMutationLibrary::MutateTree(ChildWrapper, 1.0f);
+                TreeHash = ChildWrapper->GetTreeHash();
+                RetryCount++;
+            }
+        	
+            EvaluatedHashes.Add(TreeHash);
+        	
             FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/G%d_Tree_%s"), CurrentGeneration, *TreeHash);
             FString FinalAssetPath = ChildWrapper->SaveAsNewAsset(SaveName, true);
             
@@ -172,6 +180,7 @@ void UGeneticServerCommandlet::GenerateSubsequentEpoch()
                 UE_LOG(LogGeneticServer, Log, TEXT("Queued Evolved Job %d: %s"), i, *FinalAssetPath);
             }
         }
+    	UE_LOG(LogGeneticServer, Warning, TEXT("Mutation Done"));
     }
 
     // Cleanup for next epoch
