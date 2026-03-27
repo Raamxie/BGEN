@@ -43,7 +43,6 @@ public:
 	FOnEpochComplete OnEpochComplete;
 	void FinishEpoch();
 
-	void PreparePlayer();
 	void SpawnEnemies(int32 AmountToSpawn, FString GenomePath);
 	void Simulate();
 

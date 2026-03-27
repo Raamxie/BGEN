@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Commandlets/Commandlet.h"
-#include "GeneticSimulationManager.h" // Needed for FSimulationResult struct
+#include "GeneticSimulationManager.h" 
 #include "GeneticServerCommandlet.generated.h"
 
 // Struct to track jobs currently being processed by workers
@@ -20,6 +20,8 @@ class UGeneticServerCommandlet : public UCommandlet
 public:
 	UGeneticServerCommandlet();
 	virtual int32 Main(const FString& Params) override;
+	friend class FGeneticServerJobQueueTest;
+	friend class FGeneticServerInitialEpochTest;
 
 private:
 	// -- Networking / Job State --
@@ -35,11 +37,18 @@ private:
 	void CheckForTimeouts();
 
 	// -- Evolution State --
-	int32 PopulationSize = 10;
-	int32 CurrentGeneration = 0;
+	int32 PopulationSize;
+	int32 CurrentGeneration;
+	int32 InitialMutationCount;
+	float CrossoverChance;
+	float MutationChance;
 	
 	TArray<FSimulationResult> CurrentEpochResults;
 	TArray<FSimulationResult> AllTimeResults;
+	
+	TSet<FString> EvaluatedHashes;
 
 	void GenerateNextEpoch();
+	void GenerateInitialEpoch();
+	void GenerateSubsequentEpoch();
 };

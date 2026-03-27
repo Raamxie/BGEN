@@ -34,5 +34,5 @@ FSimulationResult UGeneticSelectionLibrary::TournamentSelection(const TArray<FSi
 bool UGeneticSelectionLibrary::IsValidResult(const FSimulationResult& Result)
 {
 	// A result is valid if it has a path and the generation is > 0
-	return !Result.BehaviorTreePath.IsEmpty() && Result.GenerationNumber > 0;
+	return !Result.BehaviorTreePath.IsEmpty() && Result.GenerationNumber >= 0;
 }

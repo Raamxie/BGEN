@@ -50,7 +50,6 @@ bool UCustomBehaviourTree::LoadBehaviorTree(const FString& AssetPath)
 	BehaviorTreeAsset->ConditionalPostLoad();
 
     UE_LOG(LogTemp, Log, TEXT("LoadBehaviorTree: Successfully loaded BT: %s"), *ObjectPath);
-	DebugLogTree();
 
 	return true;
 }
@@ -177,6 +176,63 @@ TArray<UClass*> UCustomBehaviourTree::GetAvailableTaskClasses(const FString& Pat
 	return ResultClasses;
 }
 
+UCustomBehaviourTree* UCustomBehaviourTree::PerformCrossover(UCustomBehaviourTree* DonorTreeWrapper, FLogCategoryBase& Category)
+{
+    if (!DonorTreeWrapper || !BehaviorTreeAsset) return nullptr;
+
+    // 1. Create New Wrapper (Standard)
+    UCustomBehaviourTree* ChildWrapper = NewObject<UCustomBehaviourTree>(GetOuter());
+    
+    // 2. Init as Deep Copy of Self (Parent A)
+    ChildWrapper->InitFromTreeInstance(this->BehaviorTreeAsset);
+
+    // 3. Find Slots
+    TArray<FNodeHandle> ChildSlots;
+    ChildWrapper->GetAllCompositeSlots(ChildWrapper->GetBTAsset()->RootNode, ChildSlots);
+
+    TArray<UBTNode*> DonorSubtrees;
+    ChildWrapper->GetAllSubtrees(DonorTreeWrapper->GetBTAsset()->RootNode, DonorSubtrees);
+
+    // 4. Perform Swap
+    if (ChildSlots.Num() > 0 && DonorSubtrees.Num() > 0)
+    {
+        FNodeHandle TargetSlot = ChildSlots[FMath::RandRange(0, ChildSlots.Num() - 1)];
+        UBTNode* DonorNode = DonorSubtrees[FMath::RandRange(0, DonorSubtrees.Num() - 1)];
+
+        // *** FIX: USE RECURSIVE DUPLICATION ***
+        UBTNode* ClonedGene = DuplicateNodeRecursive(DonorNode, ChildWrapper->GetBTAsset());
+        
+        // Link it up
+        if (TargetSlot.Parent->Children.IsValidIndex(TargetSlot.ChildIndex))
+        {
+            FBTCompositeChild& Link = TargetSlot.Parent->Children[TargetSlot.ChildIndex];
+            
+            FString OldNodeName = Link.ChildTask ? GetCleanNodeName(Link.ChildTask) : GetCleanNodeName(Link.ChildComposite);
+            
+            if (ClonedGene->IsA(UBTTaskNode::StaticClass()))
+            {
+                Link.ChildTask = Cast<UBTTaskNode>(ClonedGene);
+                Link.ChildComposite = nullptr;
+            }
+            else if (ClonedGene->IsA(UBTCompositeNode::StaticClass()))
+            {
+                Link.ChildComposite = Cast<UBTCompositeNode>(ClonedGene);
+                Link.ChildTask = nullptr;
+            }
+
+            // Directly log to the provided category
+            FMsg::Logf(nullptr, 0, Category.GetCategoryName(), ELogVerbosity::Log, 
+                TEXT("Replaced Node [%s] in Parent A with Donor Subtree [%s] from Parent B at Parent Node [%s]"), 
+                *OldNodeName, *GetCleanNodeName(ClonedGene), *GetCleanNodeName(TargetSlot.Parent));
+                
+            return ChildWrapper;
+        }
+    }
+    
+    FMsg::Logf(nullptr, 0, Category.GetCategoryName(), ELogVerbosity::Warning, TEXT("Crossover Failed (No valid slots)"));
+    return ChildWrapper;
+}
+
 TArray<UClass*> UCustomBehaviourTree::GetAvailableDecoratorClasses(const FString& Path)
 {
 	TArray<UClass*> ResultClasses;
@@ -233,213 +289,66 @@ void UCustomBehaviourTree::CollectNodes(UBTNode* Node, TArray<UBTCompositeNode*>
 	}
 }
 
-bool UCustomBehaviourTree::MutateTree_Dynamic(const FString& SearchPath)
-{
-    if (!BehaviorTreeAsset) return false;
-
-    // --- Bootstrap Root if empty ---
-    if (!BehaviorTreeAsset->RootNode)
-    {
-        UBTComposite_Selector* NewRoot = NewObject<UBTComposite_Selector>(BehaviorTreeAsset, TEXT("RootSelector"), RF_Public | RF_Standalone);
-        NewRoot->InitializeFromAsset(*BehaviorTreeAsset);
-        BehaviorTreeAsset->RootNode = NewRoot;
-    }
-
-    // --- Gather Data ---
-    TArray<UClass*> TaskClasses = GetAvailableTaskClasses(SearchPath);
-    // Note: We assume Decorators live in the same folder, or you can pass a specific path like "/Game/AI/Decorators"
-    TArray<UClass*> DecoratorClasses = GetAvailableDecoratorClasses(SearchPath); 
-
-    TArray<UBTCompositeNode*> Composites;
-    TArray<UBTTaskNode*> Tasks;
-    CollectNodes(BehaviorTreeAsset->RootNode, Composites, Tasks);
-
-    if (Composites.Num() == 0) return false;
-
-    // --- Choose Strategy ---
-    // 0: Swap Task
-    // 1: Insert Task
-    // 2: New Branch
-    // 3: Add/Swap Decorator (Condition) << NEW
-    
-    int32 Strategy = FMath::RandRange(0, 3);
-
-    // Handling Empty Tree Edge Case
-    if (Tasks.Num() == 0) Strategy = 2; 
-    
-    // If we picked Decorator (3) but found no decorator classes, fallback to Swap (0)
-    if (Strategy == 3 && DecoratorClasses.Num() == 0) Strategy = 0;
-
-    UE_LOG(LogTemp, Log, TEXT("Mutation Strategy Selected: %d"), Strategy);
-
-    // --- Execute ---
-
-    if (Strategy == 0 && TaskClasses.Num() > 0) // SWAP TASK
-    {
-        if (Tasks.Num() > 0)
-        {
-            UBTTaskNode* Victim = Tasks[FMath::RandRange(0, Tasks.Num() - 1)];
-            UBTCompositeNode* Parent = Victim->GetParentNode();
-            if (Parent)
-            {
-                UClass* NewClass = TaskClasses[FMath::RandRange(0, TaskClasses.Num() - 1)];
-                UBTTaskNode* NewTask = NewObject<UBTTaskNode>(BehaviorTreeAsset, NewClass, NAME_None, RF_Public | RF_Standalone);
-                NewTask->InitializeFromAsset(*BehaviorTreeAsset);
-
-                for (int32 i = 0; i < Parent->Children.Num(); i++)
-                {
-                    if (Parent->Children[i].ChildTask == Victim)
-                    {
-                        Parent->Children[i].ChildTask = NewTask;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    else if (Strategy == 1 && TaskClasses.Num() > 0) // INSERT TASK
-    {
-        UBTCompositeNode* Parent = Composites[FMath::RandRange(0, Composites.Num() - 1)];
-        UClass* NewClass = TaskClasses[FMath::RandRange(0, TaskClasses.Num() - 1)];
-        
-        UBTTaskNode* NewTask = NewObject<UBTTaskNode>(BehaviorTreeAsset, NewClass, NAME_None, RF_Public | RF_Standalone);
-        NewTask->InitializeFromAsset(*BehaviorTreeAsset);
-
-        FBTCompositeChild NewChild;
-        NewChild.ChildTask = NewTask;
-        Parent->Children.Add(NewChild);
-    }
-    else if (Strategy == 2 && TaskClasses.Num() > 0) // NEW BRANCH
-    {
-        UBTCompositeNode* Parent = Composites[FMath::RandRange(0, Composites.Num() - 1)];
-        
-        UBTCompositeNode* NewComposite = nullptr;
-        if (FMath::RandBool())
-            NewComposite = NewObject<UBTComposite_Sequence>(BehaviorTreeAsset, NAME_None, RF_Public | RF_Standalone);
-        else
-            NewComposite = NewObject<UBTComposite_Selector>(BehaviorTreeAsset, NAME_None, RF_Public | RF_Standalone);
-        
-        NewComposite->InitializeFromAsset(*BehaviorTreeAsset);
-
-        // Add a task to the new branch so it's not empty
-        UClass* NewClass = TaskClasses[FMath::RandRange(0, TaskClasses.Num() - 1)];
-        UBTTaskNode* NewTask = NewObject<UBTTaskNode>(BehaviorTreeAsset, NewClass, NAME_None, RF_Public | RF_Standalone);
-        NewTask->InitializeFromAsset(*BehaviorTreeAsset);
-
-        FBTCompositeChild TaskChild;
-        TaskChild.ChildTask = NewTask;
-        NewComposite->Children.Add(TaskChild);
-
-        FBTCompositeChild CompositeChild;
-        CompositeChild.ChildComposite = NewComposite;
-        Parent->Children.Add(CompositeChild);
-    }
-    else if (Strategy == 3 && DecoratorClasses.Num() > 0) // ADD DECORATOR (NEW)
-    {
-        // 1. Pick a random composite
-        UBTCompositeNode* TargetComposite = Composites[FMath::RandRange(0, Composites.Num() - 1)];
-        
-        if (TargetComposite->Children.Num() > 0)
-        {
-            // 2. Pick a random child of that composite
-            int32 ChildIdx = FMath::RandRange(0, TargetComposite->Children.Num() - 1);
-            FBTCompositeChild& ChildLink = TargetComposite->Children[ChildIdx];
-
-            // 3. Create the Decorator
-            UClass* DecoClass = DecoratorClasses[FMath::RandRange(0, DecoratorClasses.Num() - 1)];
-            UBTDecorator* NewDeco = NewObject<UBTDecorator>(BehaviorTreeAsset, DecoClass, NAME_None, RF_Public | RF_Standalone);
-            NewDeco->InitializeFromAsset(*BehaviorTreeAsset);
-
-            // 4. Add to the child's decorator list
-            // Note: In runtime BTs, decorators live on the CompositeChild struct
-            ChildLink.Decorators.Add(NewDeco);
-
-            UE_LOG(LogTemp, Log, TEXT("Mutate: Added DECORATOR %s to Composite %s (Child %d)"), 
-                *NewDeco->GetName(), *TargetComposite->GetName(), ChildIdx);
-        }
-    }
-
-    return true;
-}
-
-
 // DEBUG VISUALIZATION
 
-void UCustomBehaviourTree::DebugLogTree()
+void UCustomBehaviourTree::DebugLogTree(FLogCategoryBase& Category)
 {
 	if (!BehaviorTreeAsset || !BehaviorTreeAsset->RootNode)
 	{
-		UE_LOG(LogTemp, Error, TEXT("DebugLogTree: No Tree/Root found."));
+		FMsg::Logf(nullptr, 0, Category.GetCategoryName(), ELogVerbosity::Error, TEXT("DebugLogTree: No Tree/Root found."));
 		return;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("================================================="));
-	UE_LOG(LogTemp, Warning, TEXT(" TREE STRUCTURE: %s"), *BehaviorTreeAsset->GetName());
-	UE_LOG(LogTemp, Warning, TEXT(" Legend: [S]=Service, {D}=Decorator, (Node)"));
-	UE_LOG(LogTemp, Warning, TEXT("================================================="));
+	FMsg::Logf(nullptr, 0, Category.GetCategoryName(), ELogVerbosity::Warning, TEXT("================================================="));
+	FMsg::Logf(nullptr, 0, Category.GetCategoryName(), ELogVerbosity::Warning, TEXT(" SERVER VIEW: TREE STRUCTURE: %s"), *BehaviorTreeAsset->GetName());
+	FMsg::Logf(nullptr, 0, Category.GetCategoryName(), ELogVerbosity::Warning, TEXT(" Legend: [S]=Service, {D}=Decorator, (Node)"));
+	FMsg::Logf(nullptr, 0, Category.GetCategoryName(), ELogVerbosity::Warning, TEXT("================================================="));
 
-	// Start recursion with empty prefix
-	PrintPrettyNode(BehaviorTreeAsset->RootNode, "", true);
+	// Start recursion
+	PrintPrettyNode(BehaviorTreeAsset->RootNode, "", true, Category);
 
-	UE_LOG(LogTemp, Warning, TEXT("================================================="));
+	FMsg::Logf(nullptr, 0, Category.GetCategoryName(), ELogVerbosity::Warning, TEXT("================================================="));
 }
 
-void UCustomBehaviourTree::PrintPrettyNode(UBTNode* Node, FString Prefix, bool bIsLast)
+void UCustomBehaviourTree::PrintPrettyNode(UBTNode* Node, FString Prefix, bool bIsLast, FLogCategoryBase& Category)
 {
-    if (!Node) return;
+	if (!Node) return;
 
-    // 1. Determine the connector for THIS node
-    // If last child: "L--", else "|--"
-    FString Connector = bIsLast ? TEXT("L-- ") : TEXT("|-- ");
-    
-    // 2. Print the Node itself
-    UE_LOG(LogTemp, Display, TEXT("%s%s%s"), *Prefix, *Connector, *GetCleanNodeName(Node));
+	FString Connector = bIsLast ? TEXT("L-- ") : TEXT("|-- ");
+	FMsg::Logf(nullptr, 0, Category.GetCategoryName(), ELogVerbosity::Display, TEXT("%s%s%s"), *Prefix, *Connector, *GetCleanNodeName(Node));
 
-    // 3. Prepare the prefix for the CHILDREN of this node
-    // If we are the last child, our children shouldn't see our vertical bar.
-    FString ChildPrefix = Prefix + (bIsLast ? TEXT("    ") : TEXT("|   "));
+	FString ChildPrefix = Prefix + (bIsLast ? TEXT("    ") : TEXT("|   "));
 
-    UBTCompositeNode* Composite = Cast<UBTCompositeNode>(Node);
-    if (Composite)
-    {
-        // --- PRINT SERVICES ---
-        // Services belong to the composite itself. We print them "hanging" off the composite.
-        for (UBTService* Service : Composite->Services)
-        {
-            if (Service)
-            {
-                // Print slightly indented with a specific marker
-                UE_LOG(LogTemp, Log, TEXT("%s . [S] %s"), *ChildPrefix, *GetCleanNodeName(Service));
-            }
-        }
+	UBTCompositeNode* Composite = Cast<UBTCompositeNode>(Node);
+	if (Composite)
+	{
+		// Print Services
+		for (UBTService* Service : Composite->Services)
+		{
+			if (Service)
+			{
+				FMsg::Logf(nullptr, 0, Category.GetCategoryName(), ELogVerbosity::Log, TEXT("%s . [S] %s"), *ChildPrefix, *GetCleanNodeName(Service));
+			}
+		}
 
-        // --- PRINT CHILDREN ---
-        for (int32 i = 0; i < Composite->Children.Num(); i++)
-        {
-            FBTCompositeChild& ChildLink = Composite->Children[i];
-            bool bIsLastChild = (i == Composite->Children.Num() - 1);
+		// Print Children and their Decorators
+		for (int32 i = 0; i < Composite->Children.Num(); i++)
+		{
+			FBTCompositeChild& ChildLink = Composite->Children[i];
+			bool bIsLastChild = (i == Composite->Children.Num() - 1);
 
-            // Print Decorators (Logic Gates) for this specific branch
-            // We print them *before* recursing into the child node
-            for (UBTDecorator* Deco : ChildLink.Decorators)
-            {
-                if (Deco)
-                {
-                    // If it's the last child, the decorator sits above the "L--", else above "|--"
-                    // We use a specific symbol to show it's a gate.
-                    FString DecoPrefix = ChildPrefix + (bIsLastChild ? TEXT("    ") : TEXT("|   ")); 
-                    
-                    // Note: Visually connecting decorators to the specific branch line is tricky in ASCII.
-                    // A simple approach is just listing them above the child recursion.
-                    UE_LOG(LogTemp, Log, TEXT("%s : {D} %s"), *ChildPrefix, *GetCleanNodeName(Deco));
-                }
-            }
+			for (UBTDecorator* Deco : ChildLink.Decorators)
+			{
+				if (Deco)
+				{
+					FMsg::Logf(nullptr, 0, Category.GetCategoryName(), ELogVerbosity::Log, TEXT("%s : {D} %s"), *ChildPrefix, *GetCleanNodeName(Deco));
+				}
+			}
 
-            // Recurse
-            UBTNode* ChildNode = ChildLink.ChildComposite ? (UBTNode*)ChildLink.ChildComposite : (UBTNode*)ChildLink.ChildTask;
-            PrintPrettyNode(ChildNode, ChildPrefix, bIsLastChild);
-        }
-    }
+			UBTNode* ChildNode = ChildLink.ChildComposite ? (UBTNode*)ChildLink.ChildComposite : (UBTNode*)ChildLink.ChildTask;
+			PrintPrettyNode(ChildNode, ChildPrefix, bIsLastChild, Category);
+		}
+	}
 }
 
 FString UCustomBehaviourTree::GetCleanNodeName(UBTNode* Node)
@@ -462,63 +371,6 @@ FString UCustomBehaviourTree::GetCleanNodeName(UBTNode* Node)
 	}
     
 	return Name;
-}
-
-UCustomBehaviourTree* UCustomBehaviourTree::PerformCrossover(UCustomBehaviourTree* DonorTreeWrapper, FString& OutLog)
-{
-    if (!DonorTreeWrapper || !BehaviorTreeAsset) return nullptr;
-
-    // 1. Create New Wrapper (Standard)
-    UCustomBehaviourTree* ChildWrapper = NewObject<UCustomBehaviourTree>(GetOuter());
-    
-    // 2. Init as Deep Copy of Self (Parent A)
-    // This now uses the safe recursive copy we wrote above
-    ChildWrapper->InitFromTreeInstance(this->BehaviorTreeAsset);
-
-    // 3. Find Slots
-    TArray<FNodeHandle> ChildSlots;
-    ChildWrapper->GetAllCompositeSlots(ChildWrapper->GetBTAsset()->RootNode, ChildSlots);
-
-    TArray<UBTNode*> DonorSubtrees;
-    ChildWrapper->GetAllSubtrees(DonorTreeWrapper->GetBTAsset()->RootNode, DonorSubtrees);
-
-    // 4. Perform Swap
-    if (ChildSlots.Num() > 0 && DonorSubtrees.Num() > 0)
-    {
-        FNodeHandle TargetSlot = ChildSlots[FMath::RandRange(0, ChildSlots.Num() - 1)];
-        UBTNode* DonorNode = DonorSubtrees[FMath::RandRange(0, DonorSubtrees.Num() - 1)];
-
-        // *** FIX: USE RECURSIVE DUPLICATION ***
-        // This ensures the subtree we steal from Parent B is fully owned by the Child,
-        // with no lingering pointers to Parent B's package.
-        UBTNode* ClonedGene = DuplicateNodeRecursive(DonorNode, ChildWrapper->GetBTAsset());
-        
-        // Link it up
-        if (TargetSlot.Parent->Children.IsValidIndex(TargetSlot.ChildIndex))
-        {
-            FBTCompositeChild& Link = TargetSlot.Parent->Children[TargetSlot.ChildIndex];
-            
-            FString OldNodeName = Link.ChildTask ? GetCleanNodeName(Link.ChildTask) : GetCleanNodeName(Link.ChildComposite);
-            
-            if (ClonedGene->IsA(UBTTaskNode::StaticClass()))
-            {
-                Link.ChildTask = Cast<UBTTaskNode>(ClonedGene);
-                Link.ChildComposite = nullptr;
-            }
-            else if (ClonedGene->IsA(UBTCompositeNode::StaticClass()))
-            {
-                Link.ChildComposite = Cast<UBTCompositeNode>(ClonedGene);
-                Link.ChildTask = nullptr;
-            }
-
-            OutLog = FString::Printf(TEXT("Replaced Node [%s] in Parent A with Donor Subtree [%s] from Parent B at Parent Node [%s]"), 
-                *OldNodeName, *GetCleanNodeName(ClonedGene), *GetCleanNodeName(TargetSlot.Parent));
-            return ChildWrapper;
-        }
-    }
-    
-    OutLog = TEXT("Crossover Failed (No valid slots)");
-    return ChildWrapper;
 }
 
 void UCustomBehaviourTree::GetAllCompositeSlots(UBTNode* Node, TArray<FNodeHandle>& OutSlots)
@@ -590,57 +442,6 @@ FString UCustomBehaviourTree::GetTreeAsString()
 
 	RecursivePrint(RecursivePrint, BehaviorTreeAsset->RootNode, TEXT(""), true);
 	return SB.ToString();
-}
-
-void UCustomBehaviourTree::AppendTreeToLogFile(const FString& FileName, int32 Generation, float Fitness)
-{
-    FString FullPath = FPaths::ProjectLogDir() / FileName;
-    TStringBuilder<16384> LogBuilder; // Increased buffer size for multiple trees
-
-    LogBuilder.Append(TEXT("\n================================================================================\n"));
-    LogBuilder.Appendf(TEXT(" GENERATION %d  |  FITNESS: %.2f  |  %s\n"), Generation, Fitness, *GetName());
-    LogBuilder.Append(TEXT("================================================================================\n"));
-
-    // 1. GENEALOGY REPORT
-    LogBuilder.Appendf(TEXT(">> PARENT SELECTION (%s)\n"), *EvolutionData.SelectionMethod);
-    LogBuilder.Appendf(TEXT("   Parent A Path: %s\n"), *EvolutionData.ParentA_Path);
-    if (!EvolutionData.ParentB_Path.IsEmpty())
-    {
-        LogBuilder.Appendf(TEXT("   Parent B Path: %s\n"), *EvolutionData.ParentB_Path);
-    }
-    else
-    {
-        LogBuilder.Append(TEXT("   Parent B Path: (None)\n"));
-    }
-    
-    // --- NEW: PARENT STRUCTURES ---
-    if (!EvolutionData.ParentA_Structure.IsEmpty())
-    {
-        LogBuilder.Append(TEXT("\n>> PARENT A STRUCTURE:\n"));
-        LogBuilder.Append(EvolutionData.ParentA_Structure);
-    }
-    
-    if (!EvolutionData.ParentB_Structure.IsEmpty())
-    {
-        LogBuilder.Append(TEXT("\n>> PARENT B STRUCTURE:\n"));
-        LogBuilder.Append(EvolutionData.ParentB_Structure);
-    }
-    // -----------------------------
-
-    // 2. MODIFICATION REPORT
-    LogBuilder.Append(TEXT("\n>> CROSSBREEDING RESULT\n"));
-    LogBuilder.Appendf(TEXT("   %s\n"), !EvolutionData.CrossoverLog.IsEmpty() ? *EvolutionData.CrossoverLog : TEXT("Clone (No Crossover)"));
-
-    LogBuilder.Append(TEXT("\n>> MUTATION REPORT\n"));
-    LogBuilder.Appendf(TEXT("   %s\n"), !EvolutionData.MutationLog.IsEmpty() ? *EvolutionData.MutationLog : TEXT("No Mutation"));
-
-    // 3. FINAL RESULT
-    LogBuilder.Append(TEXT("\n>> FINAL PHENOTYPE (Result Tree):\n"));
-    LogBuilder.Append(GetTreeAsString());
-    
-    LogBuilder.Append(TEXT("================================================================================\n"));
-
-    FFileHelper::SaveStringToFile(LogBuilder.ToString(), *FullPath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_Append);
 }
 
 
