@@ -24,21 +24,24 @@ FString UGeneticMutationLibrary::MutateTree(UCustomBehaviourTree* Wrapper, float
 	// 3. Standard Chance Check
 	if (FMath::FRand() > MutationRate) return TEXT("No Mutation");
 	
-	// 4. Select Strategy
+	// 4. Select Strategy (Rebalanced to include Deletion)
 	float StrategyRoll = FMath::FRand();
 
-	if (StrategyRoll < 0.30f) return AddNewTask(Wrapper);       // 30% Grow (Task OR Subtree)
-	if (StrategyRoll < 0.50f) return AddNewComposite(Wrapper);  // 20% Branch
-	if (StrategyRoll < 0.80f) return SwapTask(Wrapper);         // 30% Mutate Behavior (Task OR Subtree)
+	if (StrategyRoll < 0.25f) return AddNewTask(Wrapper);       // 25% Grow (Task OR Subtree)
+	if (StrategyRoll < 0.40f) return AddNewComposite(Wrapper);  // 15% Branch
+	if (StrategyRoll < 0.65f) return SwapTask(Wrapper);         // 25% Mutate Behavior (Task OR Subtree)
+	if (StrategyRoll < 0.85f) return ShuffleChildren(Wrapper);  // 20% Reorder
     
-	return ShuffleChildren(Wrapper);                            // 20% Reorder
+	return DeleteNode(Wrapper);                                 // 15% Prune / Shrink Tree
 }
 
 FString UGeneticMutationLibrary::AddNewTask(UCustomBehaviourTree* Wrapper)
 {
-    // 1. Fetch both pools
-    TArray<UClass*> TaskClasses = Wrapper->GetAvailableTaskClasses("/Game/BehaviourTrees");
-    TArray<UBehaviorTree*> Subtrees = Wrapper->GetAvailableTaskTrees("/Game/BehaviourTrees/TaskTrees");
+    // 1. Fetch both pools using the updated path
+    TArray<UClass*> TaskClasses = Wrapper->GetAvailableTaskClasses("/Game/BehaviourTrees/EnemyTasks");
+    
+    // Note: Assuming subtrees also moved, adjust if they are still at "/Game/BehaviourTrees/TaskTrees"
+    TArray<UBehaviorTree*> Subtrees = Wrapper->GetAvailableTaskTrees("/Game/BehaviourTrees/EnemyTasks/TaskTrees");
     
     int32 TotalChoices = TaskClasses.Num() + Subtrees.Num();
     if (TotalChoices == 0) return TEXT("Failed: No Tasks or Subtrees Found");
@@ -125,9 +128,11 @@ FString UGeneticMutationLibrary::SwapTask(UCustomBehaviourTree* Wrapper)
     UBTCompositeNode* Parent = Victim->GetParentNode();
     if (!Parent) return TEXT("Failed: Orphan Task");
 
-    // 1. Fetch both pools
-    TArray<UClass*> TaskClasses = Wrapper->GetAvailableTaskClasses("/Game/BehaviourTrees");
-    TArray<UBehaviorTree*> Subtrees = Wrapper->GetAvailableTaskTrees("/Game/BehaviourTrees/TaskTrees");
+    // 1. Fetch both pools using the updated path
+    TArray<UClass*> TaskClasses = Wrapper->GetAvailableTaskClasses("/Game/BehaviourTrees/EnemyTasks");
+    
+    // Note: Assuming subtrees also moved, adjust if they are still at "/Game/BehaviourTrees/TaskTrees"
+    TArray<UBehaviorTree*> Subtrees = Wrapper->GetAvailableTaskTrees("/Game/BehaviourTrees/EnemyTasks/TaskTrees");
     
     int32 TotalChoices = TaskClasses.Num() + Subtrees.Num();
     if (TotalChoices == 0) return TEXT("Failed: No Classes or Subtrees");
@@ -187,4 +192,38 @@ FString UGeneticMutationLibrary::ShuffleChildren(UCustomBehaviourTree* Wrapper)
         Target->Children.Swap(i, SwapIdx);
     }
     return FString::Printf(TEXT("Shuffled children of [%s]"), *Wrapper->GetCleanNodeName(Target));
+}
+
+FString UGeneticMutationLibrary::DeleteNode(UCustomBehaviourTree* Wrapper)
+{
+	TArray<UBTCompositeNode*> Composites;
+	TArray<UBTTaskNode*> Tasks;
+	Wrapper->CollectNodes(Wrapper->GetBTAsset()->RootNode, Composites, Tasks);
+
+	// FIX: Never delete the last remaining task
+	if (Tasks.Num() <= 1) return TEXT("Skipped Delete: Tree too small");
+
+	UBTTaskNode* Victim = Tasks[FMath::RandRange(0, Tasks.Num() - 1)];
+	UBTCompositeNode* Parent = Victim->GetParentNode();
+
+	if (!Parent) return TEXT("Failed: Orphan Task");
+
+	// FIX: Never leave a Sequence or Selector completely empty
+	if (Parent->Children.Num() <= 1) 
+	{
+		return TEXT("Skipped Delete: Parent would be left empty");
+	}
+
+	FString TaskName = Wrapper->GetCleanNodeName(Victim);
+
+	for (int32 i = 0; i < Parent->Children.Num(); i++)
+	{
+		if (Parent->Children[i].ChildTask == Victim)
+		{
+			Parent->Children.RemoveAt(i);
+			return FString::Printf(TEXT("Deleted Node [%s] from [%s]"), *TaskName, *Wrapper->GetCleanNodeName(Parent));
+		}
+	}
+
+	return TEXT("Failed: Could not find node in parent's children array");
 }

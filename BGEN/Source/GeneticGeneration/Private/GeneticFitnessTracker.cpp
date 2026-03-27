@@ -6,6 +6,8 @@
 #include "CustomBehaviourTree.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
+#include "BehaviorTree/BTCompositeNode.h"
+#include "BehaviorTree/BTTaskNode.h"
 
 UGeneticFitnessTracker::UGeneticFitnessTracker()
 {
@@ -37,6 +39,13 @@ void UGeneticFitnessTracker::BeginTracking(AActor* InTargetPlayer)
 		PlayerUnleashed->OnTakeAnyDamage.AddDynamic(this, &UGeneticFitnessTracker::OnPlayerTakeDamage);
 	}
 
+	// Safely Cache the Controller for later evaluation
+	APawn* OwnerPawn = Cast<APawn>(Owner);
+	if (OwnerPawn)
+	{
+		CachedAIController = Cast<ACustomAIController>(OwnerPawn->GetController());
+	}
+
 	LastRecordedLocation = Owner->GetActorLocation();
 	GetWorld()->GetTimerManager().SetTimer(MovementTimerHandle, this, &UGeneticFitnessTracker::RecordMovementRoutine, 0.5f, true);
 
@@ -46,7 +55,42 @@ void UGeneticFitnessTracker::BeginTracking(AActor* InTargetPlayer)
 	bDamagedPlayer = false;
 	AccumulatedReward = 0.0f;
 	AccumulatedDamageTaken = 0.0f;
+	AccumulatedDamageDealt = 0.0f;
 	AccumulatedDistance = 0.0f;
+    
+	// Clear the set for a fresh run
+	ExecutedTasks.Empty();
+}
+
+void UGeneticFitnessTracker::RecordNodeExecution(const FString& NodeIdentifier)
+{
+	if (bTrackingActive)
+	{
+		ExecutedTasks.Add(NodeIdentifier);
+	}
+}
+
+void UGeneticFitnessTracker::ReportTaskExecuted(AAIController* AIController, const FString& TaskName)
+{
+	if (!AIController) return;
+
+	APawn* ControlledPawn = AIController->GetPawn();
+	if (ControlledPawn)
+	{
+		if (UGeneticFitnessTracker* Tracker = ControlledPawn->FindComponentByClass<UGeneticFitnessTracker>())
+		{
+			Tracker->RecordNodeExecution(TaskName);
+		}
+	}
+}
+
+float UGeneticFitnessTracker::GetTreeUtilizationPercentage() const
+{
+	int32 TotalSize = GetTreeSize();
+	if (TotalSize == 0) return 0.0f;
+
+	// Divides unique tasks executed by the total size of the tree (Composites + Tasks)
+	return (float)ExecutedTasks.Num() / (float)TotalSize;
 }
 
 void UGeneticFitnessTracker::RecordMovementRoutine()
@@ -61,6 +105,7 @@ void UGeneticFitnessTracker::RecordMovementRoutine()
 		LastRecordedLocation = CurrentLocation;
 	}
 }
+
 void UGeneticFitnessTracker::OnOwnerTakeDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser)
 {
 	if (!bTrackingActive) return;
@@ -71,8 +116,13 @@ void UGeneticFitnessTracker::OnPlayerTakeDamage(AActor* DamagedActor, float Dama
 {
 	if (!bTrackingActive) return;
 
-	if (DamageCauser == GetOwner() || InstigatedBy == GetOwner()->GetInstigatorController())
+	// Fallback to CachedAIController if GetInstigatorController fails due to unpossession
+	AController* InstigatorCtrl = CachedAIController ? CachedAIController : GetOwner()->GetInstigatorController();
+
+	if (DamageCauser == GetOwner() || InstigatedBy == InstigatorCtrl)
 	{
+		AccumulatedDamageDealt += Damage;
+		
 		AccumulatedReward += (Damage * DamageDealtWeight) + SuccessfulAttackBonus;
 		bDamagedPlayer = true;
 	}
@@ -91,19 +141,13 @@ void UGeneticFitnessTracker::AddCustomReward(float Amount)
 
 int32 UGeneticFitnessTracker::GetTreeSize() const
 {
-	APawn* OwnerPawn = Cast<APawn>(GetOwner());
-	if (OwnerPawn)
+	// Instead of relying on GetController(), use our CachedAIController!
+	if (CachedAIController && CachedAIController->RuntimeBehaviourWrapper && CachedAIController->RuntimeBehaviourWrapper->GetBTAsset())
 	{
-		if (ACustomAIController* AI = Cast<ACustomAIController>(OwnerPawn->GetController()))
-		{
-			if (AI->RuntimeBehaviourWrapper && AI->RuntimeBehaviourWrapper->GetBTAsset())
-			{
-				TArray<UBTCompositeNode*> Composites;
-				TArray<UBTTaskNode*> Tasks;
-				AI->RuntimeBehaviourWrapper->CollectNodes(AI->RuntimeBehaviourWrapper->GetBTAsset()->RootNode, Composites, Tasks);
-				return Composites.Num() + Tasks.Num();
-			}
-		}
+		TArray<UBTCompositeNode*> Composites;
+		TArray<UBTTaskNode*> Tasks;
+		CachedAIController->RuntimeBehaviourWrapper->CollectNodes(CachedAIController->RuntimeBehaviourWrapper->GetBTAsset()->RootNode, Composites, Tasks);
+		return Composites.Num() + Tasks.Num();
 	}
 	return 0; // Will trigger penalty if wrapper is missing or tree is empty
 }
@@ -111,6 +155,9 @@ int32 UGeneticFitnessTracker::GetTreeSize() const
 float UGeneticFitnessTracker::CalculateFitness()
 {
 	if (!bTrackingActive && AccumulatedReward == 0.0f) return 1.0f;
+
+	// IMMEDIATELY disable tracking so no lingering timers/damage events affect the final score
+	bTrackingActive = false;
 
 	GetWorld()->GetTimerManager().ClearTimer(MovementTimerHandle);
 
@@ -122,7 +169,8 @@ float UGeneticFitnessTracker::CalculateFitness()
 	FinalScore += (TimeAlive * SurvivalTimeWeight);
 	FinalScore += (AccumulatedDistance * DistanceMovedWeight);
 
-	if (TargetPlayer && GetOwner())
+	// Safely check validity to prevent crashes if the player was destroyed
+	if (IsValid(TargetPlayer) && IsValid(GetOwner()))
 	{
 		float FinalDistanceToPlayer = FVector::Dist(TargetPlayer->GetActorLocation(), GetOwner()->GetActorLocation());
 		float ProximityScore = FMath::Max(0.0f, 2000.0f - FinalDistanceToPlayer); 
@@ -136,7 +184,14 @@ float UGeneticFitnessTracker::CalculateFitness()
 	if (AccumulatedDistance < MinimumExpectedDistance) FinalScore -= IdlePenalty;
 
 	int32 TreeSize = GetTreeSize();
-	if (TreeSize < MinimumTreeNodes) FinalScore -= SmallTreePenalty;
+	if (TreeSize < MinimumTreeNodes) 
+	{
+		FinalScore -= SmallTreePenalty;
+	}
+	else if (TreeSize > MaximumTreeNodes) 
+	{
+		FinalScore -= BigTreePenalty;
+	}
 
 	// 3. VICTORY CONDITIONS
 	if (bPlayerWasKilled)
@@ -146,8 +201,54 @@ float UGeneticFitnessTracker::CalculateFitness()
 		FinalScore += (TimeRemaining * 50.0f); 
 	}
 
-	UE_LOG(LogGeneticGeneration, Display, TEXT("Enemy Fitness: %f (Dist: %.1f | TreeSize: %d)"), FinalScore, AccumulatedDistance, TreeSize);
+	// --- LOGGING VISITED VS ALL NODES ---
+	FString ExecutedNodesStr;
+	for (const FString& NodeName : ExecutedTasks)
+	{
+		ExecutedNodesStr += NodeName + TEXT(", ");
+	}
+
+	FString AllNodesStr;
+	
+	// Safely iterate using the cached controller
+	if (CachedAIController && CachedAIController->RuntimeBehaviourWrapper && CachedAIController->RuntimeBehaviourWrapper->GetBTAsset())
+	{
+		TArray<UBTCompositeNode*> Composites;
+		TArray<UBTTaskNode*> Tasks;
+		CachedAIController->RuntimeBehaviourWrapper->CollectNodes(CachedAIController->RuntimeBehaviourWrapper->GetBTAsset()->RootNode, Composites, Tasks);
+
+		// Collect Composite Names
+		for (UBTCompositeNode* Comp : Composites)
+		{
+			AllNodesStr += CachedAIController->RuntimeBehaviourWrapper->GetCleanNodeName(Comp) + TEXT(", ");
+		}
+		// Collect Task Names
+		for (UBTTaskNode* Task : Tasks)
+		{
+			AllNodesStr += CachedAIController->RuntimeBehaviourWrapper->GetCleanNodeName(Task) + TEXT(", ");
+		}
+	}
+
+	// Remove trailing commas for cleaner logs
+	if (ExecutedNodesStr.EndsWith(TEXT(", "))) ExecutedNodesStr.LeftChopInline(2);
+	if (AllNodesStr.EndsWith(TEXT(", "))) AllNodesStr.LeftChopInline(2);
+
+	UE_LOG(LogGeneticGeneration, Display, TEXT("--- NODE UTILIZATION REPORT ---"));
+	UE_LOG(LogGeneticGeneration, Display, TEXT("ALL NODES IN TREE: [%s]"), *AllNodesStr);
+	UE_LOG(LogGeneticGeneration, Display, TEXT("VISITED NODES:     [%s]"), *ExecutedNodesStr);
+	// -----------------------------------------
+
+	UE_LOG(LogGeneticGeneration, Display, TEXT("Enemy Fitness: %f (Dist: %.1f | TreeSize: %d | Utilization: %.2f%%)"), FinalScore, AccumulatedDistance, TreeSize, GetTreeUtilizationPercentage() * 100.0f);
 	
 	// Ensure we NEVER return 0 or negative so the Manager doesn't throw the score out
 	return FMath::Max(1.0f, FinalScore);
+}
+
+float UGeneticFitnessTracker::GetTimeAlive() const
+{
+	if (GetWorld() && StartTime > 0.0f)
+	{
+		return GetWorld()->GetTimeSeconds() - StartTime;
+	}
+	return 0.0f;
 }

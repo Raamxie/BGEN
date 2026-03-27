@@ -12,6 +12,7 @@ public class GeneticServer : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
+			"AIModule"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]

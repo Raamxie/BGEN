@@ -1,5 +1,4 @@
 ﻿#include "WorkerNetworkSubsystem.h"
-
 #include "GeneticGenerationModule.h"
 #include "HttpModule.h"
 #include "Interfaces/IHttpResponse.h"
@@ -11,21 +10,17 @@ void UWorkerNetworkSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 	CurrentJobAssetPath = TEXT("");
+	CurrentJobID = -1;
 }
 
 void UWorkerNetworkSubsystem::RequestJobFromMaster()
 {
-	// 1. THE KILL SWITCH: If we already have a job assigned, refuse to poll! 
-	// This immediately stops any "ghost timers" that fire while in the Main map.
-	if (!CurrentJobAssetPath.IsEmpty()) 
-	{
-		return; 
-	}
+	if (!CurrentJobAssetPath.IsEmpty()) return; 
 
 	if (bIsPolling) return; 
 	bIsPolling = true;
 
-	UE_LOG(LogTemp, Display, TEXT("WORKER: Sending polling request to Master Server for a new job..."));
+	UE_LOG(LogTemp, Display, TEXT("WORKER: Sending polling request to Master Server..."));
 
 	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
 	Request->SetURL(TEXT("http://127.0.0.1:8080/api/request_job"));
@@ -50,14 +45,14 @@ void UWorkerNetworkSubsystem::OnJobRequestComplete(FHttpRequestPtr Request, FHtt
 			if (Status == TEXT("success"))
 			{
 				CurrentJobAssetPath = JsonObject->GetStringField(TEXT("asset_path"));
-				UE_LOG(LogTemp, Warning, TEXT("WORKER: Job Received! Instructing Module to load Main Map..."));
+				// Extract the Job ID
+				CurrentJobID = JsonObject->GetIntegerField(TEXT("job_id")); 
+				
+				UE_LOG(LogTemp, Warning, TEXT("WORKER: Job %d Received! Loading Main Map..."), CurrentJobID);
 
-				// 2. EXPLICITLY KILL THE TIMER just to be safe
 				GetGameInstance()->GetTimerManager().ClearTimer(PollingTimerHandle);
-
 				FGeneticGenerationModule& GenModule = FModuleManager::GetModuleChecked<FGeneticGenerationModule>("GeneticGeneration");
 				GenModule.LoadSimulationMap();
-
 				bGotJob = true; 
 			}
 		}
@@ -65,21 +60,35 @@ void UWorkerNetworkSubsystem::OnJobRequestComplete(FHttpRequestPtr Request, FHtt
 
 	if (!bGotJob)
 	{
-		UE_LOG(LogTemp, Log, TEXT("WORKER: No job available or Server offline. Polling again in 2 seconds..."));
-		
-		// 3. Track the timer handle
 		GetGameInstance()->GetTimerManager().SetTimer(PollingTimerHandle, this, &UWorkerNetworkSubsystem::RequestJobFromMaster, 2.0f, false);
 	}
 }
 
-void UWorkerNetworkSubsystem::SubmitFitness(const FString& AssetPath, float Fitness)
+void UWorkerNetworkSubsystem::SubmitFitness(const FString& AssetPath, int32 JobID, float Fitness, float Distance, float DamageTaken, float DamageDealt, float Reward, float TimeAlive, int32 TreeSize, float Utilization, bool bPlayerKilled, const FString& TreeString)
 {
 	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
 	Request->SetURL(TEXT("http://127.0.0.1:8080/api/submit"));
 	Request->SetVerb("POST");
 	Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
 
-	FString Payload = FString::Printf(TEXT("{\"asset_path\":\"%s\", \"fitness\":%f}"), *AssetPath, Fitness);
+	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject());
+	JsonObject->SetStringField(TEXT("asset_path"), AssetPath);
+	JsonObject->SetNumberField(TEXT("job_id"), JobID);
+	JsonObject->SetNumberField(TEXT("fitness"), Fitness);
+	JsonObject->SetNumberField(TEXT("distance"), Distance);
+	JsonObject->SetNumberField(TEXT("damage_taken"), DamageTaken);
+	JsonObject->SetNumberField(TEXT("damage_dealt"), DamageDealt);
+	JsonObject->SetNumberField(TEXT("reward"), Reward);
+	JsonObject->SetNumberField(TEXT("time_alive"), TimeAlive);
+	JsonObject->SetNumberField(TEXT("tree_size"), TreeSize);
+	JsonObject->SetNumberField(TEXT("utilization"), Utilization);
+	JsonObject->SetBoolField(TEXT("player_killed"), bPlayerKilled);
+	JsonObject->SetStringField(TEXT("tree_string"), TreeString);
+
+	FString Payload;
+	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Payload);
+	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
+
 	Request->SetContentAsString(Payload);
 	Request->OnProcessRequestComplete().BindUObject(this, &UWorkerNetworkSubsystem::OnSubmitComplete);
 	Request->ProcessRequest();
@@ -87,18 +96,21 @@ void UWorkerNetworkSubsystem::SubmitFitness(const FString& AssetPath, float Fitn
 
 void UWorkerNetworkSubsystem::OnSubmitComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bConnectedSuccessfully)
 {
-	if (bConnectedSuccessfully && Response.IsValid())
+	// 1. Clear variables NOW, because the job is truly done
+	CurrentJobAssetPath = TEXT("");
+	CurrentJobID = -1;
+
+	if (bConnectedSuccessfully && Response.IsValid() && Response->GetResponseCode() == 200)
 	{
-		UE_LOG(LogTemp, Log, TEXT("Submit Complete. Server responded with code: %d"), Response->GetResponseCode());
+		UE_LOG(LogTemp, Warning, TEXT("WORKER: Server acknowledged results! Rebooting map..."));
 	}
 	else
 	{
-		UE_LOG(LogTemp, Error, TEXT("Submit Failed. Could not connect to the Master server."));
+		UE_LOG(LogTemp, Error, TEXT("WORKER: Server unreachable or failed! Rebooting map anyway to avoid hanging..."));
 	}
 
-	// Clear the current job so the worker knows it is free
-	CurrentJobAssetPath = TEXT("");
-
-	// Automatically poll the server for the next job to keep the worker busy
-	RequestJobFromMaster();
+	// 2. Tell the Genetic Module to load the EmptyWaiting map. 
+	// This cleanly wipes the memory and drops the Worker into the polling loop for the next job.
+	FGeneticGenerationModule& GenModule = FModuleManager::GetModuleChecked<FGeneticGenerationModule>("GeneticGeneration");
+	GenModule.LoadEmptyWaitingMap();
 }
