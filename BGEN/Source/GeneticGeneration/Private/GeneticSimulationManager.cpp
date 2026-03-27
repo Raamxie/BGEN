@@ -61,8 +61,6 @@ void UGeneticSimulationManager::StartEpochWithJob(FString AssignedAssetPath)
 	{
 		NavSys->Build();
 	}
-    
-	PreparePlayer();
 
 	SpawnEnemies(1, AssignedAssetPath); 
     
