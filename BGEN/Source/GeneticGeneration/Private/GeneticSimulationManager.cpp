@@ -197,6 +197,7 @@ void UGeneticSimulationManager::SpawnEnemies(int32 AmountToSpawn, FString Genome
             
             UE_LOG(LogGeneticGeneration, Log, TEXT("Worker successfully bound agent %d to Tree: %s"), i, *AssignedWrapper->GetBTAsset()->GetName());
         }
+    	AssignedWrapper->DebugLogTree(LogGeneticGeneration);
     }
 }
 
@@ -244,18 +245,46 @@ void UGeneticSimulationManager::StopSimulation()
 
 	UE_LOG(LogGeneticGeneration, Log, TEXT("WORKER: Stopping Simulation. Calculating Fitness..."));
 
-	float FinalFitnessScore = 1.0f; 
+	// Initialize variables to store all required metrics
+	float FinalFitnessScore = 1.0f;
+	float FinalDistance = 0.0f;
+	float FinalDamageTaken = 0.0f;
+	float FinalDamageDealt = 0.0f;
+	float FinalReward = 0.0f;
+	float FinalTimeAlive = 0.0f;
+	int32 FinalTreeSize = 0;
+	float FinalUtilization = 0.0f;
+	bool bFinalPlayerKilled = false;
+	FString FinalTreeString = TEXT("");
 	
 	for (auto& Pair : ActiveAgents)
 	{
 		APawn* Agent = Pair.Key;
+		UCustomBehaviourTree* Wrapper = Pair.Value;
+
 		if (IsValid(Agent))
 		{
+			// Extract all metrics from the Fitness Tracker before it gets destroyed
 			if (UGeneticFitnessTracker* Tracker = Agent->FindComponentByClass<UGeneticFitnessTracker>())
 			{
 				FinalFitnessScore = Tracker->CalculateFitness();
+				FinalDistance = Tracker->GetAccumulatedDistance();
+				FinalDamageTaken = Tracker->GetAccumulatedDamageTaken();
+				FinalDamageDealt = Tracker->GetAccumulatedDamageDealt();
+				FinalReward = Tracker->GetAccumulatedReward();
+				FinalTimeAlive = Tracker->GetTimeAlive();
+				FinalTreeSize = Tracker->GetTreeSize();
+				FinalUtilization = Tracker->GetTreeUtilizationPercentage();
+				bFinalPlayerKilled = Tracker->GetPlayerWasKilled();
 			}
 			
+			// Extract the structural string representation from the Behavior Tree Wrapper
+			if (IsValid(Wrapper))
+			{
+				FinalTreeString = Wrapper->GetTreeAsString();
+			}
+
+			// Clean up the agent and controller
 			if (AController* C = Agent->GetController()) C->Destroy();
 			Agent->Destroy();
 		}
@@ -271,7 +300,22 @@ void UGeneticSimulationManager::StopSimulation()
 			if (NetSubsystem)
 			{
 				UE_LOG(LogGeneticGeneration, Log, TEXT("WORKER: Submitting Fitness %.2f for %s"), FinalFitnessScore, *NetSubsystem->CurrentJobAssetPath);
-				NetSubsystem->SubmitFitness(NetSubsystem->CurrentJobAssetPath, FinalFitnessScore);
+				
+				// Call the updated SubmitFitness with all 12 parameters
+				NetSubsystem->SubmitFitness(
+					NetSubsystem->CurrentJobAssetPath,
+					NetSubsystem->CurrentJobID,
+					FinalFitnessScore,
+					FinalDistance,
+					FinalDamageTaken,
+					FinalDamageDealt,
+					FinalReward,
+					FinalTimeAlive,
+					FinalTreeSize,
+					FinalUtilization,
+					bFinalPlayerKilled,
+					FinalTreeString
+				);
 			}
 		}
 	}

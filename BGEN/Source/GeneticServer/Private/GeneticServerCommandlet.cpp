@@ -205,39 +205,49 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
         return 1;
     }
 
+	FString CSVFilePath = FPaths::ProjectSavedDir() / TEXT("GeneticResults.csv");
+	FString CSVHeader = TEXT("Generation,JobID,BehaviorTreePath,Fitness,Distance,DamageTaken,DamageDealt,Reward,TimeAlive,TreeSize,Utilization,PlayerKilled,TreeString\n");
+
     // 2. BIND ROUTES
     
     // --- ENDPOINT 1 - WORKER REQUESTS JOB ---
-    HttpRouter->BindRoute(FHttpPath(TEXT("/api/request_job")), EHttpServerRequestVerbs::VERB_GET, 
-        FHttpRequestHandler::CreateLambda([this](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
-        {
-            FString AssignedAssetPath = GetNextJob();
+	HttpRouter->BindRoute(FHttpPath(TEXT("/api/request_job")), EHttpServerRequestVerbs::VERB_GET, 
+			FHttpRequestHandler::CreateLambda([this](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
+			{
+				FString AssignedAssetPath = GetNextJob();
             
-            TSharedPtr<FJsonObject> JsonResponse = MakeShareable(new FJsonObject());
-            if (!AssignedAssetPath.IsEmpty())
-            {
-                JsonResponse->SetStringField(TEXT("status"), TEXT("success"));
-                JsonResponse->SetStringField(TEXT("asset_path"), AssignedAssetPath);
-                UE_LOG(LogGeneticServer, Log, TEXT("Assigned job to worker: %s"), *AssignedAssetPath);
-            }
-            else
-            {
-                // Queue empty, tell worker to wait/standby
-                JsonResponse->SetStringField(TEXT("status"), TEXT("standby"));
-            }
+				TSharedPtr<FJsonObject> JsonResponse = MakeShareable(new FJsonObject());
+				if (!AssignedAssetPath.IsEmpty())
+				{
+					// 1. Grab the current ID and increment it for the next job
+					int32 AssignedJobID = NextJobID++;
 
-            FString ResponseString;
-            TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ResponseString);
-            FJsonSerializer::Serialize(JsonResponse.ToSharedRef(), Writer);
+					JsonResponse->SetStringField(TEXT("status"), TEXT("success"));
+					JsonResponse->SetStringField(TEXT("asset_path"), AssignedAssetPath);
+                
+					// 2. Send the Job ID to the worker
+					JsonResponse->SetNumberField(TEXT("job_id"), AssignedJobID);
 
-            TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(ResponseString, TEXT("application/json"));
-            OnComplete(MoveTemp(Response));
-            return true;
-        }));
+					UE_LOG(LogGeneticServer, Log, TEXT("Assigned Job %d to worker: %s"), AssignedJobID, *AssignedAssetPath);
+				}
+				else
+				{
+					// Queue empty, tell worker to wait/standby
+					JsonResponse->SetStringField(TEXT("status"), TEXT("standby"));
+				}
 
-    // --- ENDPOINT 2 - WORKER SUBMITS FITNESS ---
+				FString ResponseString;
+				TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ResponseString);
+				FJsonSerializer::Serialize(JsonResponse.ToSharedRef(), Writer);
+
+				TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(ResponseString, TEXT("application/json"));
+				OnComplete(MoveTemp(Response));
+				return true;
+			}));
+
+   // --- ENDPOINT 2 - WORKER SUBMITS FITNESS ---
     HttpRouter->BindRoute(FHttpPath(TEXT("/api/submit")), EHttpServerRequestVerbs::VERB_POST, 
-        FHttpRequestHandler::CreateLambda([this](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
+        FHttpRequestHandler::CreateLambda([this, CSVFilePath](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
         {
             FString BodyString(Request.Body.Num(), UTF8_TO_TCHAR((const char*)Request.Body.GetData()));
             TSharedPtr<FJsonObject> JsonObject;
@@ -245,22 +255,60 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
 
             if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
             {
+                // 1. Parse JSON
                 FString AssetPath = JsonObject->GetStringField(TEXT("asset_path"));
+                int32 JobID = JsonObject->GetIntegerField(TEXT("job_id"));
                 float FitnessValue = JsonObject->GetNumberField(TEXT("fitness"));
+                float Distance = JsonObject->GetNumberField(TEXT("distance"));
+                float DamageTaken = JsonObject->GetNumberField(TEXT("damage_taken"));
+                float DamageDealt = JsonObject->GetNumberField(TEXT("damage_dealt"));
+                float Reward = JsonObject->GetNumberField(TEXT("reward"));
+                float TimeAlive = JsonObject->GetNumberField(TEXT("time_alive"));
+                int32 TreeSize = JsonObject->GetIntegerField(TEXT("tree_size"));
+                float Utilization = JsonObject->GetNumberField(TEXT("utilization"));
+                bool bPlayerKilled = JsonObject->GetBoolField(TEXT("player_killed"));
+                FString RawTreeString = JsonObject->GetStringField(TEXT("tree_string"));
+
+                int32 CompletedGeneration = CurrentGeneration - 1;
+
+                // 2. SANITIZE FOR MULTI-LINE CSV CELL
+                // First, escape any existing double-quotes by turning them into double-double-quotes ("")
+                FString EscapedTreeString = RawTreeString.Replace(TEXT("\""), TEXT("\"\""));
+                // We no longer replace \n or commas, so the tree's original layout is preserved!
+
+                // 3. Format CSV Row
+                // CRITICAL: Notice the \"%s\" at the very end. This wraps the EscapedTreeString in quotes.
+                FString CSVRow = FString::Printf(TEXT("%d,%d,%s,%f,%f,%f,%f,%f,%f,%d,%f,%s,\"%s\"\n"), 
+                    CompletedGeneration,
+                    JobID,
+                    *AssetPath, 
+                    FitnessValue,
+                    Distance,
+                    DamageTaken,
+                    DamageDealt,
+                    Reward,
+                    TimeAlive,
+                    TreeSize,
+                    Utilization,
+                    bPlayerKilled ? TEXT("True") : TEXT("False"),
+                    *EscapedTreeString);
+
+                // 4. Append Directly to File
+                FFileHelper::SaveStringToFile(CSVRow, *CSVFilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), FILEWRITE_Append);
                 
-                // Record Result
+                // 5. Keep only the minimal required struct in memory for Genetic Algorithm Operations
                 FSimulationResult Res;
                 Res.BehaviorTreePath = AssetPath;
                 Res.Fitness = FitnessValue;
-                Res.GenerationNumber = CurrentGeneration - 1; // Since we incremented at the end of generation
+                Res.GenerationNumber = CompletedGeneration; 
 
                 CurrentEpochResults.Add(Res);
                 AllTimeResults.Add(Res);
 
-                UE_LOG(LogGeneticServer, Warning, TEXT("MASTER: Worker finished %s | Fitness: %.2f | Progress: %d/%d"), 
-                    *AssetPath, FitnessValue, CurrentEpochResults.Num(), PopulationSize);
+                UE_LOG(LogGeneticServer, Warning, TEXT("MASTER: Worker finished Job %d (%s) | Fitness: %.2f | Progress: %d/%d"), 
+                    JobID, *AssetPath, FitnessValue, CurrentEpochResults.Num(), PopulationSize);
 
-                // CHECK EPOCH COMPLETION
+                // 6. CHECK EPOCH COMPLETION
                 if (CurrentEpochResults.Num() >= PopulationSize)
                 {
                     GenerateNextEpoch(); 

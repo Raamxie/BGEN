@@ -14,25 +14,30 @@ FString UGeneticMutationLibrary::MutateTree(UCustomBehaviourTree* Wrapper, float
 	TArray<UBTTaskNode*> Tasks;
 	Wrapper->CollectNodes(Wrapper->GetBTAsset()->RootNode, Composites, Tasks);
 
-	// 2. FORCE GROWTH (Bootstrap)
+	// 2. FORCE GROWTH (Bootstrap / First Mutations)
 	if (Tasks.Num() < 2)
 	{
 		if (Composites.Num() == 0) return AddNewComposite(Wrapper);
+		
+		// Give a strong chance (30%) during the first mutations to swap the initial Sequence into a Selector
+		if (FMath::FRand() < 0.30f) return SwapCompositeType(Wrapper);
+		
 		return AddNewTask(Wrapper);
 	}
 
 	// 3. Standard Chance Check
 	if (FMath::FRand() > MutationRate) return TEXT("No Mutation");
 	
-	// 4. Select Strategy (Rebalanced to include Deletion)
+	// 4. Select Strategy (Rebalanced to include SwapCompositeType)
 	float StrategyRoll = FMath::FRand();
 
-	if (StrategyRoll < 0.25f) return AddNewTask(Wrapper);       // 25% Grow (Task OR Subtree)
-	if (StrategyRoll < 0.40f) return AddNewComposite(Wrapper);  // 15% Branch
-	if (StrategyRoll < 0.65f) return SwapTask(Wrapper);         // 25% Mutate Behavior (Task OR Subtree)
-	if (StrategyRoll < 0.85f) return ShuffleChildren(Wrapper);  // 20% Reorder
+	if (StrategyRoll < 0.20f) return AddNewTask(Wrapper);         // 20% Grow (Task OR Subtree)
+	if (StrategyRoll < 0.35f) return AddNewComposite(Wrapper);    // 15% Branch
+	if (StrategyRoll < 0.50f) return SwapCompositeType(Wrapper);  // 15% Swap Sequence <-> Selector
+	if (StrategyRoll < 0.70f) return SwapTask(Wrapper);           // 20% Mutate Behavior (Task OR Subtree)
+	if (StrategyRoll < 0.85f) return ShuffleChildren(Wrapper);    // 15% Reorder
     
-	return DeleteNode(Wrapper);                                 // 15% Prune / Shrink Tree
+	return DeleteNode(Wrapper);                                   // 15% Prune / Shrink Tree
 }
 
 FString UGeneticMutationLibrary::AddNewTask(UCustomBehaviourTree* Wrapper)
@@ -173,6 +178,67 @@ FString UGeneticMutationLibrary::SwapTask(UCustomBehaviourTree* Wrapper)
     }
     
     return TEXT("Failed: Swap Logic Error");
+}
+
+FString UGeneticMutationLibrary::SwapCompositeType(UCustomBehaviourTree* Wrapper)
+{
+	TArray<UBTCompositeNode*> Composites;
+	TArray<UBTTaskNode*> Tasks;
+	Wrapper->CollectNodes(Wrapper->GetBTAsset()->RootNode, Composites, Tasks);
+
+	if (Composites.Num() == 0) return TEXT("Failed: No Composites");
+
+	// Pick a random composite to swap (this naturally targets the Root Sequence heavily in early generations)
+	UBTCompositeNode* Target = Composites[FMath::RandRange(0, Composites.Num() - 1)];
+	
+	UClass* NewClass = nullptr;
+	
+	// Determine the opposite type
+	if (Target->IsA(UBTComposite_Sequence::StaticClass()))
+	{
+		NewClass = UBTComposite_Selector::StaticClass();
+	}
+	else if (Target->IsA(UBTComposite_Selector::StaticClass()))
+	{
+		NewClass = UBTComposite_Sequence::StaticClass();
+	}
+	else
+	{
+		return TEXT("Skipped SwapComposite: Node is not a Sequence or Selector");
+	}
+
+	// Create the new Composite Node
+	UBTCompositeNode* NewComp = NewObject<UBTCompositeNode>(Wrapper->GetBTAsset(), NewClass, NAME_None, RF_Public | RF_Transactional);
+	NewComp->InitializeFromAsset(*Wrapper->GetBTAsset());
+
+	// Safely transfer all Children (which includes their Decorators) and Services
+	NewComp->Children = Target->Children;
+	NewComp->Services = Target->Services;
+
+	// Update the tree hierarchy to point to the new composite
+	if (Wrapper->GetBTAsset()->RootNode == Target)
+	{
+		// It was the root node, update the asset's root reference
+		Wrapper->GetBTAsset()->RootNode = NewComp;
+	}
+	else
+	{
+		// It was a nested branch, update the parent's child link
+		UBTCompositeNode* Parent = Target->GetParentNode();
+		if (Parent)
+		{
+			for (int32 i = 0; i < Parent->Children.Num(); i++)
+			{
+				if (Parent->Children[i].ChildComposite == Target)
+				{
+					Parent->Children[i].ChildComposite = NewComp;
+					break;
+				}
+			}
+		}
+	}
+
+	return FString::Printf(TEXT("Swapped Composite [%s] to [%s]"), *Wrapper->GetCleanNodeName(Target), *Wrapper->GetCleanNodeName(NewComp));
 }
 
 FString UGeneticMutationLibrary::ShuffleChildren(UCustomBehaviourTree* Wrapper)

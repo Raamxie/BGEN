@@ -51,4 +51,5 @@ private:
 	void GenerateNextEpoch();
 	void GenerateInitialEpoch();
 	void GenerateSubsequentEpoch();
+	
 };
