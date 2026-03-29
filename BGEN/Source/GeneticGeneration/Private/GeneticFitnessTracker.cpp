@@ -39,7 +39,6 @@ void UGeneticFitnessTracker::BeginTracking(AActor* InTargetPlayer)
 		PlayerUnleashed->OnTakeAnyDamage.AddDynamic(this, &UGeneticFitnessTracker::OnPlayerTakeDamage);
 	}
 
-	// Safely Cache the Controller for later evaluation
 	APawn* OwnerPawn = Cast<APawn>(Owner);
 	if (OwnerPawn)
 	{
@@ -62,24 +61,25 @@ void UGeneticFitnessTracker::BeginTracking(AActor* InTargetPlayer)
 	ExecutedTasks.Empty();
 }
 
-void UGeneticFitnessTracker::RecordNodeExecution(const FString& NodeIdentifier)
+void UGeneticFitnessTracker::RecordNodeExecution(UBTTaskNode* Node)
 {
-	if (bTrackingActive)
+	if (bTrackingActive && Node)
 	{
-		ExecutedTasks.Add(NodeIdentifier);
+		ExecutedTasks.Add(Node);
 	}
 }
 
-void UGeneticFitnessTracker::ReportTaskExecuted(AAIController* AIController, const FString& TaskName)
+void UGeneticFitnessTracker::ReportTaskExecuted(AAIController* AIController, UBTTaskNode* TaskNode)
 {
-	if (!AIController) return;
+	if (!AIController || !TaskNode) return;
 
 	APawn* ControlledPawn = AIController->GetPawn();
 	if (ControlledPawn)
 	{
 		if (UGeneticFitnessTracker* Tracker = ControlledPawn->FindComponentByClass<UGeneticFitnessTracker>())
 		{
-			Tracker->RecordNodeExecution(TaskName);
+			// We pass the actual memory pointer of the node!
+			Tracker->RecordNodeExecution(TaskNode);
 		}
 	}
 }
@@ -89,7 +89,6 @@ float UGeneticFitnessTracker::GetTreeUtilizationPercentage() const
 	int32 TotalSize = GetTreeSize();
 	if (TotalSize == 0) return 0.0f;
 
-	// Divides unique tasks executed by the total size of the tree (Composites + Tasks)
 	return (float)ExecutedTasks.Num() / (float)TotalSize;
 }
 
@@ -116,13 +115,11 @@ void UGeneticFitnessTracker::OnPlayerTakeDamage(AActor* DamagedActor, float Dama
 {
 	if (!bTrackingActive) return;
 
-	// Fallback to CachedAIController if GetInstigatorController fails due to unpossession
 	AController* InstigatorCtrl = CachedAIController ? CachedAIController : GetOwner()->GetInstigatorController();
 
 	if (DamageCauser == GetOwner() || InstigatedBy == InstigatorCtrl)
 	{
 		AccumulatedDamageDealt += Damage;
-		
 		AccumulatedReward += (Damage * DamageDealtWeight) + SuccessfulAttackBonus;
 		bDamagedPlayer = true;
 	}
@@ -141,35 +138,32 @@ void UGeneticFitnessTracker::AddCustomReward(float Amount)
 
 int32 UGeneticFitnessTracker::GetTreeSize() const
 {
-	// Instead of relying on GetController(), use our CachedAIController!
 	if (CachedAIController && CachedAIController->RuntimeBehaviourWrapper && CachedAIController->RuntimeBehaviourWrapper->GetBTAsset())
 	{
 		TArray<UBTCompositeNode*> Composites;
 		TArray<UBTTaskNode*> Tasks;
 		CachedAIController->RuntimeBehaviourWrapper->CollectNodes(CachedAIController->RuntimeBehaviourWrapper->GetBTAsset()->RootNode, Composites, Tasks);
-		return Composites.Num() + Tasks.Num();
+		
+		return Tasks.Num(); // Return ONLY Leaf Tasks
 	}
-	return 0; // Will trigger penalty if wrapper is missing or tree is empty
+	return 0; 
 }
 
 float UGeneticFitnessTracker::CalculateFitness()
 {
 	if (!bTrackingActive && AccumulatedReward == 0.0f) return 1.0f;
 
-	// IMMEDIATELY disable tracking so no lingering timers/damage events affect the final score
 	bTrackingActive = false;
-
 	GetWorld()->GetTimerManager().ClearTimer(MovementTimerHandle);
 
 	double CurrentTime = GetWorld()->GetTimeSeconds();
 	float TimeAlive = (float)(CurrentTime - StartTime);
 
-	// 1. BASE REWARDS (Include BaseFitnessScore buffer)
+	// 1. BASE REWARDS 
 	float FinalScore = BaseFitnessScore + AccumulatedReward;
 	FinalScore += (TimeAlive * SurvivalTimeWeight);
 	FinalScore += (AccumulatedDistance * DistanceMovedWeight);
 
-	// Safely check validity to prevent crashes if the player was destroyed
 	if (IsValid(TargetPlayer) && IsValid(GetOwner()))
 	{
 		float FinalDistanceToPlayer = FVector::Dist(TargetPlayer->GetActorLocation(), GetOwner()->GetActorLocation());
@@ -183,6 +177,7 @@ float UGeneticFitnessTracker::CalculateFitness()
 	if (!bDamagedPlayer) FinalScore -= PacifistPenalty;
 	if (AccumulatedDistance < MinimumExpectedDistance) FinalScore -= IdlePenalty;
 
+	// Note: TreeSize now only counts Tasks, so you may need to adjust your MinimumTreeNodes configuration!
 	int32 TreeSize = GetTreeSize();
 	if (TreeSize < MinimumTreeNodes) 
 	{
@@ -203,44 +198,39 @@ float UGeneticFitnessTracker::CalculateFitness()
 
 	// --- LOGGING VISITED VS ALL NODES ---
 	FString ExecutedNodesStr;
-	for (const FString& NodeName : ExecutedTasks)
-	{
-		ExecutedNodesStr += NodeName + TEXT(", ");
-	}
-
 	FString AllNodesStr;
 	
-	// Safely iterate using the cached controller
 	if (CachedAIController && CachedAIController->RuntimeBehaviourWrapper && CachedAIController->RuntimeBehaviourWrapper->GetBTAsset())
 	{
 		TArray<UBTCompositeNode*> Composites;
 		TArray<UBTTaskNode*> Tasks;
 		CachedAIController->RuntimeBehaviourWrapper->CollectNodes(CachedAIController->RuntimeBehaviourWrapper->GetBTAsset()->RootNode, Composites, Tasks);
 
-		// Collect Composite Names
-		for (UBTCompositeNode* Comp : Composites)
-		{
-			AllNodesStr += CachedAIController->RuntimeBehaviourWrapper->GetCleanNodeName(Comp) + TEXT(", ");
-		}
-		// Collect Task Names
 		for (UBTTaskNode* Task : Tasks)
 		{
-			AllNodesStr += CachedAIController->RuntimeBehaviourWrapper->GetCleanNodeName(Task) + TEXT(", ");
+			// GetName() returns the unique internal UE object name (e.g. MoveToPlayer_C_21)
+			FString NodeIdentity = Task->GetName(); 
+			
+			AllNodesStr += NodeIdentity + TEXT(", ");
+
+			// Because we track pointers, this is guaranteed to only match the exact instance!
+			if (ExecutedTasks.Contains(Task))
+			{
+				ExecutedNodesStr += NodeIdentity + TEXT(", ");
+			}
 		}
 	}
 
-	// Remove trailing commas for cleaner logs
 	if (ExecutedNodesStr.EndsWith(TEXT(", "))) ExecutedNodesStr.LeftChopInline(2);
 	if (AllNodesStr.EndsWith(TEXT(", "))) AllNodesStr.LeftChopInline(2);
 
-	UE_LOG(LogGeneticGeneration, Display, TEXT("--- NODE UTILIZATION REPORT ---"));
-	UE_LOG(LogGeneticGeneration, Display, TEXT("ALL NODES IN TREE: [%s]"), *AllNodesStr);
-	UE_LOG(LogGeneticGeneration, Display, TEXT("VISITED NODES:     [%s]"), *ExecutedNodesStr);
+	UE_LOG(LogGeneticGeneration, Display, TEXT("--- TASK UTILIZATION REPORT ---"));
+	UE_LOG(LogGeneticGeneration, Display, TEXT("ALL TASKS IN TREE: [%s]"), *AllNodesStr);
+	UE_LOG(LogGeneticGeneration, Display, TEXT("VISITED TASKS:     [%s]"), *ExecutedNodesStr);
 	// -----------------------------------------
 
-	UE_LOG(LogGeneticGeneration, Display, TEXT("Enemy Fitness: %f (Dist: %.1f | TreeSize: %d | Utilization: %.2f%%)"), FinalScore, AccumulatedDistance, TreeSize, GetTreeUtilizationPercentage() * 100.0f);
+	UE_LOG(LogGeneticGeneration, Display, TEXT("Enemy Fitness: %f (Dist: %.1f | TaskCount: %d | Utilization: %.2f%%)"), FinalScore, AccumulatedDistance, TreeSize, GetTreeUtilizationPercentage() * 100.0f);
 	
-	// Ensure we NEVER return 0 or negative so the Manager doesn't throw the score out
 	return FMath::Max(1.0f, FinalScore);
 }
 

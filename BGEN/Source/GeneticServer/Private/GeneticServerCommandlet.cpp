@@ -188,9 +188,27 @@ void UGeneticServerCommandlet::GenerateSubsequentEpoch()
 
 int32 UGeneticServerCommandlet::Main(const FString& Params)
 {
-    UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
-    UE_LOG(LogGeneticServer, Warning, TEXT(" Starting Headless Genetic Server Commandlet... "));
-    UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
+	UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
+	UE_LOG(LogGeneticServer, Warning, TEXT(" Starting Headless Genetic Server Commandlet... "));
+	UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
+
+	// --- 1. INITIALIZE CSV FILE & HEADERS ---
+	FString CSVFilePath = FPaths::ProjectSavedDir() / TEXT("GeneticResults.csv");
+	
+	// Define the leading row with all your column names
+	FString CSVHeader = TEXT("Generation,JobID,BehaviorTreePath,Fitness,Distance,DamageTaken,DamageDealt,Reward,TimeAlive,TreeSize,Utilization,PlayerKilled,TreeString\n");
+    
+	// SaveStringToFile without the 'Append' flag creates a new file and writes the text
+	if (FFileHelper::SaveStringToFile(CSVHeader, *CSVFilePath))
+	{
+		UE_LOG(LogGeneticServer, Log, TEXT("Created new CSV with headers at %s"), *CSVFilePath);
+	}
+	else
+	{
+		UE_LOG(LogGeneticServer, Error, TEXT("Failed to create CSV at %s"), *CSVFilePath);
+	}
+	
+	
 
     // 1. Initialize HTTP Server
     FModuleManager::LoadModuleChecked<FHttpServerModule>("HttpServer");
@@ -204,9 +222,6 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
         UE_LOG(LogGeneticServer, Error, TEXT("Failed to initialize HTTP Router on port %d"), Port);
         return 1;
     }
-
-	FString CSVFilePath = FPaths::ProjectSavedDir() / TEXT("GeneticResults.csv");
-	FString CSVHeader = TEXT("Generation,JobID,BehaviorTreePath,Fitness,Distance,DamageTaken,DamageDealt,Reward,TimeAlive,TreeSize,Utilization,PlayerKilled,TreeString\n");
 
     // 2. BIND ROUTES
     

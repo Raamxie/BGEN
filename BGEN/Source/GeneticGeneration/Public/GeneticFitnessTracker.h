@@ -10,6 +10,7 @@
 
 // Forward declaration to prevent circular dependency
 class ACustomAIController;
+class UBTTaskNode; // Forward declare to use in the static function
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class GENETICGENERATION_API UGeneticFitnessTracker : public UActorComponent
@@ -26,24 +27,22 @@ public:
 	void AddCustomReward(float Amount);
 
 	// --- Exposing Stats for Server Logs ---
-	int32 GetTreeSize() const;
+	int32 GetTreeSize() const; // Now returns ONLY the count of Leaf Tasks
 	float GetAccumulatedDistance() const { return AccumulatedDistance; }
 	float GetAccumulatedDamageTaken() const { return AccumulatedDamageTaken; }
 	float GetAccumulatedReward() const { return AccumulatedReward; }
 	float GetAccumulatedDamageDealt() const { return AccumulatedDamageDealt; }
 	float GetTimeAlive() const;
 
-	// --- NEW: Tree Utilization Tracking ---
+	// --- NEW: Tree Utilization Tracking using Execution Index ---
 
-	/** Adds a node identifier to the set of executed tasks */
-	UFUNCTION(BlueprintCallable, Category = "Genetic Fitness")
-	void RecordNodeExecution(const FString& NodeIdentifier);
+	void RecordNodeExecution(UBTTaskNode* Node);
 
-	/** Static helper to easily report execution from inside a Blueprint BTTask */
+	/** Static helper to easily report execution from inside a Blueprint BTTask. */
 	UFUNCTION(BlueprintCallable, Category = "Genetic Fitness", meta = (DisplayName = "Report Task Executed"))
-	static void ReportTaskExecuted(AAIController* AIController, const FString& TaskName);
+	static void ReportTaskExecuted(AAIController* AIController, UBTTaskNode* TaskNode);
 
-	/** Returns the ratio of executed unique tasks against the total size of the tree */
+	/** Returns the ratio of executed unique tasks against the total amount of tasks in the tree */
 	UFUNCTION(BlueprintCallable, Category = "Genetic Fitness")
 	float GetTreeUtilizationPercentage() const;
 
@@ -129,17 +128,15 @@ private:
 	bool bPlayerWasKilled = false;
 	bool bDamagedPlayer = false;
 
+	UPROPERTY()
+	TSet<UBTTaskNode*> ExecutedTasks;
 	FVector LastRecordedLocation;
 	FTimerHandle MovementTimerHandle;
 
 	UPROPERTY()
 	AActor* TargetPlayer = nullptr;
 
-	// NEW: Cache the AI Controller so we can read the tree even if unpossessed
+	// Cache the AI Controller so we can read the tree even if unpossessed
 	UPROPERTY()
 	ACustomAIController* CachedAIController = nullptr;
-
-	// Tracks the unique names of tasks that have been executed
-	UPROPERTY()
-	TSet<FString> ExecutedTasks;
 };
