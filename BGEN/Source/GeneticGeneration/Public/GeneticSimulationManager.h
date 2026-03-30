@@ -32,6 +32,9 @@ struct FSimulationResult
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	int32 TrialsCompleted = 0;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	FString TreeString;
+
 	// NSGA-II State
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	int32 FrontIndex = -1;

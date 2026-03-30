@@ -163,7 +163,7 @@ void UGeneticServerCommandlet::ProcessCompletedEpoch()
     FString CSVData;
     for (const FSimulationResult& Res : SurvivingPopulation)
     {
-        CSVData += FString::Printf(TEXT("%d,%s,%d,%f,%f,%f,%f,%d,%f,%d\n"),
+    	CSVData += FString::Printf(TEXT("%d,%s,%d,%f,%f,%f,%f,%d,%f,%d,\"%s\"\n"),
             CurrentGeneration,
             *Res.TreeHash,
             Res.FrontIndex,
@@ -173,7 +173,8 @@ void UGeneticServerCommandlet::ProcessCompletedEpoch()
             Res.TreeUtilization,
             FMath::RoundToInt(Res.TreeSize),
             Res.Fitness, 
-            Res.TrialsCompleted
+            Res.TrialsCompleted,
+            *Res.TreeString
         );
     }
     FFileHelper::SaveStringToFile(CSVData, *CSVFilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), FILEWRITE_Append);
@@ -254,6 +255,34 @@ void UGeneticServerCommandlet::GenerateSubsequentEpoch()
     }
 }
 
+void UGeneticServerCommandlet::CheckForTimeouts()
+{
+	double CurrentTime = FPlatformTime::Seconds();
+	TArray<int32> TimedOutJobIDs;
+
+	// 1. Find all jobs that have exceeded the timeout limit
+	for (const auto& Kvp : ActiveJobs)
+	{
+		if ((CurrentTime - Kvp.Value.DispatchTime) > JobTimeoutSeconds)
+		{
+			TimedOutJobIDs.Add(Kvp.Key);
+		}
+	}
+
+	// 2. Process timeouts (Remove from Active, push back to Queue)
+	for (int32 JobID : TimedOutJobIDs)
+	{
+		FDispatchedJob TimedOutJob = ActiveJobs[JobID];
+		ActiveJobs.Remove(JobID);
+        
+		// Push it back to the end of the queue for another worker to pick up
+		JobQueue.Add(TimedOutJob.AssetPath);
+        
+		UE_LOG(LogGeneticServer, Error, TEXT("MASTER: Job %d (%s) TIMED OUT after %f seconds! Re-adding to queue."), 
+			JobID, *TimedOutJob.AssetPath, JobTimeoutSeconds);
+	}
+}
+
 int32 UGeneticServerCommandlet::Main(const FString& Params)
 {
 	UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
@@ -261,7 +290,7 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
 	UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
 	
 	// Define the leading row with all your column names
-	FString CSVHeader = TEXT("Generation,TreeHash,FrontIndex,DamageDealt,DamageTaken,DistanceTravelled,TreeUtilization,TreeSize,Fitness,TrialsCompleted\n");
+	FString CSVHeader = TEXT("Generation,TreeHash,FrontIndex,DamageDealt,DamageTaken,DistanceTravelled,TreeUtilization,TreeSize,Fitness,TrialsCompleted,TreeString\n");
     
 	// SaveStringToFile without the 'Append' flag creates a new file and writes the text
 	if (FFileHelper::SaveStringToFile(CSVHeader, *CSVFilePath))
@@ -304,9 +333,14 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
 
 					JsonResponse->SetStringField(TEXT("status"), TEXT("success"));
 					JsonResponse->SetStringField(TEXT("asset_path"), AssignedAssetPath);
-                
-					// 2. Send the Job ID to the worker
 					JsonResponse->SetNumberField(TEXT("job_id"), AssignedJobID);
+
+					// --- NEW: TRACK THE DISPATCHED JOB ---
+					FDispatchedJob NewJob;
+					NewJob.AssetPath = AssignedAssetPath;
+					NewJob.DispatchTime = FPlatformTime::Seconds();
+					ActiveJobs.Add(AssignedJobID, NewJob);
+					// -------------------------------------
 
 					UE_LOG(LogGeneticServer, Log, TEXT("Assigned Job %d to worker: %s"), AssignedJobID, *AssignedAssetPath);
 				}
@@ -336,12 +370,19 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
 
             if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
             {
-                // 1. Parse JSON
-                FString AssetPath = JsonObject->GetStringField(TEXT("asset_path"));
-                int32 JobID = JsonObject->GetIntegerField(TEXT("job_id"));
+            	// 1. Parse JSON
+				FString AssetPath = JsonObject->GetStringField(TEXT("asset_path"));
+				int32 JobID = JsonObject->GetIntegerField(TEXT("job_id"));
                 
-                // Parse the 5 target objectives
-                float DamageDealt = JsonObject->GetNumberField(TEXT("damage_dealt"));
+				// --- NEW: REMOVE FROM ACTIVE TRACKING ---
+				if (ActiveJobs.Contains(JobID))
+				{
+					ActiveJobs.Remove(JobID);
+				}
+				// ----------------------------------------
+                
+				// Parse the 5 target objectives
+				float DamageDealt = JsonObject->GetNumberField(TEXT("damage_dealt"));
                 float DamageTaken = JsonObject->GetNumberField(TEXT("damage_taken"));
                 float Distance = JsonObject->GetNumberField(TEXT("distance"));
                 float Utilization = JsonObject->GetNumberField(TEXT("utilization"));
@@ -372,6 +413,7 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
                     AggregatedResult.BehaviorTreePath = AssetPath;
                     AggregatedResult.TreeHash = TreeHash;
                     AggregatedResult.GenerationNumber = CompletedGeneration;
+                	AggregatedResult.TreeString = RawTreeString;
                 }
 
                 AggregatedResult.DamageDealt += DamageDealt;
@@ -425,20 +467,25 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
 	GenerateInitialEpoch();
 
     // 3. INFINITE LOOP TO KEEP PROCESS ALIVE
-    double LastTime = FPlatformTime::Seconds();
-    while (!IsEngineExitRequested())
-    {
-        // Sleep for 10ms to prevent 100% CPU usage
-        FPlatformProcess::Sleep(0.01f); 
+	// 3. INFINITE LOOP TO KEEP PROCESS ALIVE
+	double LastTime = FPlatformTime::Seconds();
+	while (!IsEngineExitRequested())
+	{
+		// Sleep for 10ms to prevent 100% CPU usage
+		FPlatformProcess::Sleep(0.01f); 
 
-        double CurrentTime = FPlatformTime::Seconds();
-        float DeltaTime = CurrentTime - LastTime;
-        LastTime = CurrentTime;
+		double CurrentTime = FPlatformTime::Seconds();
+		float DeltaTime = CurrentTime - LastTime;
+		LastTime = CurrentTime;
 
-        // Tick core engine systems required for async HTTP thread callbacks
-        FTSTicker::GetCoreTicker().Tick(DeltaTime);
-        FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
-    }
+		// --- NEW: TICK THE TIMEOUT MANAGER ---
+		CheckForTimeouts();
+		// -------------------------------------
+
+		// Tick core engine systems required for async HTTP thread callbacks
+		FTSTicker::GetCoreTicker().Tick(DeltaTime);
+		FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
+	}
 
     // 4. CLEANUP ON SHUTDOWN (Ctrl+C)
     HttpServerModule.StopAllListeners();

@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Commandlets/Commandlet.h"
-#include "GeneticSimulationManager.h" 
+#include "GeneticSimulationManager.h"
 #include "GeneticServerCommandlet.generated.h"
 
 // Struct to track jobs currently being processed by workers
@@ -22,6 +22,7 @@ public:
 	virtual int32 Main(const FString& Params) override;
 	friend class FGeneticServerJobQueueTest;
 	friend class FGeneticServerInitialEpochTest;
+	
 
 private:
 	// -- Networking / Job State --

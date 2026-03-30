@@ -18,17 +18,20 @@ public:
 private:
 	// Event Callbacks
 	void OnWorldInitialized(UWorld* world, const UWorld::InitializationValues IVS);
-	void OnEngineInitComplete(); // New Kickstart
-	void OnEpochFinished();      // New Loop Step
+	void OnEngineInitComplete(); 
+	void OnEpochFinished();      
+	void OnEndFrame();           // Explicit Yield Callback
 
 	// Logic
 	void RunSimulation(UWorld* World);
 
-	// State
-	UPROPERTY()
+	// State (No UPROPERTY here, as this is not a UCLASS)
 	UGeneticSimulationManager* ActiveManager = nullptr;
 
 	int32 CurrentEpoch = 0;
 	int32 TotalEpochs = 5;
 	bool bIsRunningGeneticLoop = false;
+	
+	// Flag to tell the engine to sleep
+	bool bIsWaitingForJob = false; 
 };
