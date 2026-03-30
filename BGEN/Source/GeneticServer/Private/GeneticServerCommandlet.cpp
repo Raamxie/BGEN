@@ -22,7 +22,7 @@ UGeneticServerCommandlet::UGeneticServerCommandlet()
     IsServer = false;
     LogToConsole = false;
 	
-    PopulationSize = 2;
+    PopulationSize = 10;
 	InitialMutationCount = 3;
     CurrentGeneration = 0;
 	
@@ -98,14 +98,19 @@ void UGeneticServerCommandlet::GenerateInitialEpoch()
             
             ChildWrapper->DebugLogTree(LogGeneticServer);
             
-            FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/G%d_Tree_%s"), CurrentGeneration, *TreeHash);
-            FString FinalAssetPath = ChildWrapper->SaveAsNewAsset(SaveName, true);
+        	FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/G%d_Tree_%s"), CurrentGeneration, *TreeHash);
+        	FString FinalAssetPath = ChildWrapper->SaveAsNewAsset(SaveName, true);
 
-            if (!FinalAssetPath.IsEmpty())
-            {
-                JobQueue.Add(FinalAssetPath);
-                UE_LOG(LogGeneticServer, Log, TEXT("Queued Initial Job %d: %s"), i, *FinalAssetPath);
-            }
+        	if (!FinalAssetPath.IsEmpty())
+        	{
+        		// [FIXED] Queue the initial generation K times for multi-trial evaluation
+        		for (int32 k = 0; k < TrialsPerGenome; k++)
+        		{
+        			JobQueue.Add(FinalAssetPath);
+        		}
+                
+        		UE_LOG(LogGeneticServer, Log, TEXT("Queued Initial Job %d (%d trials): %s"), i, TrialsPerGenome, *FinalAssetPath);
+        	}
         }
     }
 
@@ -113,18 +118,85 @@ void UGeneticServerCommandlet::GenerateInitialEpoch()
 	CurrentGeneration++;
 }
 
-void UGeneticServerCommandlet::GenerateSubsequentEpoch()
+void UGeneticServerCommandlet::ProcessCompletedEpoch()
 {
     UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
-    UE_LOG(LogGeneticServer, Warning, TEXT(" MASTER: Generating Epoch %d"), CurrentGeneration);
+    UE_LOG(LogGeneticServer, Warning, TEXT(" MASTER: Processing Completed Epoch %d"), CurrentGeneration);
     UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
+
+    if (SurvivingPopulation.Num() == 0)
+    {
+        // Gen 0: Just evaluate the initial random population, no parents to compete against.
+        TArray<TArray<FSimulationResult>> Fronts = UGeneticSelectionLibrary::FastNonDominatedSort(CurrentEpochResults, 5);
+        for (const TArray<FSimulationResult>& Front : Fronts) SurvivingPopulation.Append(Front);
+    }
+    else
+    {
+        // Gen > 0: The (μ+λ) ES. Combine surviving parents (μ) + evaluated offspring (λ)
+        TArray<FSimulationResult> CombinedPool;
+        CombinedPool.Append(SurvivingPopulation);
+        CombinedPool.Append(CurrentEpochResults);
+
+        TArray<TArray<FSimulationResult>> Fronts = UGeneticSelectionLibrary::FastNonDominatedSort(CombinedPool, 5);
+        SurvivingPopulation.Empty();
+
+        for (TArray<FSimulationResult>& Front : Fronts)
+        {
+            if (SurvivingPopulation.Num() + Front.Num() <= PopulationSize)
+            {
+                // Entire front fits
+                SurvivingPopulation.Append(Front);
+            }
+            else
+            {
+                // Cutoff front: Use Priority Tie-Breaking to fill the exact remaining slots
+                int32 NeededCount = PopulationSize - SurvivingPopulation.Num();
+                // Start tie-breaking by dropping the 5th objective (passing 4 active objectives)
+                TArray<FSimulationResult> Selected = UGeneticSelectionLibrary::PriorityTieBreakingSelection(Front, NeededCount, 4); 
+                SurvivingPopulation.Append(Selected);
+                break; // We have exactly 'PopulationSize' individuals now
+            }
+        }
+    }
+
+    // --- CSV LOGGING ---
+    FString CSVData;
+    for (const FSimulationResult& Res : SurvivingPopulation)
+    {
+        CSVData += FString::Printf(TEXT("%d,%s,%d,%f,%f,%f,%f,%d,%f,%d\n"),
+            CurrentGeneration,
+            *Res.TreeHash,
+            Res.FrontIndex,
+            Res.DamageDealt,
+            Res.DamageTaken,
+            Res.DistanceTravelled,
+            Res.TreeUtilization,
+            FMath::RoundToInt(Res.TreeSize),
+            Res.Fitness, 
+            Res.TrialsCompleted
+        );
+    }
+    FFileHelper::SaveStringToFile(CSVData, *CSVFilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), FILEWRITE_Append);
+
+    // --- PREPARE NEXT OFFSPRING BATCH ---
+    CurrentEpochResults.Empty();
+    CurrentGeneration++;
+
+    // Generate the λ offspring pool for the next evaluation phase
+    GenerateSubsequentEpoch();
+}
+
+void UGeneticServerCommandlet::GenerateSubsequentEpoch()
+{
+    UE_LOG(LogGeneticServer, Warning, TEXT(" MASTER: Spawning Offspring for Epoch %d"), CurrentGeneration);
 
     for (int32 i = 0; i < PopulationSize; i++)
     {
         UCustomBehaviourTree* ChildWrapper = nullptr;
         
-        FSimulationResult ParentA = UGeneticSelectionLibrary::TournamentSelection(AllTimeResults, 3);
-        FSimulationResult ParentB = UGeneticSelectionLibrary::TournamentSelection(AllTimeResults, 3);
+        // Select from the strictly culled μ SurvivingPopulation
+        FSimulationResult ParentA = UGeneticSelectionLibrary::TournamentSelection(SurvivingPopulation, 3);
+        FSimulationResult ParentB = UGeneticSelectionLibrary::TournamentSelection(SurvivingPopulation, 3);
 
         if (UGeneticSelectionLibrary::IsValidResult(ParentA))
         {
@@ -147,43 +219,39 @@ void UGeneticServerCommandlet::GenerateSubsequentEpoch()
                 }
             }
         }
-    	UE_LOG(LogGeneticServer, Warning, TEXT("Selection Done"));
+        
         if (ChildWrapper && ChildWrapper->GetBTAsset())
         {
-        	UE_LOG(LogGeneticServer, Warning, TEXT("Got into Mutation"));
             UGeneticMutationLibrary::MutateTree(ChildWrapper, MutationChance);
 
             FString TreeHash = ChildWrapper->GetTreeHash();
-        	
             int32 RetryCount = 0;
-            int32 MaxRetries = 10;
-        	
-            while (EvaluatedHashes.Contains(TreeHash) && RetryCount < MaxRetries)
+            
+            // Note: In Multi-Objective, duplicate checking should span the SurvivingPopulation hashes as well
+            while (EvaluatedHashes.Contains(TreeHash) && RetryCount < 10)
             {
-                UE_LOG(LogGeneticServer, Warning, TEXT("Duplicate Hash Found: %s. Forcing mutation..."), *TreeHash);
                 UGeneticMutationLibrary::MutateTree(ChildWrapper, 1.0f);
                 TreeHash = ChildWrapper->GetTreeHash();
                 RetryCount++;
             }
         	
             EvaluatedHashes.Add(TreeHash);
-        	
+            
+            // Enqueue exactly 'TrialsPerGenome' times for multi-trial evaluation
             FString SaveName = FString::Printf(TEXT("/Game/BehaviourTrees/Generated/G%d_Tree_%s"), CurrentGeneration, *TreeHash);
             FString FinalAssetPath = ChildWrapper->SaveAsNewAsset(SaveName, true);
 
+        	ChildWrapper->DebugLogTree(LogGeneticServer);
             if (!FinalAssetPath.IsEmpty())
             {
-                JobQueue.Add(FinalAssetPath);
-                UE_LOG(LogGeneticServer, Log, TEXT("Queued Evolved Job %d: %s"), i, *FinalAssetPath);
+                for (int32 k = 0; k < TrialsPerGenome; k++)
+                {
+                    JobQueue.Add(FinalAssetPath);
+                }
+                UE_LOG(LogGeneticServer, Log, TEXT("Queued Evolved Job %d (%d trials): %s"), i, TrialsPerGenome, *FinalAssetPath);
             }
         }
-    	UE_LOG(LogGeneticServer, Warning, TEXT("Mutation Done"));
-    	ChildWrapper->DebugLogTree(LogGeneticServer);
     }
-
-    // Cleanup for next epoch
-    CurrentEpochResults.Empty();
-    CurrentGeneration++;
 }
 
 int32 UGeneticServerCommandlet::Main(const FString& Params)
@@ -191,12 +259,9 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
 	UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
 	UE_LOG(LogGeneticServer, Warning, TEXT(" Starting Headless Genetic Server Commandlet... "));
 	UE_LOG(LogGeneticServer, Warning, TEXT("================================================"));
-
-	// --- 1. INITIALIZE CSV FILE & HEADERS ---
-	FString CSVFilePath = FPaths::ProjectSavedDir() / TEXT("GeneticResults.csv");
 	
 	// Define the leading row with all your column names
-	FString CSVHeader = TEXT("Generation,JobID,BehaviorTreePath,Fitness,Distance,DamageTaken,DamageDealt,Reward,TimeAlive,TreeSize,Utilization,PlayerKilled,TreeString\n");
+	FString CSVHeader = TEXT("Generation,TreeHash,FrontIndex,DamageDealt,DamageTaken,DistanceTravelled,TreeUtilization,TreeSize,Fitness,TrialsCompleted\n");
     
 	// SaveStringToFile without the 'Append' flag creates a new file and writes the text
 	if (FFileHelper::SaveStringToFile(CSVHeader, *CSVFilePath))
@@ -261,8 +326,9 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
 			}));
 
    // --- ENDPOINT 2 - WORKER SUBMITS FITNESS ---
+// --- ENDPOINT 2 - WORKER SUBMITS FITNESS ---
     HttpRouter->BindRoute(FHttpPath(TEXT("/api/submit")), EHttpServerRequestVerbs::VERB_POST, 
-        FHttpRequestHandler::CreateLambda([this, CSVFilePath](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
+        FHttpRequestHandler::CreateLambda([this](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
         {
             FString BodyString(Request.Body.Num(), UTF8_TO_TCHAR((const char*)Request.Body.GetData()));
             TSharedPtr<FJsonObject> JsonObject;
@@ -273,60 +339,77 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
                 // 1. Parse JSON
                 FString AssetPath = JsonObject->GetStringField(TEXT("asset_path"));
                 int32 JobID = JsonObject->GetIntegerField(TEXT("job_id"));
-                float FitnessValue = JsonObject->GetNumberField(TEXT("fitness"));
-                float Distance = JsonObject->GetNumberField(TEXT("distance"));
-                float DamageTaken = JsonObject->GetNumberField(TEXT("damage_taken"));
+                
+                // Parse the 5 target objectives
                 float DamageDealt = JsonObject->GetNumberField(TEXT("damage_dealt"));
-                float Reward = JsonObject->GetNumberField(TEXT("reward"));
-                float TimeAlive = JsonObject->GetNumberField(TEXT("time_alive"));
-                int32 TreeSize = JsonObject->GetIntegerField(TEXT("tree_size"));
+                float DamageTaken = JsonObject->GetNumberField(TEXT("damage_taken"));
+                float Distance = JsonObject->GetNumberField(TEXT("distance"));
                 float Utilization = JsonObject->GetNumberField(TEXT("utilization"));
-                bool bPlayerKilled = JsonObject->GetBoolField(TEXT("player_killed"));
+                int32 TreeSize = JsonObject->GetIntegerField(TEXT("tree_size"));
+                
+                float RawFitness = JsonObject->GetNumberField(TEXT("fitness")); // For legacy logging
                 FString RawTreeString = JsonObject->GetStringField(TEXT("tree_string"));
 
                 int32 CompletedGeneration = CurrentGeneration - 1;
 
-                // 2. SANITIZE FOR MULTI-LINE CSV CELL
-                // First, escape any existing double-quotes by turning them into double-double-quotes ("")
-                FString EscapedTreeString = RawTreeString.Replace(TEXT("\""), TEXT("\"\""));
-                // We no longer replace \n or commas, so the tree's original layout is preserved!
-
-                // 3. Format CSV Row
-                // CRITICAL: Notice the \"%s\" at the very end. This wraps the EscapedTreeString in quotes.
-                FString CSVRow = FString::Printf(TEXT("%d,%d,%s,%f,%f,%f,%f,%f,%f,%d,%f,%s,\"%s\"\n"), 
-                    CompletedGeneration,
-                    JobID,
-                    *AssetPath, 
-                    FitnessValue,
-                    Distance,
-                    DamageTaken,
-                    DamageDealt,
-                    Reward,
-                    TimeAlive,
-                    TreeSize,
-                    Utilization,
-                    bPlayerKilled ? TEXT("True") : TEXT("False"),
-                    *EscapedTreeString);
-
-                // 4. Append Directly to File
-                FFileHelper::SaveStringToFile(CSVRow, *CSVFilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), FILEWRITE_Append);
-                
-                // 5. Keep only the minimal required struct in memory for Genetic Algorithm Operations
-                FSimulationResult Res;
-                Res.BehaviorTreePath = AssetPath;
-                Res.Fitness = FitnessValue;
-                Res.GenerationNumber = CompletedGeneration; 
-
-                CurrentEpochResults.Add(Res);
-                AllTimeResults.Add(Res);
-
-                UE_LOG(LogGeneticServer, Warning, TEXT("MASTER: Worker finished Job %d (%s) | Fitness: %.2f | Progress: %d/%d"), 
-                    JobID, *AssetPath, FitnessValue, CurrentEpochResults.Num(), PopulationSize);
-
-                // 6. CHECK EPOCH COMPLETION
-                if (CurrentEpochResults.Num() >= PopulationSize)
+                // 2. Extract TreeHash from AssetPath (Format: /Game/.../G0_Tree_<Hash>)
+                FString TreeHash;
+                int32 HashIndex;
+                if (AssetPath.FindLastChar('_', HashIndex))
                 {
-                    GenerateNextEpoch(); 
+                    TreeHash = AssetPath.RightChop(AssetPath.Len() - HashIndex - 1);
+                }
+                else
+                {
+                    TreeHash = AssetPath; // Fallback
+                }
+
+                // 3. Aggregate Data for this specific Genome Hash
+                FSimulationResult& AggregatedResult = PendingEvaluations.FindOrAdd(TreeHash);
+                
+                if (AggregatedResult.TrialsCompleted == 0)
+                {
+                    AggregatedResult.BehaviorTreePath = AssetPath;
+                    AggregatedResult.TreeHash = TreeHash;
+                    AggregatedResult.GenerationNumber = CompletedGeneration;
+                }
+
+                AggregatedResult.DamageDealt += DamageDealt;
+                AggregatedResult.DamageTaken += DamageTaken;
+                AggregatedResult.DistanceTravelled += Distance;
+                AggregatedResult.TreeUtilization += Utilization;
+                AggregatedResult.TreeSize += TreeSize;
+                AggregatedResult.Fitness += RawFitness;
+                AggregatedResult.TrialsCompleted++;
+
+                UE_LOG(LogGeneticServer, Log, TEXT("MASTER: Received trial %d/%d for Job %d (%s)"), 
+                    AggregatedResult.TrialsCompleted, TrialsPerGenome, JobID, *TreeHash);
+
+                // 4. Check if K Trials are completed
+                if (AggregatedResult.TrialsCompleted >= TrialsPerGenome)
+                {
+                    // Average the objectives
+                    AggregatedResult.DamageDealt /= TrialsPerGenome;
+                    AggregatedResult.DamageTaken /= TrialsPerGenome;
+                    AggregatedResult.DistanceTravelled /= TrialsPerGenome;
+                    AggregatedResult.TreeUtilization /= TrialsPerGenome;
+                    AggregatedResult.TreeSize /= TrialsPerGenome;
+                    AggregatedResult.Fitness /= TrialsPerGenome;
+
+                    // Push to the Epoch tracking array
+                    CurrentEpochResults.Add(AggregatedResult);
+                    
+                    UE_LOG(LogGeneticServer, Warning, TEXT("MASTER: Genome %s fully evaluated. Progress: %d/%d"), 
+                        *TreeHash, CurrentEpochResults.Num(), PopulationSize);
+
+                    // Remove from pending
+                    PendingEvaluations.Remove(TreeHash);
+
+                    // CHECK EPOCH COMPLETION
+                    if (CurrentEpochResults.Num() >= PopulationSize)
+                    {
+                    	ProcessCompletedEpoch();
+                    }
                 }
             }
 
@@ -339,7 +422,7 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
     UE_LOG(LogGeneticServer, Warning, TEXT("Genetic Central Server listening on port %d"), Port);
 
     // --- BOOTSTRAP GENERATION 0 ---
-    GenerateNextEpoch();
+	GenerateInitialEpoch();
 
     // 3. INFINITE LOOP TO KEEP PROCESS ALIVE
     double LastTime = FPlatformTime::Seconds();

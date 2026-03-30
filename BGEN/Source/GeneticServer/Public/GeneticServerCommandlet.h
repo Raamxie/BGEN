@@ -51,5 +51,18 @@ private:
 	void GenerateNextEpoch();
 	void GenerateInitialEpoch();
 	void GenerateSubsequentEpoch();
+
+	// -- Multi-Trial Evaluation State --
+	int32 TrialsPerGenome = 3; 
+	TMap<FString, FSimulationResult> PendingEvaluations;
+
+	// The current surviving parent pool (μ)
+	TArray<FSimulationResult> SurvivingPopulation;
+
+	// Replaces GenerateNextEpoch to handle the μ+λ selection before generating
+	void ProcessCompletedEpoch();
+
+	// Updated CSV Path reference so we can write to it from anywhere
+	FString CSVFilePath = FPaths::ProjectSavedDir() / TEXT("GeneticResults.csv");;
 	
 };

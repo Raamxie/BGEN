@@ -23,10 +23,38 @@ struct FSimulationResult
 	FString BehaviorTreePath;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	float Fitness = 0.0f;
+	FString TreeHash;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	int32 GenerationNumber = 0;
+
+	// Multi-Trial Tracking
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int32 TrialsCompleted = 0;
+
+	// NSGA-II State
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int32 FrontIndex = -1;
+
+	// --- 5 OBJECTIVES ---
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float DamageDealt = 0.0f;       // Maximize
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float DamageTaken = 0.0f;       // Minimize (Will be inverted for sorting later)
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float DistanceTravelled = 0.0f; // Maximize
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float TreeUtilization = 0.0f;   // Maximize
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float TreeSize = 0.0f;          // Minimize (Will be inverted for sorting later)
+
+	// Kept for backwards compatibility / scalar logging
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float Fitness = 0.0f;
 };
 
 UCLASS()
