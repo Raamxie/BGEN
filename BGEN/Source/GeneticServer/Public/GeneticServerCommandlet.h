@@ -3,6 +3,8 @@
 #include "CoreMinimal.h"
 #include "Commandlets/Commandlet.h"
 #include "GeneticSimulationManager.h"
+#include "Containers/Queue.h"
+#include "HAL/CriticalSection.h"
 #include "GeneticServerCommandlet.generated.h"
 
 // Struct to track jobs currently being processed by workers
@@ -10,6 +12,20 @@ struct FDispatchedJob
 {
 	FString AssetPath;
 	double DispatchTime;
+};
+
+// Struct to hold submission data from the HTTP background threads safely
+struct FWorkerSubmission
+{
+	FString AssetPath;
+	int32 JobID;
+	float DamageDealt;
+	float DamageTaken;
+	float Distance;
+	float Utilization;
+	int32 TreeSize;
+	float Fitness;
+	FString TreeString;
 };
 
 UCLASS()
@@ -23,8 +39,12 @@ public:
 	friend class FGeneticServerJobQueueTest;
 	friend class FGeneticServerInitialEpochTest;
 	
-
 private:
+	// -- Thread Safety & Queue Management --
+	FCriticalSection JobStateMutex;
+	TQueue<FWorkerSubmission, EQueueMode::Mpsc> SubmissionQueue;
+	void ProcessSubmissions();
+
 	// -- Networking / Job State --
 	TArray<FString> JobQueue;
 	FString GetNextJob();
@@ -34,7 +54,8 @@ private:
 
 	// -- Timeout / Requeue System --
 	TMap<int32, FDispatchedJob> ActiveJobs;
-	float JobTimeoutSeconds = 120.0f; // Give workers 2 minutes before assuming they crashed
+	// INCREASED to 120s: Accommodates long simulations (e.g., 40-60s) without triggering false timeouts.
+	float JobTimeoutSeconds = 120.0f; 
 	void CheckForTimeouts();
 
 	// -- Evolution State --
@@ -64,6 +85,5 @@ private:
 	void ProcessCompletedEpoch();
 
 	// Updated CSV Path reference so we can write to it from anywhere
-	FString CSVFilePath = FPaths::ProjectSavedDir() / TEXT("GeneticResults.csv");;
-	
+	FString CSVFilePath = FPaths::ProjectSavedDir() / TEXT("GeneticResults.csv");
 };

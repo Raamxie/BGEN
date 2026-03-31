@@ -2,10 +2,11 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
-#include "Interfaces/IHttpRequest.h"
+#include "Http.h"
 #include "WorkerNetworkSubsystem.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnJobReceived, FString, AssetPath);
+// 1. DECLARE THE DELEGATE
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnJobReceivedDelegate, FString, JobPath);
 
 UCLASS()
 class GENETICGENERATION_API UWorkerNetworkSubsystem : public UGameInstanceSubsystem
@@ -15,25 +16,27 @@ class GENETICGENERATION_API UWorkerNetworkSubsystem : public UGameInstanceSubsys
 public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 
-	UFUNCTION(BlueprintCallable, Category = "Genetic Worker")
+	UFUNCTION(BlueprintCallable, Category = "Network")
 	void RequestJobFromMaster();
 
-	// UPDATED: Now takes all raw metrics to send to the server
-	void SubmitFitness(const FString& AssetPath, int32 JobID, float Fitness, float Distance, float DamageTaken, float DamageDealt, float Reward, float TimeAlive, int32 TreeSize, float Utilization, bool bPlayerKilled, const FString& TreeString);
+	UFUNCTION(BlueprintCallable, Category = "Network")
+	void SubmitFitness(FString AssetPath, int32 JobID, float Fitness, float Distance, float DamageTaken, float DamageDealt, float Reward, float TimeAlive, int32 TreeSize, float Utilization, bool bPlayerKilled, FString TreeString);
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Genetic Worker")
+	UPROPERTY(BlueprintReadOnly, Category = "Network")
 	FString CurrentJobAssetPath;
 
-	// NEW: Tracks the Job ID assigned by the Master
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Genetic Worker")
-	int32 CurrentJobID = -1;
+	UPROPERTY(BlueprintReadOnly, Category = "Network")
+	int32 CurrentJobID;
 
-	UPROPERTY(BlueprintAssignable, Category = "Genetic Worker")
-	FOnJobReceived OnJobReceived;
+	// Track if we are actively simulating so we don't accidentally ask for another job
+	UPROPERTY(BlueprintReadOnly, Category = "Network")
+	bool bIsSimulating = false; 
+
+	// 2. EXPOSE THE DELEGATE
+	UPROPERTY(BlueprintAssignable, Category = "Network")
+	FOnJobReceivedDelegate OnJobReceived;
 
 private:
-	void OnJobRequestComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bConnectedSuccessfully);
-	void OnSubmitComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bConnectedSuccessfully);
-	bool bIsPolling = false;
+	FString MasterServerURL = TEXT("http://127.0.0.1:8080");
 	FTimerHandle PollingTimerHandle;
 };
