@@ -31,11 +31,16 @@ void UGeneticFitnessTracker::BeginTracking(AActor* InTargetPlayer)
 	APlayerUnleashedBase* PlayerUnleashed = Cast<APlayerUnleashedBase>(TargetPlayer);
 	if (PlayerUnleashed)
 	{
-		PlayerUnleashed->OnPlayerEvent.RemoveDynamic(this, &UGeneticFitnessTracker::OnPlayerDied);
-		PlayerUnleashed->OnPlayerEvent.AddDynamic(this, &UGeneticFitnessTracker::OnPlayerDied);
 
 		PlayerUnleashed->OnTakeAnyDamage.RemoveDynamic(this, &UGeneticFitnessTracker::OnPlayerTakeDamage);
 		PlayerUnleashed->OnTakeAnyDamage.AddDynamic(this, &UGeneticFitnessTracker::OnPlayerTakeDamage);
+	}
+
+	if (USimulationEventManager* SimEventManager = GetWorld()->GetSubsystem<USimulationEventManager>())
+	{
+		// Clear previous bindings to avoid duplicates on multiple runs
+		SimEventManager->OnSimulationEvent.RemoveAll(this); 
+		SimEventManager->OnSimulationEvent.AddUObject(this, &UGeneticFitnessTracker::OnGlobalSimulationEvent);
 	}
 
 	APawn* OwnerPawn = Cast<APawn>(Owner);
@@ -69,8 +74,9 @@ void UGeneticFitnessTracker::BeginTracking(AActor* InTargetPlayer)
 
 void UGeneticFitnessTracker::RecordNodeExecution(UBTTaskNode* Node)
 {
-	// Prevent recording nodes during the initial fall/NavMesh setup
-	if (bTrackingActive && !bIsGracePeriodActive && Node)
+	if (!Node) return;
+    
+	if (bTrackingActive && !bIsGracePeriodActive)
 	{
 		ExecutedTasks.Add(Node);
 	}
@@ -122,9 +128,20 @@ void UGeneticFitnessTracker::OnPlayerTakeDamage(AActor* DamagedActor, float Dama
 {
 	if (!bTrackingActive) return;
 
-	AController* InstigatorCtrl = CachedAIController ? CachedAIController : GetOwner()->GetInstigatorController();
+	// Check if the damage was instigated by THIS AI's Controller
+	bool bIsOurDamage = false;
 
-	if (DamageCauser == GetOwner() || InstigatedBy == InstigatorCtrl)
+	if (InstigatedBy && InstigatedBy == CachedAIController)
+	{
+		bIsOurDamage = true;
+	}
+	// Fallback: If it's a melee attack and the Character itself is the causer
+	else if (DamageCauser && DamageCauser == GetOwner())
+	{
+		bIsOurDamage = true;
+	}
+
+	if (bIsOurDamage)
 	{
 		AccumulatedDamageDealt += Damage;
 		AccumulatedReward += (Damage * DamageDealtWeight) + SuccessfulAttackBonus;
@@ -187,7 +204,6 @@ float UGeneticFitnessTracker::CalculateFitness()
 	if (!bDamagedPlayer) FinalScore -= PacifistPenalty;
 	if (AccumulatedDistance < MinimumExpectedDistance) FinalScore -= IdlePenalty;
 
-	// Note: TreeSize now only counts Tasks, so you may need to adjust your MinimumTreeNodes configuration!
 	int32 TreeSize = GetTreeSize();
 	if (TreeSize < MinimumTreeNodes) 
 	{
@@ -210,6 +226,7 @@ float UGeneticFitnessTracker::CalculateFitness()
 	FString ExecutedNodesStr;
 	FString AllNodesStr;
 	
+	// 1. Build the string for ALL tasks in the tree
 	if (CachedAIController && CachedAIController->RuntimeBehaviourWrapper && CachedAIController->RuntimeBehaviourWrapper->GetBTAsset())
 	{
 		TArray<UBTCompositeNode*> Composites;
@@ -218,19 +235,23 @@ float UGeneticFitnessTracker::CalculateFitness()
 
 		for (UBTTaskNode* Task : Tasks)
 		{
-			// GetName() returns the unique internal UE object name (e.g. MoveToPlayer_C_21)
-			FString NodeIdentity = Task->GetName(); 
-			
-			AllNodesStr += NodeIdentity + TEXT(", ");
-
-			// Because we track pointers, this is guaranteed to only match the exact instance!
-			if (ExecutedTasks.Contains(Task))
+			if (Task)
 			{
-				ExecutedNodesStr += NodeIdentity + TEXT(", ");
+				AllNodesStr += Task->GetClass()->GetName() + TEXT(", ");
 			}
 		}
 	}
 
+	// 2. Build the string for VISITED tasks directly from our tracking set
+	for (UBTTaskNode* ExecTask : ExecutedTasks)
+	{
+		if (ExecTask)
+		{
+			ExecutedNodesStr += ExecTask->GetClass()->GetName() + TEXT(", ");
+		}
+	}
+
+	// Clean up trailing commas
 	if (ExecutedNodesStr.EndsWith(TEXT(", "))) ExecutedNodesStr.LeftChopInline(2);
 	if (AllNodesStr.EndsWith(TEXT(", "))) AllNodesStr.LeftChopInline(2);
 
@@ -261,3 +282,13 @@ void UGeneticFitnessTracker::EndGracePeriod()
 	UE_LOG(LogGeneticGeneration, Log, TEXT("Grace period ended. Now recording BT node executions."));
 }
 
+
+void UGeneticFitnessTracker::OnGlobalSimulationEvent(ESimulationEvent EventType)
+{
+	if (!bTrackingActive) return;
+
+	if (EventType == ESimulationEvent::PlayerDied)
+	{
+		bPlayerWasKilled = true;
+	}
+}

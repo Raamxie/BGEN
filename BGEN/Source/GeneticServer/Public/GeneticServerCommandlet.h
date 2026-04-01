@@ -78,7 +78,7 @@ private:
 	double ShutdownStartTime = 0.0;
 	
 	// -- Multi-Trial Evaluation State --
-	int32 TrialsPerGenome = 3; 
+	int32 TrialsPerGenome; 
 	TMap<FString, FSimulationResult> PendingEvaluations;
 
 	// The current surviving parent pool (μ)

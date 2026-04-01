@@ -6,7 +6,9 @@
 #include "Components/ActorComponent.h"
 #include "PlayerUnleashedBase.h"
 #include "AIController.h"
+#include "SimulationEventManager.h"
 #include "GeneticFitnessTracker.generated.h"
+
 
 // Forward declaration to prevent circular dependency
 class ACustomAIController;
@@ -68,14 +70,14 @@ public:
 	float DamageTakenPenalty = 1.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Combat")
-	float PlayerKillBonus = 500.0f;
+	float PlayerKillBonus = 50000.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Combat")
 	float PacifistPenalty = 100.0f;
 
 	// --- Configuration: Movement ---
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Movement")
-	float DistanceMovedWeight = 0.05f;
+	float DistanceMovedWeight = 0.01f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Movement")
 	float MinimumExpectedDistance = 500.0f;
@@ -100,8 +102,10 @@ public:
 	float BigTreePenalty = 200.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|General")
-	float TrackingGracePeriod = 2.0f;
+	float TrackingGracePeriod = 0.5f;
 
+	void OnGlobalSimulationEvent(ESimulationEvent EventType);
+	
 	UFUNCTION(BlueprintCallable, Category = "Genetic Fitness")
 	bool GetPlayerWasKilled() const { return bPlayerWasKilled; }
 

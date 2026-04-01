@@ -29,6 +29,8 @@ UGeneticServerCommandlet::UGeneticServerCommandlet()
 	
 	CrossoverChance = 0.7f;
 	MutationChance = 0.5f;
+
+	TrialsPerGenome = 1;
 }
 
 FString UGeneticServerCommandlet::GetNextJob()
