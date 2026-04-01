@@ -74,6 +74,9 @@ private:
 	void GenerateInitialEpoch();
 	void GenerateSubsequentEpoch();
 
+	bool bIsShuttingDown = false;
+	double ShutdownStartTime = 0.0;
+	
 	// -- Multi-Trial Evaluation State --
 	int32 TrialsPerGenome = 3; 
 	TMap<FString, FSimulationResult> PendingEvaluations;

@@ -99,6 +99,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|Structure")
 	float BigTreePenalty = 200.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Fitness|General")
+	float TrackingGracePeriod = 2.0f;
+
 	UFUNCTION(BlueprintCallable, Category = "Genetic Fitness")
 	bool GetPlayerWasKilled() const { return bPlayerWasKilled; }
 
@@ -118,6 +121,9 @@ private:
 	UFUNCTION()
 	void RecordMovementRoutine();
 
+	UFUNCTION()
+	void EndGracePeriod();
+
 	float AccumulatedReward = 0.0f;
 	float AccumulatedDamageTaken = 0.0f;
 	float AccumulatedDamageDealt = 0.0f;
@@ -127,12 +133,15 @@ private:
 	bool bTrackingActive = false;
 	bool bPlayerWasKilled = false;
 	bool bDamagedPlayer = false;
+	bool bIsGracePeriodActive = false;
 
 	UPROPERTY()
 	TSet<UBTTaskNode*> ExecutedTasks;
 	FVector LastRecordedLocation;
+	
 	FTimerHandle MovementTimerHandle;
-
+	FTimerHandle GracePeriodTimerHandle;
+	
 	UPROPERTY()
 	AActor* TargetPlayer = nullptr;
 

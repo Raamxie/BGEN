@@ -270,13 +270,10 @@ void UGeneticServerCommandlet::ProcessSubmissions()
 			continue;
 		}
 
-		// [FIXED] Proper Math to Extract the pure TreeHash from the AssetPath 
 		FString TreeHash;
 		int32 HashIndex;
 		if (Sub.AssetPath.FindLastChar('_', HashIndex))
 		{
-			// RightChop takes the number of chars to cut off from the LEFT side. 
-			// We cut everything up to and including the '_'
 			TreeHash = Sub.AssetPath.RightChop(HashIndex + 1);
 		}
 		else
@@ -284,7 +281,6 @@ void UGeneticServerCommandlet::ProcessSubmissions()
 			TreeHash = Sub.AssetPath; 
 		}
 
-		// 3. Aggregate Data safely on the Game Thread
 		FSimulationResult& AggregatedResult = PendingEvaluations.FindOrAdd(TreeHash);
                 
 		if (AggregatedResult.TrialsCompleted == 0)
@@ -306,7 +302,54 @@ void UGeneticServerCommandlet::ProcessSubmissions()
 		UE_LOG(LogGeneticServer, Log, TEXT("MASTER: Received trial %d/%d for Job %d (%s)"), 
 			AggregatedResult.TrialsCompleted, TrialsPerGenome, Sub.JobID, *TreeHash);
 
-		// 4. Check if K Trials are completed
+		// --- NEW LOGIC: Print Active and Queued Jobs ---
+		FString WaitingJobsStr;
+		FString QueuedJobsStr;
+		int32 QueuedCount = 0;
+		{
+			FScopeLock Lock(&JobStateMutex);
+			
+			// 1. Active Jobs (Assigned to a Worker)
+			for (const auto& Kvp : ActiveJobs)
+			{
+				WaitingJobsStr += FString::Printf(TEXT("%d, "), Kvp.Key);
+			}
+			
+			// 2. Queued Jobs (Waiting for Assignment)
+			QueuedCount = JobQueue.Num();
+			for (const FString& Path : JobQueue)
+			{
+				FString Hash;
+				int32 Idx;
+				if (Path.FindLastChar('_', Idx)) Hash = Path.RightChop(Idx + 1);
+				else Hash = Path;
+				
+				// Use just the first 6 characters of the hash to keep the log readable without spam
+				QueuedJobsStr += Hash.Left(6) + TEXT(", ");
+			}
+		}
+		
+		if (!WaitingJobsStr.IsEmpty())
+		{
+			WaitingJobsStr.RemoveFromEnd(TEXT(", "));
+			UE_LOG(LogGeneticServer, Warning, TEXT("MASTER: Active Job IDs currently running: [%s]"), *WaitingJobsStr);
+		}
+		else
+		{
+			UE_LOG(LogGeneticServer, Warning, TEXT("MASTER: Active Job IDs currently running: [None]"));
+		}
+
+		if (!QueuedJobsStr.IsEmpty())
+		{
+			QueuedJobsStr.RemoveFromEnd(TEXT(", "));
+			UE_LOG(LogGeneticServer, Warning, TEXT("MASTER: Unassigned Jobs in Queue (%d): [%s]"), QueuedCount, *QueuedJobsStr);
+		}
+		else
+		{
+			UE_LOG(LogGeneticServer, Warning, TEXT("MASTER: Unassigned Jobs in Queue: [None - Queue Empty]"));
+		}
+		// ---------------------------------------------------------------------------------
+
 		if (AggregatedResult.TrialsCompleted >= TrialsPerGenome)
 		{
 			AggregatedResult.DamageDealt /= TrialsPerGenome;
@@ -333,31 +376,31 @@ void UGeneticServerCommandlet::ProcessSubmissions()
 
 void UGeneticServerCommandlet::CheckForTimeouts()
 {
-	double CurrentTime = FPlatformTime::Seconds();
-	TArray<int32> TimedOutJobIDs;
+	// Don't evaluate timeouts if we are already tearing down the cluster
+	if (bIsShuttingDown) return; 
 
-	// Safely evaluate timeouts
+	double CurrentTime = FPlatformTime::Seconds();
+	bool bTimeoutOccurred = false;
+	int32 OffendingJobID = -1;
+
 	{
 		FScopeLock Lock(&JobStateMutex);
 		for (const auto& Kvp : ActiveJobs)
 		{
 			if ((CurrentTime - Kvp.Value.DispatchTime) > JobTimeoutSeconds)
 			{
-				TimedOutJobIDs.Add(Kvp.Key);
+				bTimeoutOccurred = true;
+				OffendingJobID = Kvp.Key;
+				break; // One timeout is enough to kill the whole cluster
 			}
 		}
+	}
 
-		// Process timeouts
-		for (int32 JobID : TimedOutJobIDs)
-		{
-			FDispatchedJob TimedOutJob = ActiveJobs[JobID];
-			ActiveJobs.Remove(JobID);
-        
-			JobQueue.Add(TimedOutJob.AssetPath);
-        
-			UE_LOG(LogGeneticServer, Error, TEXT("MASTER: Job %d (%s) TIMED OUT after %.1f seconds! Re-adding to queue."), 
-				JobID, *TimedOutJob.AssetPath, JobTimeoutSeconds);
-		}
+	if (bTimeoutOccurred)
+	{
+		UE_LOG(LogGeneticServer, Error, TEXT("MASTER: FATAL TIMEOUT on Job %d! Initiating Cluster Kill Switch."), OffendingJobID);
+		bIsShuttingDown = true;
+		ShutdownStartTime = CurrentTime;
 	}
 }
 
@@ -393,13 +436,19 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
 
     // 2. BIND ROUTES
     
-    // --- ENDPOINT 1 - WORKER REQUESTS JOB ---
+   // --- ENDPOINT 1 - WORKER REQUESTS JOB ---
 	HttpRouter->BindRoute(FHttpPath(TEXT("/api/request_job")), EHttpServerRequestVerbs::VERB_GET, 
-			FHttpRequestHandler::CreateLambda([this](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
+		FHttpRequestHandler::CreateLambda([this](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
+		{
+			TSharedPtr<FJsonObject> JsonResponse = MakeShareable(new FJsonObject());
+
+			if (bIsShuttingDown)
+			{
+				JsonResponse->SetStringField(TEXT("status"), TEXT("quit"));
+			}
+			else 
 			{
 				FString AssignedAssetPath = GetNextJob();
-            
-				TSharedPtr<FJsonObject> JsonResponse = MakeShareable(new FJsonObject());
 				if (!AssignedAssetPath.IsEmpty())
 				{
 					int32 AssignedJobID = -1;
@@ -423,45 +472,91 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
 				{
 					JsonResponse->SetStringField(TEXT("status"), TEXT("standby"));
 				}
+			}
 
-				FString ResponseString;
-				TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ResponseString);
-				FJsonSerializer::Serialize(JsonResponse.ToSharedRef(), Writer);
+			FString ResponseString;
+			TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ResponseString);
+			FJsonSerializer::Serialize(JsonResponse.ToSharedRef(), Writer);
 
-				TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(ResponseString, TEXT("application/json"));
-				OnComplete(MoveTemp(Response));
-				return true;
-			}));
+			TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(ResponseString, TEXT("application/json"));
+			OnComplete(MoveTemp(Response));
+			return true;
+		}));
 
    // --- ENDPOINT 2 - WORKER SUBMITS FITNESS ---
-    HttpRouter->BindRoute(FHttpPath(TEXT("/api/submit")), EHttpServerRequestVerbs::VERB_POST, 
-        FHttpRequestHandler::CreateLambda([this](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
-        {
-            FString BodyString(Request.Body.Num(), UTF8_TO_TCHAR((const char*)Request.Body.GetData()));
-            TSharedPtr<FJsonObject> JsonObject;
-            TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(BodyString);
+       HttpRouter->BindRoute(FHttpPath(TEXT("/api/submit")), EHttpServerRequestVerbs::VERB_POST, 
+           FHttpRequestHandler::CreateLambda([this](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
+           {
+           	// If the cluster is dying, reject the submission and tell them to quit.
+           	if (bIsShuttingDown)
+           	{
+   				TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(FString(TEXT("{\"status\":\"quit\"}")), TEXT("application/json"));
+   				OnComplete(MoveTemp(Response));
+   				return true;
+           	}
+   
+               // [FIXED] Safely null-terminate the byte array before converting to FString to prevent garbage memory reading
+               TArray<uint8> BodyBytes = Request.Body;
+               BodyBytes.Add('\0');
+               FString BodyString = UTF8_TO_TCHAR((const char*)BodyBytes.GetData());
+   
+               TSharedPtr<FJsonObject> JsonObject;
+               TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(BodyString);
+   
+               if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
+               {
+   				int32 JobID = JsonObject->GetIntegerField(TEXT("job_id"));
+               	bool bIsLateGhost = false;
+               	{
+               		FScopeLock Lock(&JobStateMutex);
+               		if (!ActiveJobs.Contains(JobID)) bIsLateGhost = true;
+               	}
+   
+               	// If a worker took too long, the job is invalid. Tell THIS specific worker to quit.
+               	if (bIsLateGhost)
+               	{
+               		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(FString(TEXT("{\"status\":\"quit\"}")), TEXT("application/json"));
+               		OnComplete(MoveTemp(Response));
+               		return true;
+               	}
+               	
+   				FWorkerSubmission Sub;
+   				Sub.AssetPath = JsonObject->GetStringField(TEXT("asset_path"));
+   				Sub.JobID = JobID;
+   				Sub.DamageDealt = JsonObject->GetNumberField(TEXT("damage_dealt"));
+   				Sub.DamageTaken = JsonObject->GetNumberField(TEXT("damage_taken"));
+   				Sub.Distance = JsonObject->GetNumberField(TEXT("distance"));
+   				Sub.Utilization = JsonObject->GetNumberField(TEXT("utilization"));
+   				Sub.TreeSize = JsonObject->GetIntegerField(TEXT("tree_size"));
+   				Sub.Fitness = JsonObject->GetNumberField(TEXT("fitness")); 
+   				Sub.TreeString = JsonObject->GetStringField(TEXT("tree_string"));
+   
+   				SubmissionQueue.Enqueue(Sub);
+               }
+               else 
+               {
+                   // [FIXED] Alert the user immediately if the JSON was corrupted or invalid
+                   UE_LOG(LogGeneticServer, Error, TEXT("MASTER FATAL: Failed to parse JSON from Worker! Payload: %s"), *BodyString);
+               }
+   
+               TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(FString(TEXT("{\"status\":\"success\"}")), TEXT("application/json"));
+               OnComplete(MoveTemp(Response));
+               return true;
+           }));
 
-            if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
-            {
-				// Push the raw parsed data to the MPSC Queue
-				FWorkerSubmission Sub;
-				Sub.AssetPath = JsonObject->GetStringField(TEXT("asset_path"));
-				Sub.JobID = JsonObject->GetIntegerField(TEXT("job_id"));
-				Sub.DamageDealt = JsonObject->GetNumberField(TEXT("damage_dealt"));
-				Sub.DamageTaken = JsonObject->GetNumberField(TEXT("damage_taken"));
-				Sub.Distance = JsonObject->GetNumberField(TEXT("distance"));
-				Sub.Utilization = JsonObject->GetNumberField(TEXT("utilization"));
-				Sub.TreeSize = JsonObject->GetIntegerField(TEXT("tree_size"));
-				Sub.Fitness = JsonObject->GetNumberField(TEXT("fitness")); 
-				Sub.TreeString = JsonObject->GetStringField(TEXT("tree_string"));
+	// --- ENDPOINT 3 - ADMIN MANUAL SHUTDOWN ---
+	// Pinging http://127.0.0.1:8080/api/admin/shutdown cleanly kills the cluster without abruptly crashing the Master
+	HttpRouter->BindRoute(FHttpPath(TEXT("/api/admin/shutdown")), EHttpServerRequestVerbs::VERB_GET, 
+		FHttpRequestHandler::CreateLambda([this](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
+		{
+			UE_LOG(LogGeneticServer, Warning, TEXT("MASTER: Admin triggered manual cluster shutdown."));
+			bIsShuttingDown = true;
+			ShutdownStartTime = FPlatformTime::Seconds();
 
-				SubmissionQueue.Enqueue(Sub);
-            }
-
-            TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(FString(TEXT("{\"status\":\"success\"}")), TEXT("application/json"));
-            OnComplete(MoveTemp(Response));
-            return true;
-        }));
+			TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(FString(TEXT("{\"status\":\"shutting_down\"}")), TEXT("application/json"));
+			OnComplete(MoveTemp(Response));
+			return true;
+		}));
 
     HttpServerModule.StartAllListeners();
     UE_LOG(LogGeneticServer, Warning, TEXT("Genetic Central Server listening on port %d"), Port);
@@ -478,18 +573,27 @@ int32 UGeneticServerCommandlet::Main(const FString& Params)
 		float DeltaTime = CurrentTime - LastTime;
 		LastTime = CurrentTime;
 
-		// 1. Evaluate Late/Stuck Jobs
-		CheckForTimeouts();
+		if (bIsShuttingDown)
+		{
+			// Keep the server alive for exactly 10 seconds to allow all workers to poll the "quit" command
+			if (CurrentTime - ShutdownStartTime > 10.0f)
+			{
+				UE_LOG(LogGeneticServer, Warning, TEXT("MASTER: 10-Second Grace Period over. Exiting Engine."));
+				break; 
+			}
+		}
+		else
+		{
+			// Only check for timeouts and process data if we are running normally
+			CheckForTimeouts();
+			ProcessSubmissions();
+		}
 
-		// 2. Consume Worker submissions safely on the Game Thread
-		ProcessSubmissions();
-
-		// 3. Tick core engine systems required for async HTTP thread callbacks
 		FTSTicker::GetCoreTicker().Tick(DeltaTime);
 		FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
 	}
 
-    // 4. CLEANUP ON SHUTDOWN (Ctrl+C)
+    // 4. CLEANUP ON SHUTDOWN
     HttpServerModule.StopAllListeners();
     UE_LOG(LogGeneticServer, Warning, TEXT("Genetic Central Server Shutdown."));
 

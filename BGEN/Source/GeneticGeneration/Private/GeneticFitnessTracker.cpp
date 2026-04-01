@@ -18,7 +18,6 @@ void UGeneticFitnessTracker::BeginPlay()
 {
 	Super::BeginPlay();
 }
-
 void UGeneticFitnessTracker::BeginTracking(AActor* InTargetPlayer)
 {
 	AActor* Owner = GetOwner();
@@ -59,11 +58,19 @@ void UGeneticFitnessTracker::BeginTracking(AActor* InTargetPlayer)
     
 	// Clear the set for a fresh run
 	ExecutedTasks.Empty();
+
+	// Initialize Grace Period
+	bIsGracePeriodActive = (TrackingGracePeriod > 0.0f);
+	if (bIsGracePeriodActive)
+	{
+		GetWorld()->GetTimerManager().SetTimer(GracePeriodTimerHandle, this, &UGeneticFitnessTracker::EndGracePeriod, TrackingGracePeriod, false);
+	}
 }
 
 void UGeneticFitnessTracker::RecordNodeExecution(UBTTaskNode* Node)
 {
-	if (bTrackingActive && Node)
+	// Prevent recording nodes during the initial fall/NavMesh setup
+	if (bTrackingActive && !bIsGracePeriodActive && Node)
 	{
 		ExecutedTasks.Add(Node);
 	}
@@ -154,7 +161,10 @@ float UGeneticFitnessTracker::CalculateFitness()
 	if (!bTrackingActive && AccumulatedReward == 0.0f) return 1.0f;
 
 	bTrackingActive = false;
+	
+	// Clear both timers safely
 	GetWorld()->GetTimerManager().ClearTimer(MovementTimerHandle);
+	GetWorld()->GetTimerManager().ClearTimer(GracePeriodTimerHandle);
 
 	double CurrentTime = GetWorld()->GetTimeSeconds();
 	float TimeAlive = (float)(CurrentTime - StartTime);
@@ -242,3 +252,12 @@ float UGeneticFitnessTracker::GetTimeAlive() const
 	}
 	return 0.0f;
 }
+
+
+
+void UGeneticFitnessTracker::EndGracePeriod()
+{
+	bIsGracePeriodActive = false;
+	UE_LOG(LogGeneticGeneration, Log, TEXT("Grace period ended. Now recording BT node executions."));
+}
+

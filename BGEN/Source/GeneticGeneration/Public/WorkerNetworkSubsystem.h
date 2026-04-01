@@ -5,7 +5,6 @@
 #include "Http.h"
 #include "WorkerNetworkSubsystem.generated.h"
 
-// 1. DECLARE THE DELEGATE
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnJobReceivedDelegate, FString, JobPath);
 
 UCLASS()
@@ -20,7 +19,7 @@ public:
 	void RequestJobFromMaster();
 
 	UFUNCTION(BlueprintCallable, Category = "Network")
-	void SubmitFitness(FString AssetPath, int32 JobID, float Fitness, float Distance, float DamageTaken, float DamageDealt, float Reward, float TimeAlive, int32 TreeSize, float Utilization, bool bPlayerKilled, FString TreeString);
+	void SubmitFitness(const FString& AssetPath, int32 JobID, float Fitness, float Distance, float DamageTaken, float DamageDealt, float Reward, float TimeAlive, int32 TreeSize, float Utilization, bool bPlayerKilled, const FString& TreeString);
 
 	UPROPERTY(BlueprintReadOnly, Category = "Network")
 	FString CurrentJobAssetPath;
@@ -28,15 +27,19 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Network")
 	int32 CurrentJobID;
 
-	// Track if we are actively simulating so we don't accidentally ask for another job
 	UPROPERTY(BlueprintReadOnly, Category = "Network")
 	bool bIsSimulating = false; 
 
-	// 2. EXPOSE THE DELEGATE
+	UPROPERTY(BlueprintReadOnly, Category = "Network")
+	bool bIsPolling = false; 
+
 	UPROPERTY(BlueprintAssignable, Category = "Network")
 	FOnJobReceivedDelegate OnJobReceived;
 
 private:
 	FString MasterServerURL = TEXT("http://127.0.0.1:8080");
 	FTimerHandle PollingTimerHandle;
+	FTimerHandle RetryTimerHandle; // THE FIX: Persistent handle for the retry loop
+
+	void OnJobRequestComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bConnectedSuccessfully);
 };
